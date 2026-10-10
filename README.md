@@ -2,7 +2,7 @@
 
 Otonom araştırma ajanının ilk iskeleti. Şu an bir sınıflandırma deneyi üretir, üretilen Python kodunu E2B sandbox içinde çalıştırır ve çıkan Accuracy ile F1 değerlerini yerel MLflow sunucusuna yazar.
 
-Henüz yok: LangGraph, PostgreSQL, Next.js ve sandbox hatasında yeniden deneme.
+Henüz yok: LangGraph, PostgreSQL ve Next.js.
 
 ## Ne var
 
@@ -12,7 +12,7 @@ Henüz yok: LangGraph, PostgreSQL, Next.js ve sandbox hatasında yeniden deneme.
 - E2B sandbox: üretilen kodu izole ortamda çalıştırır
 - MLflow: başarılı çalışmanın Accuracy ve F1 metriklerini kaydeder
 
-Sandbox bir istisna verirse hata yalnızca uygulama loguna yazılır. İstek yine üretilen kodu döner. Yeniden deneme yapılmaz.
+Sandbox bir kod hatası verirse traceback ajanın kendisine geri verilir ve kod düzeltilir. Bu döngü en fazla 3 denemedir. Üçü de başarısız olursa MLflow run durumu Failed olur. Başarılı denemede Accuracy ve F1 normal şekilde yazılır.
 
 ## Dizin
 
@@ -87,7 +87,8 @@ Akış:
 1. Ajan, `/home/user/data.csv` okuyan ve `accuracy=<float>` ile `f1=<float>` basan bir scikit-learn betiği üretir.
 2. Şema yapısına uygun küçük bir CSV sandbox içine yazılır.
 3. Betik E2B içinde çalıştırılır. Üretilen kod yerel makinede çalıştırılmaz.
-4. Çıktıdan Accuracy ve F1 okunur ve `axiomforge` deneyine loglanır.
+4. Kod hata verirse traceback ajanın kendisine geri gönderilir. En fazla 3 deneme yapılır.
+5. Çıktıdan Accuracy ve F1 okunur ve `axiomforge` deneyine loglanır. Üç deneme de başarısızsa run `Failed` olarak kapanır.
 
 Başarılı yanıt:
 
@@ -100,6 +101,6 @@ Başarılı yanıt:
 }
 ```
 
-Sandbox başarısız olursa yanıtta yalnızca `code` kalır. Ayrıntı FastAPI logundaki `sandbox execution failed` satırındadır.
+Sandbox üç denemede de başarısız olursa yanıt `status: Failed` ve `mlflow_run_id` döner. Deneme ayrıntısı FastAPI logundaki `sandbox attempt` satırlarındadır.
 
 MLflow arayüzü: `http://127.0.0.1:5000`

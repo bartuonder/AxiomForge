@@ -46,19 +46,48 @@ def _allow_unicode_logs() -> None:
             reconfigure(encoding="utf-8", errors="replace")
 
 
+def _start_experiment() -> None:
+    _allow_unicode_logs()
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    mlflow.set_experiment("axiomforge")
+
+
 def log_classification_run(
     metrics: dict[str, float],
     prompt_version: str,
     algorithm: str,
     model: str,
+    attempts: int,
 ) -> str:
-    _allow_unicode_logs()
-    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-    mlflow.set_experiment("axiomforge")
+    _start_experiment()
     with mlflow.start_run() as run:
         mlflow.log_param("prompt_version", prompt_version)
         mlflow.log_param("algorithm", algorithm)
         mlflow.log_param("model", model)
+        mlflow.log_param("attempts", str(attempts))
+        mlflow.log_param("status", "Finished")
         for name, value in metrics.items():
             mlflow.log_metric(name, value)
         return run.info.run_id
+
+
+def log_failed_run(
+    prompt_version: str,
+    algorithm: str,
+    model: str,
+    attempts: int,
+    error: str,
+) -> str:
+    _start_experiment()
+    run = mlflow.start_run()
+    run_id = run.info.run_id
+    try:
+        mlflow.log_param("prompt_version", prompt_version)
+        mlflow.log_param("algorithm", algorithm)
+        mlflow.log_param("model", model)
+        mlflow.log_param("attempts", str(attempts))
+        mlflow.log_param("status", "Failed")
+        mlflow.set_tag("error", error[:4000])
+    finally:
+        mlflow.end_run(status="FAILED")
+    return run_id
