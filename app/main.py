@@ -6,11 +6,15 @@ from fastapi.responses import JSONResponse
 from openai import OpenAIError
 from pydantic import BaseModel, Field
 
-from app.agents.experiment import generate_classification_code
+from app.agents.experiment import MODEL, PROMPT_VERSION, generate_classification_code
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.sandbox.e2b_runner import run_classification
-from app.tracking.mlflow_logger import log_classification_metrics, parse_metrics
+from app.tracking.mlflow_logger import (
+    detect_algorithm,
+    log_classification_run,
+    parse_metrics,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("axiomforge")
@@ -68,14 +72,16 @@ def create_experiment(body: ExperimentRequest):
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     try:
         output = run_classification(source, body.csv_schema)
-        accuracy, f1 = parse_metrics(output)
-        run_id = log_classification_metrics(accuracy, f1)
+        metrics = parse_metrics(output)
+        run_id = log_classification_run(
+            metrics,
+            prompt_version=PROMPT_VERSION,
+            algorithm=detect_algorithm(source),
+            model=MODEL,
+        )
     except Exception:
         logger.exception("sandbox execution failed")
         return {"code": source}
-    return {
-        "code": source,
-        "accuracy": accuracy,
-        "f1": f1,
-        "mlflow_run_id": run_id,
-    }
+    payload = {"code": source, "mlflow_run_id": run_id}
+    payload.update(metrics)
+    return payload

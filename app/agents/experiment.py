@@ -5,6 +5,7 @@ from openai import OpenAI
 from app.config import OPENAI_API_KEY
 
 MODEL = "gpt-4o"
+PROMPT_VERSION = "experiment-v1"
 
 SYSTEM_PROMPT = (
     "You write Python source for a scikit-learn classification experiment. "
