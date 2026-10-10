@@ -42,6 +42,37 @@ def generate_classification_code(prompt: str, csv_schema: str) -> str:
     return _plain_python(content)
 
 
+def correct_classification_code(
+    code: str,
+    error: str,
+    prompt: str,
+    csv_schema: str,
+) -> str:
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is missing")
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    response = client.chat.completions.create(
+        model=MODEL,
+        temperature=0,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    "Şu kodu yazdın ama şu hatayı aldım, lütfen hatayı analiz edip "
+                    "düzeltilmiş Python kodunu ver.\n\n"
+                    f"Code:\n{code}\n\n"
+                    f"Error:\n{error}\n\n"
+                    f"Original prompt:\n{prompt}\n\n"
+                    f"CSV structure:\n{csv_schema}"
+                ),
+            },
+        ],
+    )
+    content = response.choices[0].message.content or ""
+    return _plain_python(content)
+
+
 def _plain_python(content: str) -> str:
     text = content.strip()
     fenced = re.fullmatch(r"```(?:python)?\s*(.*?)\s*```", text, flags=re.DOTALL)

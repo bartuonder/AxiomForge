@@ -6,6 +6,10 @@ from e2b_code_interpreter import Sandbox
 
 from app.config import E2B_API_KEY
 
+
+class SandboxCodeError(RuntimeError):
+    pass
+
 DATA_PATH = "/home/user/data.csv"
 
 
@@ -52,7 +56,7 @@ def run_classification(code: str, csv_schema: str) -> str:
     finally:
         sandbox.kill()
     if execution.error is not None:
-        raise RuntimeError(
+        raise SandboxCodeError(
             f"{execution.error.name}: {execution.error.value}\n{execution.error.traceback}"
         )
     return "\n".join(execution.logs.stdout)
