@@ -1,6 +1,6 @@
 # AxiomForge
 
-Otonom araştırma ajanının ilk iskeleti. Şu an bir sınıflandırma deneyi üretir, üretilen Python kodunu E2B sandbox içinde çalıştırır ve çıkan Accuracy ile F1 değerlerini yerel MLflow sunucusuna yazar.
+Birinci haftanın iskeleti. Bir sınıflandırma deneyi üretir, üretilen Python kodunu E2B sandbox içinde çalıştırır, hata olursa en fazla 3 denemede kendini düzeltir ve sonucu yerel MLflow sunucusuna yazar.
 
 Henüz yok: LangGraph, PostgreSQL ve Next.js.
 
@@ -8,38 +8,39 @@ Henüz yok: LangGraph, PostgreSQL ve Next.js.
 
 - FastAPI uygulaması
 - Celery işçisi, broker olarak Redis
-- Experiment Agent: GPT-4o ile scikit-learn sınıflandırma kodu üretir
-- E2B sandbox: üretilen kodu izole ortamda çalıştırır
-- MLflow: başarılı çalışmanın Accuracy ve F1 metriklerini kaydeder
+- Experiment Agent: GPT-4o (`experiment-v1`) ile scikit-learn sınıflandırma kodu üretir
+- E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
+- Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
+- MLflow: Accuracy, F1 ve deneme bilgisi `axiomforge` deneyine yazılır
 
-Sandbox bir kod hatası verirse traceback ajanın kendisine geri verilir ve kod düzeltilir. Bu döngü en fazla 3 denemedir. Üçü de başarısız olursa MLflow run durumu Failed olur. Başarılı denemede Accuracy ve F1 normal şekilde yazılır.
+Başarılı denemede run `Finished` olur. Üç deneme de başarısızsa run `Failed` olarak kapanır. Üretilen kod yerel makinede çalıştırılmaz.
 
 ## Dizin
 
 ```text
 app/
-  main.py                  FastAPI uçları
-  config.py                ortam ayarları
-  celery_app.py            Celery uygulaması
-  agents/experiment.py     kod üreten ajan
-  sandbox/e2b_runner.py    E2B çalıştırma
+  main.py                    FastAPI uçları
+  config.py                  ortam ayarları
+  celery_app.py              Celery uygulaması
+  experiments.py             3 denemelik düzeltme döngüsü
+  agents/experiment.py       kod üreten ve düzelten ajan
+  sandbox/e2b_runner.py      E2B çalıştırma
   tracking/mlflow_logger.py  metrik ayrıştırma ve MLflow kaydı
-docker-compose.yml         Redis
+docker-compose.yml           Redis
 requirements.txt
-.env                       yalnızca OPENAI_API_KEY
+.env                         OPENAI_API_KEY ve E2B_API_KEY
 ```
 
 ## Ortam
 
-`.env` içinde şu an yalnızca OpenAI anahtarı durur:
+`.env`:
 
 ```text
 OPENAI_API_KEY=
+E2B_API_KEY=
 ```
 
-Sandbox için `E2B_API_KEY` süreç ortamından okunur. Bu değişken yoksa sandbox açılmaz ve hata loglanır.
-
-Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir.
+`E2B_API_KEY` yoksa sandbox açılmaz. Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir.
 
 ## Kurulum
 
@@ -86,21 +87,32 @@ Akış:
 
 1. Ajan, `/home/user/data.csv` okuyan ve `accuracy=<float>` ile `f1=<float>` basan bir scikit-learn betiği üretir.
 2. Şema yapısına uygun küçük bir CSV sandbox içine yazılır.
-3. Betik E2B içinde çalıştırılır. Üretilen kod yerel makinede çalıştırılmaz.
-4. Kod hata verirse traceback ajanın kendisine geri gönderilir. En fazla 3 deneme yapılır.
-5. Çıktıdan Accuracy ve F1 okunur ve `axiomforge` deneyine loglanır. Üç deneme de başarısızsa run `Failed` olarak kapanır.
+3. Betik E2B içinde çalıştırılır.
+4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
+5. Çıktıdan Accuracy ve F1 okunur. MLflow'a metriklerle birlikte `prompt_version`, `algorithm`, `model`, `attempts` ve `status` yazılır.
 
 Başarılı yanıt:
 
 ```json
 {
   "code": "...",
+  "status": "Finished",
+  "attempts": 1,
+  "mlflow_run_id": "...",
   "accuracy": 0.8,
-  "f1": 0.75,
+  "f1": 0.75
+}
+```
+
+Üç deneme de başarısızsa:
+
+```json
+{
+  "code": "...",
+  "status": "Failed",
+  "attempts": 3,
   "mlflow_run_id": "..."
 }
 ```
 
-Sandbox üç denemede de başarısız olursa yanıt `status: Failed` ve `mlflow_run_id` döner. Deneme ayrıntısı FastAPI logundaki `sandbox attempt` satırlarındadır.
-
-MLflow arayüzü: `http://127.0.0.1:5000`
+Deneme ayrıntısı FastAPI logundaki `sandbox attempt` satırlarındadır. MLflow arayüzü: `http://127.0.0.1:5000`
