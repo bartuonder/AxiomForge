@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
@@ -38,12 +39,20 @@ def parse_metrics(output: str) -> dict[str, float]:
     return metrics
 
 
+def _allow_unicode_logs() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def log_classification_run(
     metrics: dict[str, float],
     prompt_version: str,
     algorithm: str,
     model: str,
 ) -> str:
+    _allow_unicode_logs()
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment("axiomforge")
     with mlflow.start_run() as run:
