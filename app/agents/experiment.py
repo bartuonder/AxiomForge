@@ -12,7 +12,7 @@ SYSTEM_PROMPT = (
     "Return only one complete Python script. "
     "The script must read a CSV that matches the given columns, "
     "train a scikit-learn classifier, and print held-out accuracy. "
-    "Do not wrap the source in markdown. Do not explain it."
+    "Do not wrap the source in markdown. Do not explain it. Do not use comments."
 )
 
 
@@ -40,6 +40,8 @@ def _plain_python(content: str) -> str:
     fenced = re.fullmatch(r"```(?:python)?\s*(.*?)\s*```", text, flags=re.DOTALL)
     if fenced:
         text = fenced.group(1).strip()
+    lines = [line for line in text.splitlines() if not line.strip().startswith("#")]
+    text = "\n".join(lines).strip()
     if not text:
         raise RuntimeError("model returned empty code")
     return text
