@@ -92,3 +92,5 @@ def approve_plan_endpoint(body: ApprovePlanRequest):
         return approve_plan(body.thread_id, body.decision)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

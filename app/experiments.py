@@ -6,6 +6,7 @@ from app.agents.experiment import (
     correct_classification_code,
     generate_classification_code,
 )
+from app.memory.rag_memory import save_experiment
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
 from app.tracking.mlflow_logger import (
     detect_algorithm,
@@ -44,6 +45,15 @@ def execute_experiment(prompt: str, csv_schema: str) -> dict:
                 attempts=attempt,
             )
             logger.info("sandbox attempt %s/%s succeeded run_id=%s", attempt, MAX_RETRIES, run_id)
+            metric_text = " ".join(f"{name}={value}" for name, value in metrics.items())
+            memory_id = save_experiment(
+                hypothesis=prompt,
+                code=source,
+                metric=metric_text,
+                error_log="",
+                is_success=True,
+            )
+            logger.info("saved successful experiment memory_id=%s", memory_id)
             payload = {
                 "code": source,
                 "status": "Finished",
@@ -64,6 +74,14 @@ def execute_experiment(prompt: str, csv_schema: str) -> dict:
         error=last_error,
     )
     logger.error("sandbox failed after %s attempts run_id=%s", MAX_RETRIES, run_id)
+    memory_id = save_experiment(
+        hypothesis=prompt,
+        code=source,
+        metric="",
+        error_log=last_error,
+        is_success=False,
+    )
+    logger.info("saved failed experiment memory_id=%s", memory_id)
     return {
         "code": source,
         "status": "Failed",
