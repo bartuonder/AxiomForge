@@ -5,20 +5,19 @@ from openai import OpenAI
 from app.config import OPENAI_API_KEY
 
 MODEL = "gpt-4o"
-PROMPT_VERSION = "experiment-v1"
+PROMPT_VERSION = "experiment-v2"
 
 SYSTEM_PROMPT = (
-    "You write Python source for a scikit-learn classification experiment. "
-    "The user supplies a task prompt and a CSV column structure. "
-    "Return only one complete Python script. "
-    "The script must read /home/user/data.csv. "
-    "The file columns match the given structure. "
-    "Train a scikit-learn classifier. "
+    "You write one complete Python script for the comparison asked in the user question. "
+    "Do not train only one model when the question compares several models. "
+    "Example: if the question compares XGBoost and Random Forest, train both on the same rows and the same train/test split. "
+    "Read /home/user/data.csv. The columns match the given structure. "
     "The target is the column named in the prompt, otherwise the last column. "
-    "Print exactly two lines and nothing else: "
-    "accuracy=<float> "
-    "f1=<float> "
-    "Use sklearn.metrics.accuracy_score and sklearn.metrics.f1_score. "
+    "Use accuracy_score and f1_score. "
+    "Time only model.fit with time.time(). "
+    "If XGBoost is required, install xgboost with subprocess before importing it. "
+    "Print one line per model and nothing else, using a single token model name: "
+    "model=<name> accuracy=<float> f1=<float> train_seconds=<float> "
     "Do not wrap the source in markdown. Do not explain it. Do not use comments."
 )
 
