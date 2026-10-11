@@ -12,6 +12,7 @@ from app.graph.nodes import (
     experiment_node,
     literature_node,
     planner_node,
+    report_node,
     route_after_verifier,
     verifier_node,
 )
@@ -26,6 +27,7 @@ def build_graph() -> StateGraph:
     graph.add_node("planner_node", planner_node)
     graph.add_node("experiment_node", experiment_node)
     graph.add_node("verifier_node", verifier_node)
+    graph.add_node("report_node", report_node)
     graph.add_edge(START, "literature_node")
     graph.add_node("approval_gate", approval_gate)
     graph.add_edge("literature_node", "planner_node")
@@ -35,8 +37,9 @@ def build_graph() -> StateGraph:
     graph.add_conditional_edges(
         "verifier_node",
         route_after_verifier,
-        {"experiment_node": "experiment_node", END: END},
+        {"experiment_node": "experiment_node", "report_node": "report_node"},
     )
+    graph.add_edge("report_node", END)
     return graph
 
 
@@ -65,6 +68,7 @@ def start_research(query: str) -> dict:
         "verifier_feedback": "",
         "critic_rounds": 0,
         "critic_continue": False,
+        "research_status": "",
     }
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}

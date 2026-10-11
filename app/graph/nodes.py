@@ -1,8 +1,9 @@
 import logging
 
-from langgraph.graph import END
+from langchain_core.runnables import RunnableConfig
 
 from app.agents.literature import run_literature_agent
+from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
 from app.experiments import execute_experiment
 from app.graph.state import AgentState
@@ -24,7 +25,7 @@ def approval_gate(state: AgentState) -> dict:
 def route_after_verifier(state: AgentState) -> str:
     if state.get("critic_continue"):
         return "experiment_node"
-    return END
+    return "report_node"
 
 
 def literature_node(state: AgentState) -> dict:
@@ -89,6 +90,16 @@ def experiment_node(state: AgentState) -> dict:
         "experiment_metrics": metrics,
         "critic_continue": False,
     }
+
+
+def report_node(state: AgentState, config: RunnableConfig) -> dict:
+    configurable = config.get("configurable", {}) if isinstance(config, dict) else {}
+    run_id = str(configurable.get("thread_id") or "run")
+    past_experiments = search_past_experiments(state.get("query", ""), k=3)
+    logger.info("report_node run_id=%s verification=%s", run_id, state.get("verification_status", ""))
+    path = write_workshop_paper(state, past_experiments, run_id)
+    logger.info("report saved path=%s", path)
+    return {"research_status": "Completed"}
 
 
 def verifier_node(state: AgentState) -> dict:
