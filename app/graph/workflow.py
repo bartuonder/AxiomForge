@@ -7,7 +7,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.config import DATABASE_URL
-from app.graph.nodes import experiment_node, literature_node, planner_node
+from app.graph.nodes import experiment_node, literature_node, planner_node, verifier_node
 from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
@@ -18,10 +18,12 @@ def build_graph() -> StateGraph:
     graph.add_node("literature_node", literature_node)
     graph.add_node("planner_node", planner_node)
     graph.add_node("experiment_node", experiment_node)
+    graph.add_node("verifier_node", verifier_node)
     graph.add_edge(START, "literature_node")
     graph.add_edge("literature_node", "planner_node")
     graph.add_edge("planner_node", "experiment_node")
-    graph.add_edge("experiment_node", END)
+    graph.add_edge("experiment_node", "verifier_node")
+    graph.add_edge("verifier_node", END)
     return graph
 
 
@@ -44,6 +46,9 @@ def start_research(query: str) -> dict:
         "literature_context": [],
         "hypotheses": [],
         "approval_status": "",
+        "current_experiment_code": "",
+        "experiment_metrics": {},
+        "verification_status": "",
     }
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
