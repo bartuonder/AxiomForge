@@ -1,6 +1,7 @@
 import logging
 
 from app.agents.literature import run_literature_agent
+from app.agents.planner import run_planner_agent
 from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
@@ -16,9 +17,12 @@ def literature_node(state: AgentState) -> dict:
 
 def planner_node(state: AgentState) -> dict:
     logger.info("planner_node query=%s", state["query"])
-    return {}
+    hypotheses = run_planner_agent(state["query"], state["literature_context"])
+    for index, item in enumerate(hypotheses, start=1):
+        logger.info("hypothesis %s=%s", index, item)
+    return {"hypotheses": hypotheses}
 
 
 def experiment_node(state: AgentState) -> dict:
-    logger.info("experiment_node query=%s", state["query"])
+    logger.info("Onaylandı, deneylere başlanıyor")
     return {}
