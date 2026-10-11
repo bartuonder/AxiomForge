@@ -12,8 +12,11 @@ REPORTS_DIR = Path(__file__).resolve().parents[2] / "reports"
 SYSTEM_PROMPT = (
     "You write a conference workshop paper in Markdown. "
     "Use exactly these headings: Abstract, Introduction, Methodology, Results, Conclusion. "
-    "Focus on preventing data leakage and false success in autonomous experiments. "
-    "Put retrieved memory errors into the Methodology section as an ablation of failed attempts. "
+    "Yazacağın makalenin ana teması, KESİNLİKLE state içindeki kullanıcının orijinal araştırma konusu (query) olmalıdır. "
+    "Makaleyi spesifik olarak bu probleme odakla. "
+    "Dışarıdan başka bir tema (örneğin veri sızıntısı, sızıntı önleme vs.) zorlama. "
+    "Sadece kullanıcının sorusuna, üretilen hipotezlere, yazılan koda ve elde edilen metriklere sadık kal. "
+    "RAG hafızasından gelen hataları (ablation) kullanıcının konusuyla mantıklı bir bütünlük oluşturacak şekilde metodolojiye yedir. "
     "Use only the supplied state and memory. Do not invent metrics. "
     "Return only the Markdown document."
 )
@@ -45,7 +48,6 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
     failures = [item for item in past_experiments if item.get("is_success") is False]
     return (
         f"Run id: {run_id}\n"
-        f"Theme: Otonom deneylerde veri sızıntısını ve sahte başarıyı engellemek\n"
         f"Query: {state.get('query', '')}\n"
         f"Verification status: {state.get('verification_status', '')}\n"
         f"Verifier feedback: {state.get('verifier_feedback', '')}\n"
