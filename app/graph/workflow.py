@@ -4,19 +4,15 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, StateGraph
 
 from app.config import DATABASE_URL
-from app.graph.nodes import experiment_node, literature_node, planner_node
+from app.graph.nodes import literature_node
 from app.graph.state import AgentState
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(AgentState)
     graph.add_node("literature_node", literature_node)
-    graph.add_node("planner_node", planner_node)
-    graph.add_node("experiment_node", experiment_node)
     graph.add_edge(START, "literature_node")
-    graph.add_edge("literature_node", "planner_node")
-    graph.add_edge("planner_node", "experiment_node")
-    graph.add_edge("experiment_node", END)
+    graph.add_edge("literature_node", END)
     return graph
 
 

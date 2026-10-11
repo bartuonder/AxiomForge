@@ -77,3 +77,5 @@ def start_research_endpoint(body: StartResearchRequest):
         return start_research(body.query)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
