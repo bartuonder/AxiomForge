@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+body {
+  font-family: var(--font-sans), "Segoe UI", sans-serif;
+}
+
+h1,
+h2,
+.paper h1,
+.paper h2 {
+  font-family: var(--font-display), Georgia, serif;
+}
+
+.paper h1 {
+  margin-top: 1.5rem;
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+.paper h2 {
+  margin-top: 2rem;
+  font-size: 1.4rem;
+}
+
+.paper p {
+  margin-top: 0.8rem;
+}
