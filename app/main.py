@@ -1,7 +1,9 @@
 import logging
+from pathlib import Path
 
 import redis
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import OpenAIError
 from pydantic import BaseModel, Field
@@ -9,12 +11,18 @@ from pydantic import BaseModel, Field
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
-from app.graph.workflow import approve_plan, start_research
+from app.graph.workflow import approve_plan, get_research, start_research
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("axiomforge")
 
 app = FastAPI(title="AxiomForge")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ExperimentRequest(BaseModel):
@@ -84,6 +92,24 @@ def start_research_endpoint(body: StartResearchRequest):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.get("/research/{thread_id}")
+def research_status(thread_id: str):
+    try:
+        return get_research(thread_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/reports/{thread_id}")
+def research_report(thread_id: str):
+    if any(char in thread_id for char in "/\\."):
+        raise HTTPException(status_code=400, detail="invalid thread id")
+    path = Path(__file__).resolve().parents[1] / "reports" / f"{thread_id}_paper.md"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="report not ready")
+    return {"markdown": path.read_text(encoding="utf-8")}
 
 
 @app.post("/approve_plan")

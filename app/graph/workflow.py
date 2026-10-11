@@ -1,4 +1,5 @@
 import logging
+import threading
 import uuid
 from typing import Any
 
@@ -19,6 +20,15 @@ from app.graph.nodes import (
 from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
+
+_research_errors: dict[str, str] = {}
+_STEP_ORDER = [
+    "literature_node",
+    "planner_node",
+    "experiment_node",
+    "verifier_node",
+    "report_node",
+]
 
 
 def build_graph() -> StateGraph:
@@ -56,8 +66,8 @@ def _open_graph():
     return PostgresSaver.from_conn_string(DATABASE_URL)
 
 
-def start_research(query: str) -> dict:
-    initial: AgentState = {
+def _initial_state(query: str) -> AgentState:
+    return {
         "query": query,
         "literature_context": [],
         "hypotheses": [],
@@ -70,22 +80,111 @@ def start_research(query: str) -> dict:
         "critic_continue": False,
         "research_status": "",
     }
-    thread_id = str(uuid.uuid4())
+
+
+def _run_until_pause(thread_id: str, query: str) -> None:
     config = {"configurable": {"thread_id": thread_id}}
+    try:
+        with _open_graph() as checkpointer:
+            checkpointer.setup()
+            compiled = _compile(checkpointer)
+            state = compiled.invoke(_initial_state(query), config)
+        hypotheses = list(state.get("hypotheses", []))
+        logger.info("plan paused thread_id=%s decision=Y/N", thread_id)
+        for index, item in enumerate(hypotheses, start=1):
+            logger.info("paused hypothesis %s=%s", index, item)
+    except Exception as exc:
+        logger.exception("research failed thread_id=%s", thread_id)
+        _research_errors[thread_id] = str(exc)
+
+
+def start_research(query: str) -> dict:
+    thread_id = str(uuid.uuid4())
+    worker = threading.Thread(
+        target=_run_until_pause,
+        args=(thread_id, query),
+        daemon=True,
+    )
+    worker.start()
+    return {"thread_id": thread_id, "status": "running"}
+
+
+def get_research(thread_id: str) -> dict:
+    config = {"configurable": {"thread_id": thread_id}}
+    error = _research_errors.get(thread_id, "")
     with _open_graph() as checkpointer:
-        checkpointer.setup()
         compiled = _compile(checkpointer)
-        state = compiled.invoke(initial, config)
-    hypotheses = list(state.get("hypotheses", []))
-    logger.info("plan paused thread_id=%s decision=Y/N", thread_id)
-    for index, item in enumerate(hypotheses, start=1):
-        logger.info("paused hypothesis %s=%s", index, item)
+        snapshot = compiled.get_state(config)
+    values = dict(snapshot.values or {})
+    next_nodes = [str(node) for node in (snapshot.next or ())]
+    status = _research_status(values, next_nodes, error)
     return {
         "thread_id": thread_id,
-        "status": "paused",
-        "hypotheses": hypotheses,
-        "state": state,
+        "status": status,
+        "next": next_nodes,
+        "active_step": _active_step(values, next_nodes, status),
+        "hypotheses": list(values.get("hypotheses") or []),
+        "approval_status": values.get("approval_status") or "",
+        "verification_status": values.get("verification_status") or "",
+        "research_status": values.get("research_status") or "",
+        "error": error,
+        "steps": _steps(values, next_nodes, status),
     }
+
+
+def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
+    if error and not values:
+        return "failed"
+    if values.get("research_status") == "Completed":
+        return "completed"
+    if values.get("approval_status") == "rejected":
+        return "rejected"
+    if "approval_gate" in next_nodes and values.get("hypotheses"):
+        return "paused"
+    if not values and not next_nodes:
+        return "starting"
+    return "running"
+
+
+def _active_step(values: dict, next_nodes: list[str], status: str) -> str:
+    if status == "completed":
+        return "report_node"
+    if status in {"paused", "rejected"}:
+        return "planner_node"
+    for name in ("report_node", "verifier_node", "experiment_node", "planner_node", "literature_node"):
+        if name in next_nodes:
+            return name
+    if values.get("verification_status"):
+        return "report_node"
+    if values.get("current_experiment_code"):
+        return "verifier_node"
+    if values.get("approval_status") == "approved":
+        return "experiment_node"
+    if values.get("hypotheses"):
+        return "planner_node"
+    return "literature_node"
+
+
+def _steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, str]]:
+    done = {
+        "literature_node": bool(values.get("literature_context")),
+        "planner_node": bool(values.get("hypotheses")),
+        "experiment_node": bool(values.get("current_experiment_code")),
+        "verifier_node": values.get("verification_status") in {"Passed", "Failed"}
+        and not values.get("critic_continue"),
+        "report_node": values.get("research_status") == "Completed",
+    }
+    active = _active_step(values, next_nodes, status)
+    steps = []
+    for name in _STEP_ORDER:
+        if status == "completed" or done[name]:
+            phase = "done"
+        elif status not in {"rejected", "failed"} and name == active:
+            phase = "active"
+        else:
+            phase = "pending"
+        steps.append({"id": name, "phase": phase})
+    return steps
 
 
 def approve_plan(thread_id: str, decision: str) -> dict:
