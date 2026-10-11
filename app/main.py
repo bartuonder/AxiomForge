@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
-from app.graph.workflow import start_research
+from app.graph.workflow import approve_plan, start_research
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("axiomforge")
@@ -24,6 +24,11 @@ class ExperimentRequest(BaseModel):
 
 class StartResearchRequest(BaseModel):
     query: str = Field(min_length=1)
+
+
+class ApprovePlanRequest(BaseModel):
+    thread_id: str = Field(min_length=1)
+    decision: str = Field(min_length=1)
 
 
 def redis_status() -> str:
@@ -79,3 +84,11 @@ def start_research_endpoint(body: StartResearchRequest):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/approve_plan")
+def approve_plan_endpoint(body: ApprovePlanRequest):
+    try:
+        return approve_plan(body.thread_id, body.decision)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
