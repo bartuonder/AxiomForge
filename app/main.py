@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
+from app.graph.workflow import start_research
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("axiomforge")
@@ -19,6 +20,10 @@ app = FastAPI(title="AxiomForge")
 class ExperimentRequest(BaseModel):
     prompt: str = Field(min_length=1)
     csv_schema: str = Field(min_length=1)
+
+
+class StartResearchRequest(BaseModel):
+    query: str = Field(min_length=1)
 
 
 def redis_status() -> str:
@@ -64,3 +69,11 @@ def create_experiment(body: ExperimentRequest):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/start_research")
+def start_research_endpoint(body: StartResearchRequest):
+    try:
+        return start_research(body.query)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
