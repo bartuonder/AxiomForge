@@ -74,6 +74,7 @@ def _initial_state(query: str) -> AgentState:
         "approval_status": "",
         "current_experiment_code": "",
         "experiment_metrics": {},
+        "model_results": [],
         "verification_status": "",
         "verifier_feedback": "",
         "critic_rounds": 0,

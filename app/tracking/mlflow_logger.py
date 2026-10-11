@@ -10,6 +10,13 @@ from app.config import MLFLOW_TRACKING_URI
 
 _ACCURACY = re.compile(r"accuracy\s*[:=]\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
 _F1 = re.compile(r"\bf1(?:_score)?\s*[:=]\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
+_MODEL_LINE = re.compile(
+    r"model\s*=\s*(?P<model>[A-Za-z0-9_+\-]+)\s+"
+    r"accuracy\s*=\s*(?P<accuracy>[0-9]*\.?[0-9]+)\s+"
+    r"f1\s*=\s*(?P<f1>[0-9]*\.?[0-9]+)\s+"
+    r"train_seconds\s*=\s*(?P<train_seconds>[0-9]*\.?[0-9]+)",
+    re.IGNORECASE,
+)
 _ALGORITHM = re.compile(
     r"\b("
     r"RandomForestClassifier|LogisticRegression|GradientBoostingClassifier|"
@@ -24,6 +31,30 @@ def detect_algorithm(source: str) -> str:
     if match is None:
         return "unknown"
     return match.group(1)
+
+
+def parse_model_results(output: str) -> list[dict[str, str | float]]:
+    results: list[dict[str, str | float]] = []
+    for match in _MODEL_LINE.finditer(output):
+        results.append(
+            {
+                "model": match.group("model"),
+                "accuracy": float(match.group("accuracy")),
+                "f1": float(match.group("f1")),
+                "train_seconds": float(match.group("train_seconds")),
+            }
+        )
+    if results:
+        return results
+    metrics = parse_metrics(output)
+    return [
+        {
+            "model": "classifier",
+            "accuracy": float(metrics.get("accuracy", 0.0)),
+            "f1": float(metrics.get("f1", 0.0)),
+            "train_seconds": 0.0,
+        }
+    ]
 
 
 def parse_metrics(output: str) -> dict[str, float]:
@@ -50,6 +81,30 @@ def _start_experiment() -> None:
     _allow_unicode_logs()
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     mlflow.set_experiment("axiomforge")
+
+
+def log_model_comparison(
+    results: list[dict[str, str | float]],
+    prompt_version: str,
+    algorithm: str,
+    model: str,
+    attempts: int,
+) -> str:
+    _start_experiment()
+    with mlflow.start_run() as parent:
+        mlflow.log_param("prompt_version", prompt_version)
+        mlflow.log_param("algorithm", algorithm)
+        mlflow.log_param("model", model)
+        mlflow.log_param("attempts", str(attempts))
+        mlflow.log_param("status", "Finished")
+        mlflow.log_param("compared_models", ",".join(str(item["model"]) for item in results))
+        for item in results:
+            with mlflow.start_run(nested=True, run_name=str(item["model"])):
+                mlflow.log_param("model", str(item["model"]))
+                mlflow.log_metric("accuracy", float(item["accuracy"]))
+                mlflow.log_metric("f1", float(item["f1"]))
+                mlflow.log_metric("train_seconds", float(item["train_seconds"]))
+        return parent.info.run_id
 
 
 def log_classification_run(

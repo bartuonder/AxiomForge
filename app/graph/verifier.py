@@ -51,6 +51,25 @@ def judge_data_leakage(code: str) -> tuple[bool, str]:
     return leakage, reason.strip()
 
 
+def models_dropped(
+    original: list[dict[str, str | float]],
+    renewed: list[dict[str, str | float]],
+) -> bool:
+    found = {str(item["model"]): item for item in renewed}
+    if not original:
+        return False
+    for item in original:
+        other = found.get(str(item["model"]))
+        if other is None:
+            return True
+        if performance_dropped(
+            {"accuracy": float(item["accuracy"]), "f1": float(item["f1"])},
+            {"accuracy": float(other["accuracy"]), "f1": float(other["f1"])},
+        ):
+            return True
+    return False
+
+
 def performance_dropped(original: dict[str, float], renewed: dict[str, float]) -> bool:
     for name in ("accuracy", "f1"):
         if name not in original or name not in renewed:

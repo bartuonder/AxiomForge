@@ -10,9 +10,9 @@ from app.memory.rag_memory import save_experiment
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
 from app.tracking.mlflow_logger import (
     detect_algorithm,
-    log_classification_run,
     log_failed_run,
-    parse_metrics,
+    log_model_comparison,
+    parse_model_results,
 )
 
 logger = logging.getLogger("axiomforge")
@@ -36,7 +36,11 @@ def execute_experiment(
         logger.info("sandbox attempt %s/%s", attempt, MAX_RETRIES)
         try:
             output = run_classification(source, csv_schema)
-            metrics = parse_metrics(output)
+            model_results = parse_model_results(output)
+            metrics = {
+                "accuracy": float(model_results[0]["accuracy"]),
+                "f1": float(model_results[0]["f1"]),
+            }
         except SandboxCodeError as exc:
             last_error = str(exc)
             logger.error("sandbox attempt %s/%s failed:\n%s", attempt, MAX_RETRIES, last_error)
@@ -46,7 +50,10 @@ def execute_experiment(
             last_error = str(exc)
             logger.error("sandbox attempt %s/%s failed:\n%s", attempt, MAX_RETRIES, last_error)
         else:
-            metric_text = " ".join(f"{name}={value}" for name, value in metrics.items())
+            metric_text = " ".join(
+                f"{item['model']} accuracy={item['accuracy']} f1={item['f1']} train_seconds={item['train_seconds']}"
+                for item in model_results
+            )
             if record_memory:
                 memory_id = save_experiment(
                     hypothesis=prompt,
@@ -58,8 +65,8 @@ def execute_experiment(
                 logger.info("saved successful experiment memory_id=%s", memory_id)
             logger.info("sandbox attempt %s/%s succeeded", attempt, MAX_RETRIES)
             try:
-                run_id = log_classification_run(
-                    metrics,
+                run_id = log_model_comparison(
+                    model_results,
                     prompt_version=PROMPT_VERSION,
                     algorithm=detect_algorithm(source),
                     model=MODEL,
@@ -73,6 +80,7 @@ def execute_experiment(
                 "status": "Finished",
                 "attempts": attempt,
                 "mlflow_run_id": run_id,
+                "model_results": model_results,
             }
             payload.update(metrics)
             return payload

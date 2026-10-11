@@ -7,10 +7,10 @@ from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
 from app.experiments import execute_experiment
 from app.graph.state import AgentState
-from app.graph.verifier import MAX_CRITIC_ROUNDS, judge_data_leakage, performance_dropped, rewrite_seeds
+from app.graph.verifier import MAX_CRITIC_ROUNDS, judge_data_leakage, models_dropped, rewrite_seeds
 from app.memory.rag_memory import save_experiment, search_past_experiments
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
-from app.tracking.mlflow_logger import parse_metrics
+from app.tracking.mlflow_logger import parse_model_results
 
 logger = logging.getLogger("axiomforge")
 
@@ -66,19 +66,20 @@ def planner_node(state: AgentState) -> dict:
 def experiment_node(state: AgentState) -> dict:
     logger.info("Onaylandı, deneylere başlanıyor")
     hypothesis = state["hypotheses"][0] if state["hypotheses"] else state["query"]
+    prompt = f"User question:\n{state.get('query', '')}\n\nHypothesis:\n{hypothesis}"
     criticism = state.get("verifier_feedback", "")
     if criticism:
         logger.info("experiment critic round=%s", state.get("critic_rounds", 0))
         logger.info("experiment critic=%s", criticism)
         result = execute_experiment(
-            hypothesis,
+            prompt,
             EXPERIMENT_CSV_SCHEMA,
             existing_code=state.get("current_experiment_code", ""),
             criticism=criticism,
             record_memory=False,
         )
     else:
-        result = execute_experiment(hypothesis, EXPERIMENT_CSV_SCHEMA)
+        result = execute_experiment(prompt, EXPERIMENT_CSV_SCHEMA)
     logger.info("experiment result status=%s", result.get("status"))
     metrics = {
         name: float(result[name])
@@ -88,6 +89,7 @@ def experiment_node(state: AgentState) -> dict:
     return {
         "current_experiment_code": result.get("code", ""),
         "experiment_metrics": metrics,
+        "model_results": list(result.get("model_results") or []),
         "critic_continue": False,
     }
 
@@ -115,17 +117,27 @@ def verifier_node(state: AgentState) -> dict:
         logger.info("verifier rewritten seeds in experiment code")
         try:
             output = run_classification(rewritten, EXPERIMENT_CSV_SCHEMA)
-            renewed = parse_metrics(output)
+            renewed = parse_model_results(output)
         except (SandboxCodeError, RuntimeError) as exc:
             logger.error("verifier sandbox failed: %s", exc)
             reasons.append(f"Overfitting/Unstable: seed yeniden çalışması başarısız. {exc}")
         else:
             logger.info("verifier seed metrics original=%s renewed=%s", original, renewed)
-            if performance_dropped(original, renewed):
-                logger.info("Overfitting/Unstable original=%s renewed=%s", original, renewed)
+            original_models = list(state.get("model_results") or [])
+            if not original_models:
+                original_models = [
+                    {
+                        "model": "classifier",
+                        "accuracy": float(original.get("accuracy", 0.0)),
+                        "f1": float(original.get("f1", 0.0)),
+                        "train_seconds": 0.0,
+                    }
+                ]
+            if models_dropped(original_models, renewed):
+                logger.info("Overfitting/Unstable original=%s renewed=%s", original_models, renewed)
                 reasons.append(
                     "Overfitting/Unstable: seed değişince performans %10'dan fazla düştü. "
-                    f"original={original} renewed={renewed}"
+                    f"original={original_models} renewed={renewed}"
                 )
     if code:
         leakage, leakage_reason = judge_data_leakage(code)
