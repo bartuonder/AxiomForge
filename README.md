@@ -1,12 +1,14 @@
 # AxiomForge
 
-İki faz ayakta.
+Üç katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası.
 
-Faz 1 tek başına bir sınıflandırma deneyi üretir, kodu E2B sandbox içinde çalıştırır, hata olursa en fazla 3 denemede kendini düzeltir ve sonucu yerel MLflow sunucusuna yazar.
+Faz 1 tek başına bir sınıflandırma deneyi üretir, kodu E2B sandbox içinde çalıştırır ve hata olursa en fazla 3 denemede kendini düzeltir. Sonuç hem yerel MLflow sunucusuna hem de deney hafızasına yazılır.
 
-Faz 2 çoklu ajan grafıdır. Literatür taranır, üç hipotez üretilir ve deney düğümüne geçmeden önce onay beklenir. Graf durumu PostgreSQL'de tutulur. `experiment_node` şimdilik yalnızca onay logu basar; Faz 1 deney döngüsüne henüz bağlı değildir.
+Faz 2 araştırma grafıdır. Literatür taranır, üç hipotez üretilir ve deney düğümüne geçmeden önce onay beklenir. Graf durumu PostgreSQL'de tutulur.
 
-Henüz yok: Next.js ve grafın içinden Faz 1 deneyinin çalıştırılması.
+Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, ilk hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir.
+
+Henüz yok: Next.js.
 
 ## Ne var
 
@@ -18,10 +20,11 @@ Henüz yok: Next.js ve grafın içinden Faz 1 deneyinin çalıştırılması.
 - MLflow: Accuracy, F1 ve deneme bilgisi `axiomforge` deneyine yazılır
 - LangGraph: `literature_node` → `planner_node` → onay → `experiment_node`
 - arXiv araması: sorguya en yakın 3 makalenin başlığı ve özeti
-- Planlayıcı: literatürden 3 test edilebilir hipotez
+- Planlayıcı: literatür ve geçmiş başarısız deneylerden 3 test edilebilir hipotez
 - PostgresSaver: graf durumu `DATABASE_URL` üzerinden kaydedilir
+- Deney hafızası: `text-embedding-3-small` ile `experiment_memory` koleksiyonu
 
-Başarılı deneyde MLflow run'ı `Finished` olur. Üç deneme de başarısızsa run `Failed` olarak kapanır. Üretilen deney kodu yerel makinede çalıştırılmaz.
+Başarılı deneyde MLflow run'ı `Finished` olur. Üç deneme de başarısızsa run `Failed` olarak kapanır. Hafıza kaydı MLflow çağrısından önce yazılır. Üretilen deney kodu yerel makinede çalıştırılmaz.
 
 ## Dizin
 
@@ -30,17 +33,20 @@ app/
   main.py                    FastAPI uçları
   config.py                  ortam ayarları
   celery_app.py              Celery uygulaması
-  experiments.py             3 denemelik düzeltme döngüsü
+  experiments.py             3 denemelik düzeltme döngüsü ve hafıza kaydı
   agents/experiment.py       kod üreten ve düzelten ajan
   agents/literature.py       arXiv araçlı literatür ajanı
-  agents/planner.py          hipotez üreten ajan
+  agents/planner.py          geçmiş hataları eleyen hipotez ajanı
   tools/arxiv.py             arXiv arama aracı
   graph/state.py             AgentState
   graph/nodes.py             literatür, plan ve deney düğümleri
   graph/workflow.py          StateGraph, kesinti ve onay
+  memory/enable_pgvector.sql pgvector eklentisi
+  memory/rag_memory.py       vektör kayıt ve arama
   sandbox/e2b_runner.py      E2B çalıştırma
   tracking/mlflow_logger.py  metrik ayrıştırma ve MLflow kaydı
-docker-compose.yml           Redis ve PostgreSQL
+test_memory.py               hafızaya yazıp okuma denemesi
+docker-compose.yml           Redis ve pgvector PostgreSQL
 requirements.txt
 .env                         OPENAI_API_KEY, E2B_API_KEY, DATABASE_URL
 ```
@@ -55,7 +61,7 @@ E2B_API_KEY=
 DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
 ```
 
-`E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı başlamaz. Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir.
+`E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı ve deney hafızası başlamaz. Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir. Postgres imajı `pgvector/pgvector:pg16` kullanır.
 
 `AgentState` alanları: `query`, `literature_context`, `hypotheses`, `approval_status`.
 
@@ -78,6 +84,12 @@ docker compose up -d
 ```
 
 Windows üzerinde Celery `--pool=solo` ile çalışır.
+
+Hafızayı grafın dışında denemek için:
+
+```powershell
+.\.venv\Scripts\python.exe test_memory.py
+```
 
 ## Uçlar
 
@@ -107,6 +119,7 @@ Akış:
 3. Betik E2B içinde çalıştırılır.
 4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
 5. Çıktıdan Accuracy ve F1 okunur. MLflow'a metriklerle birlikte `prompt_version`, `algorithm`, `model`, `attempts` ve `status` yazılır.
+6. Aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
 
 Başarılı yanıt:
 
@@ -145,8 +158,11 @@ Faz 2. Gövde:
 Akış `literature_node` ve `planner_node` çalıştıktan sonra, `experiment_node` öncesinde durur.
 
 1. Literatür ajanı arXiv'den 3 makalenin başlık ve özetini alır, `literature_context` listesine yazar.
-2. Planlayıcı bu bağlamdan 3 test edilebilir hipotez üretir ve `hypotheses` listesine yazar.
-3. Graf `interrupt_before=["experiment_node"]` ile duraklar.
+2. Planlayıcı `search_past_experiments` ile sorguya en yakın 3 geçmiş deneyi okur. Başarısız kayıtları prompta koyar ve aynı yaklaşımı tekrar etmez.
+3. Üç test edilebilir hipotez `hypotheses` listesine yazılır.
+4. Graf `interrupt_before=["experiment_node"]` ile duraklar.
+
+Geçmiş hata bulunursa logda `planner memory_note` satırı görünür. Örnek: geçmiş `KeyError: missing_target` deneyi yüzünden planlayıcı farklı bir yaklaşım önerir.
 
 Duraklayan yanıt:
 
@@ -169,7 +185,13 @@ Gövde:
 {"thread_id": "...", "decision": "Y"}
 ```
 
-`Y` state'i `approval_status="approved"` yapar ve graf kaldığı yerden `experiment_node`'a devam eder. Bu düğüm şu an `Onaylandı, deneylere başlanıyor` logunu basar.
+`Y` state'i `approval_status="approved"` yapar ve graf kaldığı yerden `experiment_node`'a devam eder. Düğüm `Onaylandı, deneylere başlanıyor` logunu basar, ardından ilk hipotezi şu CSV şemasıyla Faz 1 döngüsüne verir:
+
+```text
+age:float, monthly_spend:float, tenure_months:int, churn:int
+```
+
+Döngünün sonucu deney hafızasına yazılır.
 
 `N` state'i `approval_status="rejected"` yapar ve akış orada biter. Deney düğümü çalışmaz.
 
