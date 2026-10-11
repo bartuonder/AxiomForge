@@ -1,6 +1,6 @@
 # AxiomForge
 
-Dört katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü.
+Beş katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü, Faz 4 rapor ajanı ve Next.js konsolu.
 
 Faz 1 tek başına bir sınıflandırma deneyi üretir, kodu E2B sandbox içinde çalıştırır ve hata olursa en fazla 3 denemede kendini düzeltir. Sonuç hem yerel MLflow sunucusuna hem de deney hafızasına yazılır.
 
@@ -8,9 +8,9 @@ Faz 2 araştırma grafıdır. Literatür taranır, üç hipotez üretilir ve den
 
 Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, ilk hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir.
 
-Faz 3 doğrulayıcıdır. `verifier_node`, çalışan kodun tohumunu `9999` yapıp E2B'de yeniden çalıştırır. Accuracy veya F1 yüzde 10'dan fazla düşerse durumu `Overfitting/Unstable` sayar. Ayrıca kodu veri sızıntısı için inceler. `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır, döngü biter.
+Faz 3 doğrulayıcıdır. `verifier_node`, çalışan kodun tohumunu `9999` yapıp E2B'de yeniden çalıştırır. Accuracy veya F1 yüzde 10'dan fazla düşerse durumu `Overfitting/Unstable` sayar. Ayrıca kodu veri sızıntısı için inceler. `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır.
 
-Henüz yok: Next.js.
+Faz 4 rapor ajanı ve onu süren arayüzdür. Doğrulama `Passed` olunca ya da eleştiri hakkı bitip `Failed` hafızaya yazılınca `report_node` çalışır. Atölye makalesi `reports/{thread_id}_paper.md` dosyasına kaydedilir ve `research_status` `Completed` olur. Next.js konsolu aynı akışı `http://127.0.0.1:3000` üzerinde gösterir. Grafın düğüm sırası `GRAPH.md` içindedir.
 
 ## Ne var
 
@@ -20,8 +20,10 @@ Henüz yok: Next.js.
 - E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
 - Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
 - MLflow: Accuracy, F1 ve deneme bilgisi `axiomforge` deneyine yazılır
-- LangGraph: `literature_node` → `planner_node` → onay → `experiment_node` → `verifier_node`
+- LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor
 - Doğrulayıcı: tohum değişimi, sızıntı analizi ve en fazla 2 eleştiri turu
+- Rapor ajanı: Abstract, Introduction, Methodology, Results, Conclusion
+- Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
 - arXiv araması: sorguya en yakın 3 makalenin başlığı ve özeti
 - Planlayıcı: literatür ve geçmiş başarısız deneylerden 3 test edilebilir hipotez
 - PostgresSaver: graf durumu `DATABASE_URL` üzerinden kaydedilir
@@ -40,9 +42,10 @@ app/
   agents/experiment.py       kod üreten ve düzelten ajan
   agents/literature.py       arXiv araçlı literatür ajanı
   agents/planner.py          geçmiş hataları eleyen hipotez ajanı
+  agents/report.py           atölye makalesi yazan ajan
   tools/arxiv.py             arXiv arama aracı
   graph/state.py             AgentState
-  graph/nodes.py             literatür, plan, deney ve doğrulayıcı düğümleri
+  graph/nodes.py             literatür, plan, deney, doğrulayıcı ve rapor düğümleri
   graph/verifier.py          tohum değişimi ve sızıntı kararı
   graph/workflow.py          StateGraph, kesinti, onay ve koşullu dönüş
   memory/enable_pgvector.sql pgvector eklentisi
@@ -50,6 +53,8 @@ app/
   sandbox/e2b_runner.py      E2B çalıştırma
   tracking/mlflow_logger.py  metrik ayrıştırma ve MLflow kaydı
 test_memory.py               hafızaya yazıp okuma denemesi
+GRAPH.md                     araştırma grafının mimarisi
+frontend/                    Next.js araştırma konsolu
 docker-compose.yml           Redis ve pgvector PostgreSQL
 requirements.txt
 .env                         OPENAI_API_KEY, E2B_API_KEY, DATABASE_URL
@@ -67,7 +72,7 @@ DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
 
 `E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı ve deney hafızası başlamaz. Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir. Postgres imajı `pgvector/pgvector:pg16` kullanır.
 
-`AgentState` alanları: `query`, `literature_context`, `hypotheses`, `approval_status`, `current_experiment_code`, `experiment_metrics`, `verification_status`, `verifier_feedback`, `critic_rounds`, `critic_continue`.
+`AgentState` alanları `GRAPH.md` içindedir. Rapor bitince `research_status` değeri `Completed` olur.
 
 ## Kurulum
 
@@ -79,15 +84,17 @@ docker compose up -d
 
 ## Çalıştırma
 
-Üç süreç ayrı ayrı açılır.
+API, kuyruk, takip ve konsol ayrı ayrı açılır.
 
 ```powershell
 .\.venv\Scripts\mlflow.exe server --host 127.0.0.1 --port 5000
 .\.venv\Scripts\celery.exe -A app.celery_app worker --pool=solo --loglevel=info
 .\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
+cd frontend
+npm run dev
 ```
 
-Windows üzerinde Celery `--pool=solo` ile çalışır.
+Konsol `http://127.0.0.1:3000` adresindedir. Windows üzerinde Celery `--pool=solo` ile çalışır.
 
 Hafızayı grafın dışında denemek için:
 
@@ -200,7 +207,9 @@ Son çalışan kod `current_experiment_code` alanına, Accuracy ve F1 `experimen
 1. Koddaki `random_state`, `random_seed` ve `seed` değerlerini `9999` ile değiştirir ve aynı kodu E2B'de yeniden çalıştırır. Metrikler yüzde 10'dan fazla düşerse bu `Overfitting/Unstable` sayılır.
 2. Kodu veri sızıntısı için inceler. Örneğin ayrılmadan önce `fit_transform` veya imputation varsa sebebiyle birlikte `Failed` döner.
 
-`verification_status` `Passed` ise akış biter. `Failed` ise eleştiri `verifier_feedback` olarak `experiment_node`'a geri gider ve kod düzeltilir. Bu dönüş en fazla 2 kez olur. İkinci düzeltmeden sonra doğrulayıcı hâlâ onaylamazsa deney `is_success=False` ile hafızaya yazılır. Sızıntı mesajı `Leakage çözülemedi` ile başlar.
+`verification_status` `Passed` ise akış `report_node`'a gider. `Failed` ise eleştiri `verifier_feedback` olarak `experiment_node`'a geri gider ve kod düzeltilir. Bu dönüş en fazla 2 kez olur. İkinci düzeltmeden sonra doğrulayıcı hâlâ onaylamazsa deney `is_success=False` ile hafızaya yazılır ve yine `report_node` çalışır. Sızıntı mesajı `Leakage çözülemedi` ile başlar.
+
+Rapor `reports/{thread_id}_paper.md` dosyasına yazılır. `research_status` `Completed` olur. Aynı metin `GET /reports/{thread_id}` ucundan ve konsoldaki `/result/{thread_id}` sayfasından okunur.
 
 `N` state'i `approval_status="rejected"` yapar ve akış orada biter. Deney düğümü çalışmaz.
 
