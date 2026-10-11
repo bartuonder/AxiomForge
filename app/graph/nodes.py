@@ -1,17 +1,30 @@
 import logging
 
+from langgraph.graph import END
+
 from app.agents.literature import run_literature_agent
 from app.agents.planner import run_planner_agent
 from app.experiments import execute_experiment
 from app.graph.state import AgentState
-from app.graph.verifier import performance_dropped, rewrite_seeds
-from app.memory.rag_memory import search_past_experiments
+from app.graph.verifier import MAX_CRITIC_ROUNDS, judge_data_leakage, performance_dropped, rewrite_seeds
+from app.memory.rag_memory import save_experiment, search_past_experiments
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
 from app.tracking.mlflow_logger import parse_metrics
 
 logger = logging.getLogger("axiomforge")
 
 EXPERIMENT_CSV_SCHEMA = "age:float, monthly_spend:float, tenure_months:int, churn:int"
+
+
+def approval_gate(state: AgentState) -> dict:
+    logger.info("approval_gate status=%s", state.get("approval_status", ""))
+    return {}
+
+
+def route_after_verifier(state: AgentState) -> str:
+    if state.get("critic_continue"):
+        return "experiment_node"
+    return END
 
 
 def literature_node(state: AgentState) -> dict:
@@ -52,7 +65,19 @@ def planner_node(state: AgentState) -> dict:
 def experiment_node(state: AgentState) -> dict:
     logger.info("Onaylandı, deneylere başlanıyor")
     hypothesis = state["hypotheses"][0] if state["hypotheses"] else state["query"]
-    result = execute_experiment(hypothesis, EXPERIMENT_CSV_SCHEMA)
+    criticism = state.get("verifier_feedback", "")
+    if criticism:
+        logger.info("experiment critic round=%s", state.get("critic_rounds", 0))
+        logger.info("experiment critic=%s", criticism)
+        result = execute_experiment(
+            hypothesis,
+            EXPERIMENT_CSV_SCHEMA,
+            existing_code=state.get("current_experiment_code", ""),
+            criticism=criticism,
+            record_memory=False,
+        )
+    else:
+        result = execute_experiment(hypothesis, EXPERIMENT_CSV_SCHEMA)
     logger.info("experiment result status=%s", result.get("status"))
     metrics = {
         name: float(result[name])
@@ -62,26 +87,68 @@ def experiment_node(state: AgentState) -> dict:
     return {
         "current_experiment_code": result.get("code", ""),
         "experiment_metrics": metrics,
+        "critic_continue": False,
     }
 
 
 def verifier_node(state: AgentState) -> dict:
     code = state.get("current_experiment_code", "")
     original = state.get("experiment_metrics") or {}
-    logger.info("verifier_node original_metrics=%s", original)
+    rounds = int(state.get("critic_rounds", 0))
+    logger.info("verifier_node round=%s original_metrics=%s", rounds, original)
+    reasons: list[str] = []
     if not code or not original:
-        logger.info("verification_status=Failed reason=no successful experiment")
-        return {"verification_status": "Failed"}
-    rewritten = rewrite_seeds(code)
-    logger.info("verifier rewritten seeds in experiment code")
-    try:
-        output = run_classification(rewritten, EXPERIMENT_CSV_SCHEMA)
-        renewed = parse_metrics(output)
-    except (SandboxCodeError, RuntimeError) as exc:
-        logger.error("verifier sandbox failed: %s", exc)
-        return {"verification_status": "Failed"}
-    if performance_dropped(original, renewed):
-        logger.info("Overfitting/Unstable original=%s renewed=%s", original, renewed)
-        return {"verification_status": "Failed"}
-    logger.info("verification_status=Passed original=%s renewed=%s", original, renewed)
-    return {"verification_status": "Passed"}
+        reasons.append("Deney metrik üretmedi.")
+    else:
+        rewritten = rewrite_seeds(code)
+        logger.info("verifier rewritten seeds in experiment code")
+        try:
+            output = run_classification(rewritten, EXPERIMENT_CSV_SCHEMA)
+            renewed = parse_metrics(output)
+        except (SandboxCodeError, RuntimeError) as exc:
+            logger.error("verifier sandbox failed: %s", exc)
+            reasons.append(f"Overfitting/Unstable: seed yeniden çalışması başarısız. {exc}")
+        else:
+            logger.info("verifier seed metrics original=%s renewed=%s", original, renewed)
+            if performance_dropped(original, renewed):
+                logger.info("Overfitting/Unstable original=%s renewed=%s", original, renewed)
+                reasons.append(
+                    "Overfitting/Unstable: seed değişince performans %10'dan fazla düştü. "
+                    f"original={original} renewed={renewed}"
+                )
+    if code:
+        leakage, leakage_reason = judge_data_leakage(code)
+        logger.info("verifier leakage=%s reason=%s", leakage, leakage_reason)
+        if leakage:
+            reasons.append(f"Leakage çözülemedi: {leakage_reason}")
+    if not reasons:
+        logger.info("verification_status=Passed")
+        return {
+            "verification_status": "Passed",
+            "verifier_feedback": "",
+            "critic_continue": False,
+        }
+    feedback = " ".join(reasons)
+    logger.info("verification_status=Failed feedback=%s", feedback)
+    if rounds >= MAX_CRITIC_ROUNDS:
+        hypothesis = state["hypotheses"][0] if state.get("hypotheses") else state.get("query", "")
+        metric = " ".join(f"{name}={value}" for name, value in original.items())
+        memory_id = save_experiment(
+            hypothesis=hypothesis,
+            code=code,
+            metric=metric,
+            error_log=feedback,
+            is_success=False,
+        )
+        logger.info("saved rejected verification memory_id=%s", memory_id)
+        return {
+            "verification_status": "Failed",
+            "verifier_feedback": feedback,
+            "critic_continue": False,
+        }
+    return {
+        "verification_status": "Failed",
+        "verifier_feedback": feedback,
+        "critic_rounds": rounds + 1,
+        "critic_continue": True,
+    }

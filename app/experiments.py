@@ -20,8 +20,17 @@ logger = logging.getLogger("axiomforge")
 MAX_RETRIES = 3
 
 
-def execute_experiment(prompt: str, csv_schema: str) -> dict:
-    source = generate_classification_code(prompt, csv_schema)
+def execute_experiment(
+    prompt: str,
+    csv_schema: str,
+    existing_code: str = "",
+    criticism: str = "",
+    record_memory: bool = True,
+) -> dict:
+    if existing_code and criticism:
+        source = correct_classification_code(existing_code, criticism, prompt, csv_schema)
+    else:
+        source = generate_classification_code(prompt, csv_schema)
     last_error = ""
     for attempt in range(1, MAX_RETRIES + 1):
         logger.info("sandbox attempt %s/%s", attempt, MAX_RETRIES)
@@ -38,14 +47,15 @@ def execute_experiment(prompt: str, csv_schema: str) -> dict:
             logger.error("sandbox attempt %s/%s failed:\n%s", attempt, MAX_RETRIES, last_error)
         else:
             metric_text = " ".join(f"{name}={value}" for name, value in metrics.items())
-            memory_id = save_experiment(
-                hypothesis=prompt,
-                code=source,
-                metric=metric_text,
-                error_log="",
-                is_success=True,
-            )
-            logger.info("saved successful experiment memory_id=%s", memory_id)
+            if record_memory:
+                memory_id = save_experiment(
+                    hypothesis=prompt,
+                    code=source,
+                    metric=metric_text,
+                    error_log="",
+                    is_success=True,
+                )
+                logger.info("saved successful experiment memory_id=%s", memory_id)
             logger.info("sandbox attempt %s/%s succeeded", attempt, MAX_RETRIES)
             try:
                 run_id = log_classification_run(
@@ -71,14 +81,15 @@ def execute_experiment(prompt: str, csv_schema: str) -> dict:
         logger.info("requesting corrected code after attempt %s", attempt)
         source = correct_classification_code(source, last_error, prompt, csv_schema)
     logger.error("sandbox failed after %s attempts", MAX_RETRIES)
-    memory_id = save_experiment(
-        hypothesis=prompt,
-        code=source,
-        metric="",
-        error_log=last_error,
-        is_success=False,
-    )
-    logger.info("saved failed experiment memory_id=%s", memory_id)
+    if record_memory:
+        memory_id = save_experiment(
+            hypothesis=prompt,
+            code=source,
+            metric="",
+            error_log=last_error,
+            is_success=False,
+        )
+        logger.info("saved failed experiment memory_id=%s", memory_id)
     try:
         run_id = log_failed_run(
             prompt_version=PROMPT_VERSION,

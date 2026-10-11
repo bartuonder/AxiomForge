@@ -7,7 +7,14 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.config import DATABASE_URL
-from app.graph.nodes import experiment_node, literature_node, planner_node, verifier_node
+from app.graph.nodes import (
+    approval_gate,
+    experiment_node,
+    literature_node,
+    planner_node,
+    route_after_verifier,
+    verifier_node,
+)
 from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
@@ -20,17 +27,23 @@ def build_graph() -> StateGraph:
     graph.add_node("experiment_node", experiment_node)
     graph.add_node("verifier_node", verifier_node)
     graph.add_edge(START, "literature_node")
+    graph.add_node("approval_gate", approval_gate)
     graph.add_edge("literature_node", "planner_node")
-    graph.add_edge("planner_node", "experiment_node")
+    graph.add_edge("planner_node", "approval_gate")
+    graph.add_edge("approval_gate", "experiment_node")
     graph.add_edge("experiment_node", "verifier_node")
-    graph.add_edge("verifier_node", END)
+    graph.add_conditional_edges(
+        "verifier_node",
+        route_after_verifier,
+        {"experiment_node": "experiment_node", END: END},
+    )
     return graph
 
 
 def _compile(checkpointer: PostgresSaver) -> CompiledStateGraph:
     return build_graph().compile(
         checkpointer=checkpointer,
-        interrupt_before=["experiment_node"],
+        interrupt_before=["approval_gate"],
     )
 
 
@@ -49,6 +62,9 @@ def start_research(query: str) -> dict:
         "current_experiment_code": "",
         "experiment_metrics": {},
         "verification_status": "",
+        "verifier_feedback": "",
+        "critic_rounds": 0,
+        "critic_continue": False,
     }
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
@@ -79,7 +95,7 @@ def approve_plan(thread_id: str, decision: str) -> dict:
         snapshot = compiled.get_state(config)
         if not snapshot.values:
             raise RuntimeError("research thread was not found")
-        if snapshot.next != ("experiment_node",):
+        if snapshot.next != ("approval_gate",):
             raise RuntimeError("research thread is not waiting for approval")
         hypotheses = list(snapshot.values.get("hypotheses", []))
         logger.info("approve_plan thread_id=%s decision=%s", thread_id, normalized)
