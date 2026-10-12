@@ -1,7 +1,9 @@
 import logging
+from pathlib import Path
 
 from langchain_core.runnables import RunnableConfig
 
+from app.agents.consistency import judge_consistency
 from app.agents.literature import run_literature_agent
 from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
@@ -22,6 +24,7 @@ from app.tracking.mlflow_logger import parse_model_results
 logger = logging.getLogger("axiomforge")
 
 EXPERIMENT_CSV_SCHEMA = "age:float, monthly_spend:float, tenure_months:int, churn:int"
+MAX_CONSISTENCY_ROUNDS = 2
 
 
 def approval_gate(state: AgentState) -> dict:
@@ -33,6 +36,12 @@ def route_after_verifier(state: AgentState) -> str:
     if state.get("critic_continue"):
         return "experiment_node"
     return "report_node"
+
+
+def route_after_consistency(state: AgentState) -> str:
+    if state.get("consistency_continue"):
+        return "report_node"
+    return "end"
 
 
 def literature_node(state: AgentState) -> dict:
@@ -107,9 +116,47 @@ def report_node(state: AgentState, config: RunnableConfig) -> dict:
     run_id = str(configurable.get("thread_id") or "run")
     past_experiments = search_past_experiments(state.get("query", ""), k=3)
     logger.info("report_node run_id=%s verification=%s", run_id, state.get("verification_status", ""))
+    if state.get("consistency_feedback"):
+        logger.info("report_node rewrite round=%s", state.get("consistency_rounds", 0))
+        logger.info("report_node claim_review=%s", state.get("consistency_feedback", ""))
     path = write_workshop_paper(state, past_experiments, run_id)
     logger.info("report saved path=%s", path)
-    return {"research_status": "Completed"}
+    return {
+        "paper_markdown": Path(path).read_text(encoding="utf-8"),
+        "consistency_continue": False,
+    }
+
+
+def consistency_checker_node(state: AgentState) -> dict:
+    rounds = int(state.get("consistency_rounds", 0))
+    paper = state.get("paper_markdown", "")
+    statistical_results = state.get("statistical_results") or {}
+    logger.info("consistency_checker_node round=%s", rounds)
+    consistent, issues = judge_consistency(paper, statistical_results)
+    for issue in issues:
+        logger.info("consistency issue=%s", issue)
+    if consistent:
+        logger.info("consistency_checker_node passed")
+        return {
+            "consistency_feedback": "",
+            "consistency_continue": False,
+            "research_status": "Completed",
+        }
+    feedback = " ".join(issues)
+    logger.info("consistency_checker_node failed issue_count=%s", len(issues))
+    if rounds >= MAX_CONSISTENCY_ROUNDS:
+        logger.info("consistency_checker_node stopped after %s rewrites", rounds)
+        return {
+            "consistency_feedback": feedback,
+            "consistency_continue": False,
+            "research_status": "Completed",
+        }
+    logger.info("consistency_checker_node returning to report_node")
+    return {
+        "consistency_feedback": feedback,
+        "consistency_rounds": rounds + 1,
+        "consistency_continue": True,
+    }
 
 
 def verifier_node(state: AgentState) -> dict:

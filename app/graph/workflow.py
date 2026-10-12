@@ -10,10 +10,12 @@ from langgraph.graph.state import CompiledStateGraph
 from app.config import DATABASE_URL
 from app.graph.nodes import (
     approval_gate,
+    consistency_checker_node,
     experiment_node,
     literature_node,
     planner_node,
     report_node,
+    route_after_consistency,
     route_after_verifier,
     verifier_node,
 )
@@ -28,6 +30,7 @@ _STEP_ORDER = [
     "experiment_node",
     "verifier_node",
     "report_node",
+    "consistency_checker_node",
 ]
 
 
@@ -38,6 +41,7 @@ def build_graph() -> StateGraph:
     graph.add_node("experiment_node", experiment_node)
     graph.add_node("verifier_node", verifier_node)
     graph.add_node("report_node", report_node)
+    graph.add_node("consistency_checker_node", consistency_checker_node)
     graph.add_edge(START, "literature_node")
     graph.add_node("approval_gate", approval_gate)
     graph.add_edge("literature_node", "planner_node")
@@ -49,7 +53,12 @@ def build_graph() -> StateGraph:
         route_after_verifier,
         {"experiment_node": "experiment_node", "report_node": "report_node"},
     )
-    graph.add_edge("report_node", END)
+    graph.add_edge("report_node", "consistency_checker_node")
+    graph.add_conditional_edges(
+        "consistency_checker_node",
+        route_after_consistency,
+        {"report_node": "report_node", "end": END},
+    )
     return graph
 
 
@@ -81,6 +90,10 @@ def _initial_state(query: str) -> AgentState:
         "verifier_feedback": "",
         "critic_rounds": 0,
         "critic_continue": False,
+        "paper_markdown": "",
+        "consistency_feedback": "",
+        "consistency_rounds": 0,
+        "consistency_continue": False,
         "research_status": "",
     }
 
@@ -151,12 +164,21 @@ def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
 
 def _active_step(values: dict, next_nodes: list[str], status: str) -> str:
     if status == "completed":
-        return "report_node"
+        return "consistency_checker_node"
     if status in {"paused", "rejected"}:
         return "planner_node"
-    for name in ("report_node", "verifier_node", "experiment_node", "planner_node", "literature_node"):
+    for name in (
+        "consistency_checker_node",
+        "report_node",
+        "verifier_node",
+        "experiment_node",
+        "planner_node",
+        "literature_node",
+    ):
         if name in next_nodes:
             return name
+    if values.get("paper_markdown") and values.get("consistency_continue"):
+        return "report_node"
     if values.get("verification_status"):
         return "report_node"
     if values.get("current_experiment_code"):
@@ -175,7 +197,8 @@ def _steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, s
         "experiment_node": bool(values.get("current_experiment_code")),
         "verifier_node": values.get("verification_status") in {"Passed", "Failed"}
         and not values.get("critic_continue"),
-        "report_node": values.get("research_status") == "Completed",
+        "report_node": bool(values.get("paper_markdown")) and not values.get("consistency_continue"),
+        "consistency_checker_node": values.get("research_status") == "Completed",
     }
     active = _active_step(values, next_nodes, status)
     steps = []

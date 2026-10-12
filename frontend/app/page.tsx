@@ -14,6 +14,7 @@ const EMPTY_STEPS = [
   { id: "experiment_node", phase: "pending" as const },
   { id: "verifier_node", phase: "pending" as const },
   { id: "report_node", phase: "pending" as const },
+  { id: "consistency_checker_node", phase: "pending" as const },
 ];
 
 export default function Home() {

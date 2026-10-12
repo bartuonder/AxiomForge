@@ -36,6 +36,8 @@ SYSTEM_PROMPT = (
     "with columns Model, Accuracy, F1, ROC-AUC, PR-AUC, and Train seconds. "
     "Every metric cell must be that model's mean ± std from statistical_results. "
     "Use only the supplied state and memory. Do not invent metrics. "
+    "If Claim review lists inconsistencies, rewrite the paper so those inconsistencies are gone. "
+    "Replace every rejected number with the exact statistical_results value. "
     "Return only the Markdown document."
 )
 
@@ -79,7 +81,9 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Model results (one run; do not average and do not put these in the results table):\n{json.dumps(model_results, ensure_ascii=False)}\n"
         f"Statistical results (exact Python means and standard deviations; copy these numbers):\n{json.dumps(statistical_results, ensure_ascii=False)}\n"
         f"Final code:\n{state.get('current_experiment_code', '')}\n"
-        f"RAG memory failures:\n{json.dumps(failures, ensure_ascii=False)}"
+        f"RAG memory failures:\n{json.dumps(failures, ensure_ascii=False)}\n"
+        f"Claim review:\n{state.get('consistency_feedback', '')}\n"
+        f"Previous paper:\n{state.get('paper_markdown', '')}"
     )
 
 

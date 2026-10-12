@@ -24,6 +24,7 @@ export const STEP_LABELS: Record<string, string> = {
   experiment_node: "Experiment",
   verifier_node: "Verifier",
   report_node: "Report",
+  consistency_checker_node: "Claims",
 };
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
