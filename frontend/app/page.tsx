@@ -87,6 +87,7 @@ export default function Home() {
 
   const steps = snapshot?.steps?.length ? snapshot.steps : EMPTY_STEPS;
   const paused = snapshot?.status === "paused" && snapshot.hypotheses.length > 0;
+  const runLocked = Boolean(threadId) && snapshot?.status !== "rejected" && snapshot?.status !== "failed";
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-12 px-6 py-16">
@@ -95,7 +96,7 @@ export default function Home() {
         <h1 className="text-4xl text-[#1c1915]">Research console</h1>
         <p className="text-[#5c564e]">Literature, plan, experiment, verification, then the paper.</p>
       </header>
-      <ResearchForm query={query} busy={busy || Boolean(threadId)} onQueryChange={setQuery} onSubmit={() => void onStart()} />
+      <ResearchForm query={query} busy={busy || runLocked} onQueryChange={setQuery} onSubmit={() => void onStart()} />
       {error ? <p className="text-center text-sm text-[#9b3d2b]">{error}</p> : null}
       <AgentTimeline steps={steps} />
       {paused ? (
