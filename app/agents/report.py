@@ -18,7 +18,9 @@ SYSTEM_PROMPT = (
     "Sadece kullanıcının sorusuna, üretilen hipotezlere, yazılan koda ve elde edilen metriklere sadık kal. "
     "RAG hafızasından gelen hataları (ablation) kullanıcının konusuyla mantıklı bir bütünlük oluşturacak şekilde metodolojiye yedir. "
     "If model_results lists more than one model, the Results section must include a Markdown comparison table "
-    "with columns Model, Accuracy, F1, and Train seconds. Use only the supplied numbers. "
+    "with columns Model, Accuracy, F1, ROC-AUC, PR-AUC, Train seconds, TN, FP, FN, and TP. "
+    "Also state the dataset name, sample count, feature count, and negative/positive class ratios. "
+    "Use only the supplied numbers. "
     "Use only the supplied state and memory. Do not invent metrics. "
     "Return only the Markdown document."
 )
@@ -48,6 +50,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
     literature = state.get("literature_context") or []
     metrics = state.get("experiment_metrics") or {}
     model_results = state.get("model_results") or []
+    dataset_profile = state.get("dataset_profile") or {}
     failures = [item for item in past_experiments if item.get("is_success") is False]
     return (
         f"Run id: {run_id}\n"
@@ -57,6 +60,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Hypotheses:\n{json.dumps(hypotheses, ensure_ascii=False)}\n"
         f"Literature:\n{json.dumps(literature, ensure_ascii=False)}\n"
         f"Metrics: {json.dumps(metrics, ensure_ascii=False)}\n"
+        f"Dataset profile:\n{json.dumps(dataset_profile, ensure_ascii=False)}\n"
         f"Model results:\n{json.dumps(model_results, ensure_ascii=False)}\n"
         f"Final code:\n{state.get('current_experiment_code', '')}\n"
         f"RAG memory failures:\n{json.dumps(failures, ensure_ascii=False)}"
