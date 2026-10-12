@@ -76,6 +76,7 @@ def _initial_state(query: str) -> AgentState:
         "experiment_metrics": {},
         "model_results": [],
         "dataset_profile": {},
+        "statistical_results": [],
         "verification_status": "",
         "verifier_feedback": "",
         "critic_rounds": 0,

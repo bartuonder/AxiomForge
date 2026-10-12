@@ -7,7 +7,14 @@ from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
 from app.experiments import execute_experiment
 from app.graph.state import AgentState
-from app.graph.verifier import MAX_CRITIC_ROUNDS, judge_data_leakage, models_dropped, rewrite_seeds
+from app.graph.verifier import (
+    MAX_CRITIC_ROUNDS,
+    VERIFICATION_SEEDS,
+    is_unstable,
+    judge_data_leakage,
+    rewrite_seeds,
+    summarize_seed_runs,
+)
 from app.memory.rag_memory import save_experiment, search_past_experiments
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
 from app.tracking.mlflow_logger import parse_model_results
@@ -111,35 +118,29 @@ def verifier_node(state: AgentState) -> dict:
     rounds = int(state.get("critic_rounds", 0))
     logger.info("verifier_node round=%s original_metrics=%s", rounds, original)
     reasons: list[str] = []
+    statistical_results: list[dict[str, str | float]] = []
     if not code or not original:
         reasons.append("Deney metrik üretmedi.")
     else:
-        rewritten = rewrite_seeds(code)
-        logger.info("verifier rewritten seeds in experiment code")
-        try:
-            output = run_classification(rewritten, EXPERIMENT_CSV_SCHEMA)
-            renewed = parse_model_results(output)
-        except (SandboxCodeError, RuntimeError) as exc:
-            logger.error("verifier sandbox failed: %s", exc)
-            reasons.append(f"Overfitting/Unstable: seed yeniden çalışması başarısız. {exc}")
-        else:
-            logger.info("verifier seed metrics original=%s renewed=%s", original, renewed)
-            original_models = list(state.get("model_results") or [])
-            if not original_models:
-                original_models = [
-                    {
-                        "model": "classifier",
-                        "accuracy": float(original.get("accuracy", 0.0)),
-                        "f1": float(original.get("f1", 0.0)),
-                        "train_seconds": 0.0,
-                    }
-                ]
-            if models_dropped(original_models, renewed):
-                logger.info("Overfitting/Unstable original=%s renewed=%s", original_models, renewed)
-                reasons.append(
-                    "Overfitting/Unstable: seed değişince performans %10'dan fazla düştü. "
-                    f"original={original_models} renewed={renewed}"
-                )
+        collected: list[list[dict[str, str | float]]] = []
+        for seed in VERIFICATION_SEEDS:
+            rewritten = rewrite_seeds(code, seed)
+            logger.info("verifier seed=%s", seed)
+            try:
+                output = run_classification(rewritten, EXPERIMENT_CSV_SCHEMA)
+                collected.append(parse_model_results(output))
+            except (SandboxCodeError, RuntimeError) as exc:
+                logger.error("verifier seed=%s failed: %s", seed, exc)
+                reasons.append(f"Kararsız (Unstable): seed={seed} çalışması başarısız. {exc}")
+                break
+        statistical_results = summarize_seed_runs(collected)
+        logger.info("verifier statistical_results=%s", statistical_results)
+        if not reasons and is_unstable(statistical_results):
+            logger.info("Kararsız (Unstable) statistical_results=%s", statistical_results)
+            reasons.append(
+                "Kararsız (Unstable): 5 seed üzerinde ROC-AUC veya F1 standart sapması 0.05 değerini aştı. "
+                f"statistical_results={statistical_results}"
+            )
     if code:
         leakage, leakage_reason = judge_data_leakage(code)
         logger.info("verifier leakage=%s reason=%s", leakage, leakage_reason)
@@ -151,6 +152,7 @@ def verifier_node(state: AgentState) -> dict:
             "verification_status": "Passed",
             "verifier_feedback": "",
             "critic_continue": False,
+            "statistical_results": statistical_results,
         }
     feedback = " ".join(reasons)
     logger.info("verification_status=Failed feedback=%s", feedback)
@@ -169,10 +171,12 @@ def verifier_node(state: AgentState) -> dict:
             "verification_status": "Failed",
             "verifier_feedback": feedback,
             "critic_continue": False,
+            "statistical_results": statistical_results,
         }
     return {
         "verification_status": "Failed",
         "verifier_feedback": feedback,
         "critic_rounds": rounds + 1,
         "critic_continue": True,
+        "statistical_results": statistical_results,
     }

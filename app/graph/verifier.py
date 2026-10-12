@@ -1,13 +1,14 @@
 import ast
 import json
+import statistics
 
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
 
 SEED_NAMES = {"random_state", "random_seed", "seed"}
-REPLACEMENT_SEED = 9999
-ALTERNATE_SEED = 12345
+VERIFICATION_SEEDS = (42, 100, 200, 300, 400)
+UNSTABLE_STD = 0.05
 DROP_LIMIT = 0.10
 MAX_CRITIC_ROUNDS = 2
 LEAKAGE_PROMPT = (
@@ -18,12 +19,48 @@ LEAKAGE_PROMPT = (
 )
 
 
-def rewrite_seeds(source: str) -> str:
+def rewrite_seeds(source: str, seed: int) -> str:
     tree = ast.parse(source)
-    rewriter = _SeedRewriter()
+    rewriter = _SeedRewriter(seed)
     rewritten = rewriter.visit(tree)
     ast.fix_missing_locations(rewritten)
     return ast.unparse(rewritten)
+
+
+def summarize_seed_runs(
+    runs: list[list[dict[str, str | float]]],
+) -> list[dict[str, str | float]]:
+    names: list[str] = []
+    for run in runs:
+        for item in run:
+            name = str(item["model"])
+            if name not in names:
+                names.append(name)
+    summary: list[dict[str, str | float]] = []
+    for name in names:
+        record: dict[str, str | float] = {
+            "model": name,
+            "seeds": ",".join(str(seed) for seed in VERIFICATION_SEEDS),
+        }
+        for metric in ("roc_auc", "f1"):
+            values = [
+                float(item[metric])
+                for run in runs
+                for item in run
+                if str(item["model"]) == name and metric in item
+            ]
+            record[f"{metric}_mean"] = statistics.mean(values) if values else 0.0
+            record[f"{metric}_std"] = statistics.stdev(values) if len(values) > 1 else 0.0
+        summary.append(record)
+    return summary
+
+
+def is_unstable(summary: list[dict[str, str | float]]) -> bool:
+    for record in summary:
+        for metric in ("roc_auc_std", "f1_std"):
+            if float(record.get(metric, 0.0)) > UNSTABLE_STD:
+                return True
+    return False
 
 
 def judge_data_leakage(code: str) -> tuple[bool, str]:
@@ -85,10 +122,13 @@ def performance_dropped(original: dict[str, float], renewed: dict[str, float]) -
 
 
 class _SeedRewriter(ast.NodeTransformer):
+    def __init__(self, seed: int) -> None:
+        self.seed = seed
+
     def visit_keyword(self, node: ast.keyword) -> ast.keyword:
         self.generic_visit(node)
         if node.arg in SEED_NAMES and _is_int(node.value):
-            node.value = ast.Constant(value=_different_seed(node.value.value))
+            node.value = ast.Constant(value=self.seed)
         return node
 
     def visit_Assign(self, node: ast.Assign) -> ast.Assign:
@@ -99,14 +139,14 @@ class _SeedRewriter(ast.NodeTransformer):
             and node.targets[0].id in SEED_NAMES
             and _is_int(node.value)
         ):
-            node.value = ast.Constant(value=_different_seed(node.value.value))
+            node.value = ast.Constant(value=self.seed)
         return node
 
     def visit_Call(self, node: ast.Call) -> ast.Call:
         self.generic_visit(node)
         name = _call_name(node.func)
         if name == "seed" and node.args and _is_int(node.args[0]):
-            node.args[0] = ast.Constant(value=_different_seed(node.args[0].value))
+            node.args[0] = ast.Constant(value=self.seed)
         return node
 
 
@@ -121,8 +161,3 @@ def _call_name(func: ast.expr) -> str:
 def _is_int(node: ast.expr) -> bool:
     return isinstance(node, ast.Constant) and isinstance(node.value, int)
 
-
-def _different_seed(current: int) -> int:
-    if current == REPLACEMENT_SEED:
-        return ALTERNATE_SEED
-    return REPLACEMENT_SEED
