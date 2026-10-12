@@ -62,16 +62,17 @@ def models_dropped(
         other = found.get(str(item["model"]))
         if other is None:
             return True
+        score_names = ("accuracy", "f1", "roc_auc", "pr_auc")
         if performance_dropped(
-            {"accuracy": float(item["accuracy"]), "f1": float(item["f1"])},
-            {"accuracy": float(other["accuracy"]), "f1": float(other["f1"])},
+            {name: float(item[name]) for name in score_names if name in item},
+            {name: float(other[name]) for name in score_names if name in other},
         ):
             return True
     return False
 
 
 def performance_dropped(original: dict[str, float], renewed: dict[str, float]) -> bool:
-    for name in ("accuracy", "f1"):
+    for name in ("accuracy", "f1", "roc_auc", "pr_auc"):
         if name not in original or name not in renewed:
             continue
         baseline = original[name]

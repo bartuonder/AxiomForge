@@ -90,6 +90,7 @@ def experiment_node(state: AgentState) -> dict:
         "current_experiment_code": result.get("code", ""),
         "experiment_metrics": metrics,
         "model_results": list(result.get("model_results") or []),
+        "dataset_profile": dict(result.get("dataset_profile") or {}),
         "critic_continue": False,
     }
 

@@ -10,11 +10,25 @@ from app.config import MLFLOW_TRACKING_URI
 
 _ACCURACY = re.compile(r"accuracy\s*[:=]\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
 _F1 = re.compile(r"\bf1(?:_score)?\s*[:=]\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
+_DATASET_LINE = re.compile(
+    r"dataset\s*=\s*(?P<dataset>[A-Za-z0-9_]+)\s+"
+    r"samples\s*=\s*(?P<samples>\d+)\s+"
+    r"features\s*=\s*(?P<features>\d+)\s+"
+    r"negative_ratio\s*=\s*(?P<negative_ratio>[0-9]*\.?[0-9]+)\s+"
+    r"positive_ratio\s*=\s*(?P<positive_ratio>[0-9]*\.?[0-9]+)",
+    re.IGNORECASE,
+)
 _MODEL_LINE = re.compile(
     r"model\s*=\s*(?P<model>[A-Za-z0-9_+\-]+)\s+"
     r"accuracy\s*=\s*(?P<accuracy>[0-9]*\.?[0-9]+)\s+"
     r"f1\s*=\s*(?P<f1>[0-9]*\.?[0-9]+)\s+"
-    r"train_seconds\s*=\s*(?P<train_seconds>[0-9]*\.?[0-9]+)",
+    r"roc_auc\s*=\s*(?P<roc_auc>[0-9]*\.?[0-9]+)\s+"
+    r"pr_auc\s*=\s*(?P<pr_auc>[0-9]*\.?[0-9]+)\s+"
+    r"train_seconds\s*=\s*(?P<train_seconds>[0-9]*\.?[0-9]+)\s+"
+    r"tn\s*=\s*(?P<tn>\d+)\s+"
+    r"fp\s*=\s*(?P<fp>\d+)\s+"
+    r"fn\s*=\s*(?P<fn>\d+)\s+"
+    r"tp\s*=\s*(?P<tp>\d+)",
     re.IGNORECASE,
 )
 _ALGORITHM = re.compile(
@@ -33,6 +47,19 @@ def detect_algorithm(source: str) -> str:
     return match.group(1)
 
 
+def parse_dataset_profile(output: str) -> dict[str, str | float]:
+    match = _DATASET_LINE.search(output)
+    if match is None:
+        raise RuntimeError(f"dataset profile missing from sandbox output: {output}")
+    return {
+        "dataset": match.group("dataset"),
+        "samples": float(match.group("samples")),
+        "features": float(match.group("features")),
+        "negative_ratio": float(match.group("negative_ratio")),
+        "positive_ratio": float(match.group("positive_ratio")),
+    }
+
+
 def parse_model_results(output: str) -> list[dict[str, str | float]]:
     results: list[dict[str, str | float]] = []
     for match in _MODEL_LINE.finditer(output):
@@ -41,20 +68,18 @@ def parse_model_results(output: str) -> list[dict[str, str | float]]:
                 "model": match.group("model"),
                 "accuracy": float(match.group("accuracy")),
                 "f1": float(match.group("f1")),
+                "roc_auc": float(match.group("roc_auc")),
+                "pr_auc": float(match.group("pr_auc")),
                 "train_seconds": float(match.group("train_seconds")),
+                "tn": float(match.group("tn")),
+                "fp": float(match.group("fp")),
+                "fn": float(match.group("fn")),
+                "tp": float(match.group("tp")),
             }
         )
-    if results:
-        return results
-    metrics = parse_metrics(output)
-    return [
-        {
-            "model": "classifier",
-            "accuracy": float(metrics.get("accuracy", 0.0)),
-            "f1": float(metrics.get("f1", 0.0)),
-            "train_seconds": 0.0,
-        }
-    ]
+    if not results:
+        raise RuntimeError(f"model metrics missing from sandbox output: {output}")
+    return results
 
 
 def parse_metrics(output: str) -> dict[str, float]:
@@ -89,8 +114,20 @@ def log_model_comparison(
     algorithm: str,
     model: str,
     attempts: int,
+    dataset: dict[str, str | float] | None = None,
 ) -> str:
     _start_experiment()
+    metric_names = (
+        "accuracy",
+        "f1",
+        "roc_auc",
+        "pr_auc",
+        "train_seconds",
+        "tn",
+        "fp",
+        "fn",
+        "tp",
+    )
     with mlflow.start_run() as parent:
         mlflow.log_param("prompt_version", prompt_version)
         mlflow.log_param("algorithm", algorithm)
@@ -98,12 +135,17 @@ def log_model_comparison(
         mlflow.log_param("attempts", str(attempts))
         mlflow.log_param("status", "Finished")
         mlflow.log_param("compared_models", ",".join(str(item["model"]) for item in results))
+        if dataset:
+            mlflow.log_param("dataset", str(dataset["dataset"]))
+            mlflow.log_metric("samples", float(dataset["samples"]))
+            mlflow.log_metric("features", float(dataset["features"]))
+            mlflow.log_metric("negative_ratio", float(dataset["negative_ratio"]))
+            mlflow.log_metric("positive_ratio", float(dataset["positive_ratio"]))
         for item in results:
             with mlflow.start_run(nested=True, run_name=str(item["model"])):
                 mlflow.log_param("model", str(item["model"]))
-                mlflow.log_metric("accuracy", float(item["accuracy"]))
-                mlflow.log_metric("f1", float(item["f1"]))
-                mlflow.log_metric("train_seconds", float(item["train_seconds"]))
+                for name in metric_names:
+                    mlflow.log_metric(name, float(item[name]))
         return parent.info.run_id
 
 

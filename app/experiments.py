@@ -12,6 +12,7 @@ from app.tracking.mlflow_logger import (
     detect_algorithm,
     log_failed_run,
     log_model_comparison,
+    parse_dataset_profile,
     parse_model_results,
 )
 
@@ -36,6 +37,7 @@ def execute_experiment(
         logger.info("sandbox attempt %s/%s", attempt, MAX_RETRIES)
         try:
             output = run_classification(source, csv_schema)
+            dataset_profile = parse_dataset_profile(output)
             model_results = parse_model_results(output)
             metrics = {
                 "accuracy": float(model_results[0]["accuracy"]),
@@ -51,7 +53,12 @@ def execute_experiment(
             logger.error("sandbox attempt %s/%s failed:\n%s", attempt, MAX_RETRIES, last_error)
         else:
             metric_text = " ".join(
-                f"{item['model']} accuracy={item['accuracy']} f1={item['f1']} train_seconds={item['train_seconds']}"
+                (
+                    f"{item['model']} accuracy={item['accuracy']} f1={item['f1']} "
+                    f"roc_auc={item['roc_auc']} pr_auc={item['pr_auc']} "
+                    f"train_seconds={item['train_seconds']} "
+                    f"tn={item['tn']} fp={item['fp']} fn={item['fn']} tp={item['tp']}"
+                )
                 for item in model_results
             )
             if record_memory:
@@ -71,6 +78,7 @@ def execute_experiment(
                     algorithm=detect_algorithm(source),
                     model=MODEL,
                     attempts=attempt,
+                    dataset=dataset_profile,
                 )
             except Exception:
                 logger.exception("mlflow logging failed")
@@ -81,6 +89,7 @@ def execute_experiment(
                 "attempts": attempt,
                 "mlflow_run_id": run_id,
                 "model_results": model_results,
+                "dataset_profile": dataset_profile,
             }
             payload.update(metrics)
             return payload
