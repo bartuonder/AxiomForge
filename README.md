@@ -1,6 +1,6 @@
 # AxiomForge
 
-Altı katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü, Faz 4 rapor ajanı ve Next.js konsolu, Faz 5 bilimsel sıkılık.
+Yedi katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü, Faz 4 rapor ajanı ve Next.js konsolu, Faz 5 bilimsel sıkılık, Faz 6 iddia doğrulama.
 
 Faz 1 tek başına bir sınıflandırma deneyi üretir, kodu E2B sandbox içinde çalıştırır ve hata olursa en fazla 3 denemede kendini düzeltir. Sonuç hem yerel MLflow sunucusuna hem de deney hafızasına yazılır.
 
@@ -10,9 +10,11 @@ Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde 
 
 Faz 3 doğrulayıcıdır. `verifier_node` kodu veri sızıntısı için inceler. Kararlılık ölçümü Faz 5'teki beş tohumdur. `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır.
 
-Faz 4 rapor ajanı ve onu süren arayüzdür. Doğrulama `Passed` olunca ya da eleştiri hakkı bitip `Failed` hafızaya yazılınca `report_node` çalışır. Atölye makalesi `reports/{thread_id}_paper.md` dosyasına kaydedilir ve `research_status` `Completed` olur. Next.js konsolu aynı akışı `http://127.0.0.1:3000` üzerinde gösterir. Grafın düğüm sırası `GRAPH.md` içindedir.
+Faz 4 rapor ajanı ve onu süren arayüzdür. Doğrulama `Passed` olunca ya da eleştiri hakkı bitip `Failed` hafızaya yazılınca `report_node` çalışır. Atölye makalesi `reports/{thread_id}_paper.md` dosyasına kaydedilir. `research_status` `Completed` olması Faz 6'daki iddia kontrolünden sonradır. Next.js konsolu aynı akışı `http://127.0.0.1:3000` üzerinde gösterir. Grafın düğüm sırası `GRAPH.md` içindedir.
 
 Faz 5, Faz 4'ten sonraki bilimsel sıkılıktır. Deney ajanı `experiment-v3` ile soruda adı geçen modelleri aynı eğitim-test bölünmesinde karşılaştırır. Veri, `sklearn.datasets` içinden gerçekçi bir sınıflandırma seti ya da bilinçli dengesiz bir `make_classification` setidir. Küçük sentetik CSV tek kaynak olmaz. Dengesiz veride Accuracy tek başına yeterli sayılmaz. Betik önce veri seti satırını, sonra her model için Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık matrisini basar. Üst MLflow run'ı veri profilini tutar. Her model iç içe bir run olur. Doğrulayıcı aynı kodu 42, 100, 200, 300 ve 400 tohumlarıyla yeniden çalıştırır. Model başına ROC-AUC ve F1 için ortalama ve örneklem standart sapması hesaplanır. Sapma 0.05'i geçerse sonuç `Kararsız (Unstable)` ve `Failed` olur. Bu özet `statistical_results` alanına yazılır. Raporun teması kullanıcının sorgusudur. Bir modelin daha iyi olduğu yalnız ROC-AUC veya PR-AUC ile yazılır. Düşük F1, modelin kusursuz olduğu iddiasına çevrilmez. Metodoloji örnek sayısını, öznitelik sayısını ve sınıf dengesini içerir. Yöntem atfı yalnız `literature_context` içindeki yazar veya arXiv kaydından gelir. Results metrikleri Mean ± Std Dev biçimindedir. Birden fazla model varsa karşılaştırma tablosu eklenir. Konsolda sorgu kutusu boş açılır. Plan reddedilirse veya çalışma başarısız olursa yeni bir sorgu yazılabilir.
+
+Faz 6 iddia doğrulamadır. Beş tohumun Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresi ortalaması ile standart sapması NumPy ile hesaplanır. Sonuç, model adına göre `statistical_results` sözlüğüne yazılır. Rapor bu sayıları kopyalar; kendi ortalamasını üretmez ve tabloyu tek koşuya göre kurmaz. `report_node` ardından `consistency_checker_node` çalışır. Hakem makaledeki sayıları bu sözlükle karşılaştırır, yüksek sapmaya rağmen kesin üstünlük iddiasını ve yalnız ROC-AUC övgüsünü arar. Tutarsızlık varsa eleştiri `consistency_feedback` olur ve rapor en fazla 2 kez yeniden yazılır. Kontrol temizse ya da iki yeniden yazma da bittiyse `research_status` `Completed` olur. Konsoldaki son adım Claims'tir.
 
 ## Ne var
 
@@ -22,9 +24,10 @@ Faz 5, Faz 4'ten sonraki bilimsel sıkılıktır. Deney ajanı `experiment-v3` i
 - E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
 - Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
 - MLflow: veri profili üst run'da, her modelin Accuracy, F1, ROC-AUC, PR-AUC, süre ve karışıklık sayıları iç içe run'da
-- LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor
-- Doğrulayıcı: beş tohum, ROC-AUC ve F1 sapması, sızıntı analizi ve en fazla 2 eleştiri turu
-- Rapor ajanı: sorgu teması, zorunlu atıf, Mean ± Std Dev ve karşılaştırma tablosu
+- LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor → iddia kontrolü
+- Doğrulayıcı: beş tohum, NumPy ortalama ve sapma, sızıntı analizi ve en fazla 2 eleştiri turu
+- Rapor ajanı: sorgu teması, zorunlu atıf ve `statistical_results` içindeki kesin Mean ± Std Dev
+- İddia kontrolü: makale sayıları ile istatistik sözlüğünü karşılaştırır, en fazla 2 yeniden yazma
 - Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
 - arXiv araması: sorguya en yakın 3 makalenin başlığı ve özeti
 - Planlayıcı: literatür ve geçmiş başarısız deneylerden 3 test edilebilir hipotez
@@ -45,9 +48,10 @@ app/
   agents/literature.py       arXiv araçlı literatür ajanı
   agents/planner.py          geçmiş hataları eleyen hipotez ajanı
   agents/report.py           atölye makalesi yazan ajan
+  agents/consistency.py      makale sayıları ile istatistik sözlüğünü karşılaştıran hakem
   tools/arxiv.py             arXiv arama aracı
   graph/state.py             AgentState
-  graph/nodes.py             literatür, plan, deney, doğrulayıcı ve rapor düğümleri
+  graph/nodes.py             literatür, plan, deney, doğrulayıcı, rapor ve iddia düğümleri
   graph/verifier.py          beş tohum, sapma ve sızıntı kararı
   graph/workflow.py          StateGraph, kesinti, onay ve koşullu dönüş
   memory/enable_pgvector.sql pgvector eklentisi
@@ -74,7 +78,7 @@ DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
 
 `E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı ve deney hafızası başlamaz. Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir. Postgres imajı `pgvector/pgvector:pg16` kullanır.
 
-`AgentState` alanları `GRAPH.md` içindedir. Rapor bitince `research_status` değeri `Completed` olur.
+`AgentState` alanları `GRAPH.md` içindedir. İddia kontrolü bitince `research_status` değeri `Completed` olur.
 
 ## Kurulum
 
@@ -206,12 +210,12 @@ age:float, monthly_spend:float, tenure_months:int, churn:int
 
 Son çalışan kod `current_experiment_code` alanına, ilk modelin Accuracy ve F1 değerleri `experiment_metrics` alanına, tüm modeller `model_results` alanına, veri profili `dataset_profile` alanına yazılır. Ardından `verifier_node` iki kontrol yapar:
 
-1. Koddaki `random_state`, `random_seed` ve `seed` değerlerini sırayla 42, 100, 200, 300 ve 400 yapar. Her tohum E2B'de yeniden çalışır. Model başına ROC-AUC ve F1 için ortalama ve standart sapma `statistical_results` alanına yazılır. Sapma 0.05'i geçerse bu `Kararsız (Unstable)` sayılır.
+1. Koddaki `random_state`, `random_seed` ve `seed` değerlerini sırayla 42, 100, 200, 300 ve 400 yapar. Her tohum E2B'de yeniden çalışır. Her model için Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresinin ortalaması ile standart sapması NumPy ile hesaplanır ve `statistical_results` sözlüğüne yazılır. ROC-AUC veya F1 sapması 0.05'i geçerse bu `Kararsız (Unstable)` sayılır.
 2. Kodu veri sızıntısı için inceler. Örneğin ayrılmadan önce `fit_transform` veya imputation varsa sebebiyle birlikte `Failed` döner.
 
 `verification_status` `Passed` ise akış `report_node`'a gider. `Failed` ise eleştiri `verifier_feedback` olarak `experiment_node`'a geri gider ve kod düzeltilir. Bu dönüş en fazla 2 kez olur. İkinci düzeltmeden sonra doğrulayıcı hâlâ onaylamazsa deney `is_success=False` ile hafızaya yazılır ve yine `report_node` çalışır. Sızıntı mesajı `Leakage çözülemedi` ile başlar.
 
-Rapor `reports/{thread_id}_paper.md` dosyasına yazılır. Tema kullanıcının sorgusudur. Metodoloji örnek, öznitelik ve dengesizlik oranını yazar. Atıf yalnız literatür bağlamındaki kaynaktan gelir. Results, doğrulayıcının Mean ± Std Dev değerlerini kullanır. Birden fazla model varsa tablo sütunları Model, Accuracy, F1, ROC-AUC, PR-AUC, Train seconds, TN, FP, FN ve TP olur. `research_status` `Completed` olur. Aynı metin `GET /reports/{thread_id}` ucundan ve konsoldaki `/result/{thread_id}` sayfasından okunur.
+Rapor `reports/{thread_id}_paper.md` dosyasına yazılır. Tema kullanıcının sorgusudur. Metodoloji örnek, öznitelik ve dengesizlik oranını yazar. Atıf yalnız literatür bağlamındaki kaynaktan gelir. Results ve karşılaştırma tablosu `statistical_results` içindeki Mean ± Std Dev değerleridir. Sütunlar Model, Accuracy, F1, ROC-AUC, PR-AUC ve Train seconds olur. Ardından `consistency_checker_node` makaleyi bu sözlükle okur. Tutarsızlık varsa rapor en fazla 2 kez yeniden yazılır. Kontrol bitince `research_status` `Completed` olur. Aynı metin `GET /reports/{thread_id}` ucundan ve konsoldaki `/result/{thread_id}` sayfasından okunur.
 
 Konsolda araştırma kutusu boştur. Start Research, kutu doluyken isteği gönderir. Çalışma bitene, plan reddedilene veya doğrulama başarısız olana kadar kutu kilitli kalır. Red veya başarısızlıktan sonra yeni bir sorgu yazılabilir.
 

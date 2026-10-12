@@ -13,6 +13,8 @@ START
   -> verifier_node
        -> experiment_node   (eleştiri, en fazla 2 kez)
        -> report_node       (Passed veya eleştiri hakkı bitmiş Failed)
+  -> consistency_checker_node
+       -> report_node    (iddia tutarsız, en fazla 2 kez)
   -> END
 ```
 
@@ -28,18 +30,20 @@ START
 
 `Y` ise `approval_status` `approved` olur ve akış devam eder. `N` ise `approval_status` `rejected` olur; deney, doğrulayıcı ve rapor çalışmaz.
 
-`experiment_node` ilk hipotezi Faz 1 döngüsüne verir. CSV şeması `age`, `monthly_spend`, `tenure_months`, `churn` kolonlarıdır. Çalışan kod `current_experiment_code`, Accuracy ve F1 `experiment_metrics` alanına yazılır. Doğrulayıcıdan eleştiri gelmişse yeni kod üretmek yerine mevcut kodu o eleştiriyle düzeltir.
+`experiment_node` ilk hipotezi Faz 1 döngüsüne verir. CSV şeması `age`, `monthly_spend`, `tenure_months`, `churn` kolonlarıdır. Çalışan kod `current_experiment_code` alanına, ilk modelin Accuracy ve F1 değerleri `experiment_metrics` alanına, tüm modeller `model_results` alanına, veri profili `dataset_profile` alanına yazılır. Doğrulayıcıdan eleştiri gelmişse yeni kod üretmek yerine mevcut kodu o eleştiriyle düzeltir.
 
 `verifier_node` iki kontrol yapar.
 
-1. `random_state`, `random_seed` ve `seed` değerlerini `9999` yapar ve kodu E2B'de yeniden çalıştırır. Accuracy veya F1 yüzde 10'dan fazla düşerse sonuç `Overfitting/Unstable` sayılır.
+1. `random_state`, `random_seed` ve `seed` değerlerini 42, 100, 200, 300 ve 400 yapar. Her tohum E2B'de yeniden çalışır. Her model için Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresinin ortalaması ile standart sapması NumPy ile hesaplanır ve `statistical_results` sözlüğüne yazılır. ROC-AUC veya F1 sapması 0.05'i geçerse sonuç `Kararsız (Unstable)` sayılır.
 2. Kodu veri sızıntısı için okur. Ayrılmadan önce imputation veya `fit_transform` varsa sebebiyle `Failed` döner.
 
 İkisi de temizse `verification_status` `Passed` olur. Değilse `Failed` olur ve sebep `verifier_feedback` alanına yazılır.
 
 `critic_continue` doğruysa ve `critic_rounds` 2'den küçükse akış `experiment_node`'a döner. İkinci düzeltmeden sonra doğrulayıcı hâlâ reddederse deney `is_success=False` ile hafızaya yazılır ve rapor düğümüne geçilir.
 
-`report_node` literatür, hipotez, son kod, metrik, doğrulayıcı durumu ve hafızadaki hatalardan bir atölye makalesi yazar. Başlıklar Abstract, Introduction, Methodology, Results, Conclusion şeklindedir. Dosya `reports/{thread_id}_paper.md` olur. `research_status` `Completed` yapılır ve graf biter.
+`report_node` literatür, hipotez, son kod, metrik, doğrulayıcı durumu ve hafızadaki hatalardan bir atölye makalesi yazar. Başlıklar Abstract, Introduction, Methodology, Results, Conclusion şeklindedir. Results tablosu `statistical_results` içindeki ortalama ve sapmadır. Dosya `reports/{thread_id}_paper.md` olur. Metin `paper_markdown` alanına da yazılır. Graf burada bitmez.
+
+`consistency_checker_node` makaleyi ve `statistical_results` sözlüğünü okur. Sayı uyuşmazlığı, yüksek sapmaya rağmen kesin üstünlük iddiası ve yalnız ROC-AUC övgüsü aranır. Tutarsızlık `consistency_feedback` alanına yazılır. `consistency_rounds` 2'den küçükse akış `report_node`'a döner ve makale bu eleştiriyle yeniden yazılır. Kontrol temizse ya da iki yeniden yazma da bittiyse `research_status` `Completed` olur ve graf biter.
 
 ## Durum
 
@@ -52,12 +56,19 @@ START
 | `hypotheses` | Üç test edilebilir hipotez |
 | `approval_status` | `approved` veya `rejected` |
 | `current_experiment_code` | Son çalışan Python kodu |
-| `experiment_metrics` | Accuracy ve F1 |
+| `experiment_metrics` | İlk modelin Accuracy ve F1 değeri |
+| `model_results` | Tek koşudaki model satırları |
+| `dataset_profile` | Veri seti adı, örnek, öznitelik ve sınıf oranları |
+| `statistical_results` | Model başına NumPy ortalama ve standart sapma |
 | `verification_status` | `Passed` veya `Failed` |
 | `verifier_feedback` | Eleştiri metni |
 | `critic_rounds` | Doğrulayıcıdan deneye dönüş sayısı |
 | `critic_continue` | Bir sonraki adımın deney olması |
-| `research_status` | Rapor bitince `Completed` |
+| `paper_markdown` | Son yazılan makale |
+| `consistency_feedback` | Hakemin tutarsızlık listesi |
+| `consistency_rounds` | Rapora geri dönüş sayısı |
+| `consistency_continue` | Bir sonraki adımın rapor olması |
+| `research_status` | İddia kontrolü bitince `Completed` |
 
 ## Kalıcılık
 
