@@ -75,7 +75,7 @@ def _open_graph():
     return PostgresSaver.from_conn_string(DATABASE_URL)
 
 
-def _initial_state(query: str) -> AgentState:
+def empty_research_state(query: str) -> AgentState:
     return {
         "query": query,
         "literature_context": [],
@@ -84,6 +84,7 @@ def _initial_state(query: str) -> AgentState:
         "current_experiment_code": "",
         "experiment_metrics": {},
         "model_results": [],
+        "tested_models": [],
         "dataset_profile": {},
         "statistical_results": {},
         "verification_status": "",
@@ -99,12 +100,26 @@ def _initial_state(query: str) -> AgentState:
 
 
 def _run_until_pause(thread_id: str, query: str) -> None:
-    config = {"configurable": {"thread_id": thread_id}}
+    config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
+    fresh = empty_research_state(query)
+    logger.info("start_research thread_id=%s", thread_id)
+    logger.info(
+        "start_research reset literature=%s hypotheses=%s code=%s stats=%s models=%s tested=%s",
+        fresh["literature_context"],
+        fresh["hypotheses"],
+        fresh["current_experiment_code"],
+        fresh["statistical_results"],
+        fresh["model_results"],
+        fresh["tested_models"],
+    )
     try:
         with _open_graph() as checkpointer:
             checkpointer.setup()
             compiled = _compile(checkpointer)
-            state = compiled.invoke(_initial_state(query), config)
+            existing = compiled.get_state(config)
+            if existing.values:
+                raise RuntimeError("research thread was not empty")
+            state = compiled.invoke(fresh, config)
         hypotheses = list(state.get("hypotheses", []))
         logger.info("plan paused thread_id=%s decision=Y/N", thread_id)
         for index, item in enumerate(hypotheses, start=1):

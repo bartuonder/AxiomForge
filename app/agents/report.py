@@ -39,7 +39,10 @@ SYSTEM_PROMPT = (
     "Varyans, standart sapmanın karesidir. "
     "statistical_results içindeki std alanları standart sapmadır; onlara varyans deme. "
     "Soruda varyans isteniyorsa ilgili standart sapmanın karesini alıp onu varyans olarak yaz. "
-    "Use only the supplied state and memory. Do not invent metrics. "
+    "Methodology bölümünde açıkça belirtmediğin ve test edilmeyen HİÇBİR modeli "
+    "(önceki konuşmalardan veya RAG hafızasından gelse bile) Results veya Conclusion bölümüne dahil etme. "
+    "Results ve Conclusion yalnız tested_models listesindeki modelleri adlandırabilir. "
+    "Use only the supplied state. Do not invent metrics. "
     "If Claim review lists inconsistencies, rewrite the paper so those inconsistencies are gone. "
     "Replace every rejected number with the exact statistical_results value. "
     "Return only the Markdown document."
@@ -72,7 +75,17 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
     model_results = state.get("model_results") or []
     dataset_profile = state.get("dataset_profile") or {}
     statistical_results = state.get("statistical_results") or {}
-    failures = [item for item in past_experiments if item.get("is_success") is False]
+    failures = [
+        {"error_log": item.get("error_log", "")}
+        for item in past_experiments
+        if item.get("is_success") is False
+    ]
+    tested_models = list(state.get("tested_models") or [])
+    if not tested_models:
+        for item in model_results:
+            name = str(item.get("model", ""))
+            if name and name not in tested_models:
+                tested_models.append(name)
     return (
         f"Run id: {run_id}\n"
         f"Query: {state.get('query', '')}\n"
@@ -82,7 +95,8 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Literature:\n{json.dumps(literature, ensure_ascii=False)}\n"
         f"Metrics: {json.dumps(metrics, ensure_ascii=False)}\n"
         f"Dataset profile:\n{json.dumps(dataset_profile, ensure_ascii=False)}\n"
-        f"Model results (one run; do not average and do not put these in the results table):\n{json.dumps(model_results, ensure_ascii=False)}\n"
+        f"Tested models this run:\n{json.dumps(tested_models, ensure_ascii=False)}\n"
+        f"Model results (rows from this run only; do not average and do not add models that are absent here):\n{json.dumps(model_results, ensure_ascii=False)}\n"
         f"Statistical results (exact Python means and standard deviations; copy these numbers):\n{json.dumps(statistical_results, ensure_ascii=False)}\n"
         f"Final code:\n{state.get('current_experiment_code', '')}\n"
         f"RAG memory failures:\n{json.dumps(failures, ensure_ascii=False)}\n"

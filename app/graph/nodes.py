@@ -103,10 +103,17 @@ def experiment_node(state: AgentState) -> dict:
         for name in ("accuracy", "f1")
         if name in result
     }
+    model_results = list(result.get("model_results") or [])
+    tested_models: list[str] = []
+    for item in model_results:
+        name = str(item.get("model", ""))
+        if name and name not in tested_models:
+            tested_models.append(name)
     return {
         "current_experiment_code": result.get("code", ""),
         "experiment_metrics": metrics,
-        "model_results": list(result.get("model_results") or []),
+        "model_results": model_results,
+        "tested_models": tested_models,
         "dataset_profile": dict(result.get("dataset_profile") or {}),
         "critic_continue": False,
     }
