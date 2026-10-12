@@ -1,7 +1,7 @@
 import ast
 import json
-import statistics
 
+import numpy as np
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
@@ -27,36 +27,37 @@ def rewrite_seeds(source: str, seed: int) -> str:
     return ast.unparse(rewritten)
 
 
+STAT_METRICS = ("accuracy", "f1", "roc_auc", "pr_auc", "train_seconds")
+
+
 def summarize_seed_runs(
     runs: list[list[dict[str, str | float]]],
-) -> list[dict[str, str | float]]:
+) -> dict[str, dict[str, float]]:
     names: list[str] = []
     for run in runs:
         for item in run:
             name = str(item["model"])
             if name not in names:
                 names.append(name)
-    summary: list[dict[str, str | float]] = []
+    summary: dict[str, dict[str, float]] = {}
     for name in names:
-        record: dict[str, str | float] = {
-            "model": name,
-            "seeds": ",".join(str(seed) for seed in VERIFICATION_SEEDS),
-        }
-        for metric in ("roc_auc", "f1"):
+        record: dict[str, float] = {}
+        for metric in STAT_METRICS:
             values = [
                 float(item[metric])
                 for run in runs
                 for item in run
                 if str(item["model"]) == name and metric in item
             ]
-            record[f"{metric}_mean"] = statistics.mean(values) if values else 0.0
-            record[f"{metric}_std"] = statistics.stdev(values) if len(values) > 1 else 0.0
-        summary.append(record)
+            array = np.asarray(values, dtype=float)
+            record[f"{metric}_mean"] = float(np.mean(array)) if array.size else 0.0
+            record[f"{metric}_std"] = float(np.std(array, ddof=1)) if array.size > 1 else 0.0
+        summary[name] = record
     return summary
 
 
-def is_unstable(summary: list[dict[str, str | float]]) -> bool:
-    for record in summary:
+def is_unstable(summary: dict[str, dict[str, float]]) -> bool:
+    for record in summary.values():
         for metric in ("roc_auc_std", "f1_std"):
             if float(record.get(metric, 0.0)) > UNSTABLE_STD:
                 return True

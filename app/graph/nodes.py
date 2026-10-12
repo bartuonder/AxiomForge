@@ -118,7 +118,7 @@ def verifier_node(state: AgentState) -> dict:
     rounds = int(state.get("critic_rounds", 0))
     logger.info("verifier_node round=%s original_metrics=%s", rounds, original)
     reasons: list[str] = []
-    statistical_results: list[dict[str, str | float]] = []
+    statistical_results: dict[str, dict[str, float]] = {}
     if not code or not original:
         reasons.append("Deney metrik üretmedi.")
     else:
