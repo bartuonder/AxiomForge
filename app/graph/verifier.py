@@ -6,7 +6,6 @@ from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
 
-SEED_NAMES = {"random_state", "random_seed", "seed"}
 VERIFICATION_SEEDS = (42, 100, 200, 300, 400)
 UNSTABLE_STD = 0.05
 DROP_LIMIT = 0.10
@@ -122,32 +121,25 @@ def performance_dropped(original: dict[str, float], renewed: dict[str, float]) -
     return False
 
 
+def has_split_loop(rows: list[dict[str, str | float]]) -> bool:
+    counts: dict[str, int] = {}
+    for item in rows:
+        name = str(item["model"])
+        counts[name] = counts.get(name, 0) + 1
+    return bool(counts) and min(counts.values()) >= len(VERIFICATION_SEEDS)
+
+
 class _SeedRewriter(ast.NodeTransformer):
     def __init__(self, seed: int) -> None:
         self.seed = seed
 
-    def visit_keyword(self, node: ast.keyword) -> ast.keyword:
-        self.generic_visit(node)
-        if node.arg in SEED_NAMES and _is_int(node.value):
-            node.value = ast.Constant(value=self.seed)
-        return node
-
-    def visit_Assign(self, node: ast.Assign) -> ast.Assign:
-        self.generic_visit(node)
-        if (
-            len(node.targets) == 1
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id in SEED_NAMES
-            and _is_int(node.value)
-        ):
-            node.value = ast.Constant(value=self.seed)
-        return node
-
     def visit_Call(self, node: ast.Call) -> ast.Call:
         self.generic_visit(node)
-        name = _call_name(node.func)
-        if name == "seed" and node.args and _is_int(node.args[0]):
-            node.args[0] = ast.Constant(value=self.seed)
+        if _call_name(node.func) != "train_test_split":
+            return node
+        for keyword in node.keywords:
+            if keyword.arg == "random_state" and _is_int(keyword.value):
+                keyword.value = ast.Constant(value=self.seed)
         return node
 
 

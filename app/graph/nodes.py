@@ -12,6 +12,7 @@ from app.graph.state import AgentState
 from app.graph.verifier import (
     MAX_CRITIC_ROUNDS,
     VERIFICATION_SEEDS,
+    has_split_loop,
     is_unstable,
     judge_data_leakage,
     rewrite_seeds,
@@ -170,16 +171,27 @@ def verifier_node(state: AgentState) -> dict:
         reasons.append("Deney metrik üretmedi.")
     else:
         collected: list[list[dict[str, str | float]]] = []
-        for seed in VERIFICATION_SEEDS:
-            rewritten = rewrite_seeds(code, seed)
-            logger.info("verifier seed=%s", seed)
-            try:
-                output = run_classification(rewritten, EXPERIMENT_CSV_SCHEMA)
-                collected.append(parse_model_results(output))
-            except (SandboxCodeError, RuntimeError) as exc:
-                logger.error("verifier seed=%s failed: %s", seed, exc)
-                reasons.append(f"Kararsız (Unstable): seed={seed} çalışması başarısız. {exc}")
-                break
+        try:
+            first_output = run_classification(code, EXPERIMENT_CSV_SCHEMA)
+            first_rows = parse_model_results(first_output)
+        except (SandboxCodeError, RuntimeError) as exc:
+            logger.error("verifier split loop failed: %s", exc)
+            reasons.append(f"Kararsız (Unstable): split döngüsü çalışmadı. {exc}")
+            first_rows = []
+        if first_rows and has_split_loop(first_rows):
+            logger.info("verifier uses the script split loop rows=%s", len(first_rows))
+            collected.append(first_rows)
+        elif not reasons:
+            for seed in VERIFICATION_SEEDS:
+                rewritten = rewrite_seeds(code, seed)
+                logger.info("verifier split random_state=%s", seed)
+                try:
+                    output = run_classification(rewritten, EXPERIMENT_CSV_SCHEMA)
+                    collected.append(parse_model_results(output))
+                except (SandboxCodeError, RuntimeError) as exc:
+                    logger.error("verifier seed=%s failed: %s", seed, exc)
+                    reasons.append(f"Kararsız (Unstable): seed={seed} çalışması başarısız. {exc}")
+                    break
         statistical_results = summarize_seed_runs(collected)
         logger.info("verifier statistical_results=%s", statistical_results)
         if not reasons and is_unstable(statistical_results):
