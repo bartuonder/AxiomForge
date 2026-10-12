@@ -5,19 +5,26 @@ from openai import OpenAI
 from app.config import OPENAI_API_KEY
 
 MODEL = "gpt-4o"
-PROMPT_VERSION = "experiment-v2"
+PROMPT_VERSION = "experiment-v3"
 
 SYSTEM_PROMPT = (
     "You write one complete Python script for the comparison asked in the user question. "
     "Do not train only one model when the question compares several models. "
     "Example: if the question compares XGBoost and Random Forest, train both on the same rows and the same train/test split. "
-    "Read /home/user/data.csv. The columns match the given structure. "
-    "The target is the column named in the prompt, otherwise the last column. "
-    "Use accuracy_score and f1_score. "
+    "Do not use a tiny synthetic CSV as the only data. "
+    "Load a realistic classification dataset from sklearn.datasets, such as load_breast_cancer, "
+    "or build a clearly imbalanced set with sklearn.datasets.make_classification. "
+    "Dengesiz (imbalanced) veri setlerinde asla sadece Accuracy'ye güvenme; "
+    "kodun mutlaka ROC-AUC ve PR-AUC'yi de ölçmelidir. "
+    "Before any model line, print exactly one dataset line: "
+    "dataset=<name> samples=<int> features=<int> negative_ratio=<float> positive_ratio=<float> "
+    "negative_ratio is the share of the negative class and positive_ratio is the share of the positive class. "
+    "Use accuracy_score, f1_score, roc_auc_score, average_precision_score, and confusion_matrix. "
     "Time only model.fit with time.time(). "
     "If XGBoost is required, install xgboost with subprocess before importing it. "
-    "Print one line per model and nothing else, using a single token model name: "
-    "model=<name> accuracy=<float> f1=<float> train_seconds=<float> "
+    "Print one line per model and no other output, using a single token model name: "
+    "model=<name> accuracy=<float> f1=<float> roc_auc=<float> pr_auc=<float> "
+    "train_seconds=<float> tn=<int> fp=<int> fn=<int> tp=<int> "
     "Do not wrap the source in markdown. Do not explain it. Do not use comments."
 )
 
