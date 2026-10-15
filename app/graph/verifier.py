@@ -8,6 +8,12 @@ from app.config import OPENAI_API_KEY
 
 VERIFICATION_SEEDS = (42, 100, 200, 300, 400)
 UNSTABLE_STD = 0.05
+VARIANCE_TIE_GAP = 0.005
+CONCLUSION_VARIANCE = "roc_auc_variance"
+TIE_CONCLUSION = (
+    "Modellerin performansı ve varyansı istatistiksel olarak farksızdır (Tie). "
+    "Biri diğerine üstünlük kuramamıştır."
+)
 DROP_LIMIT = 0.10
 MAX_CRITIC_ROUNDS = 2
 LEAKAGE_PROMPT = (
@@ -31,7 +37,7 @@ STAT_METRICS = ("accuracy", "f1", "roc_auc", "pr_auc", "train_seconds")
 
 def summarize_seed_runs(
     runs: list[list[dict[str, str | float]]],
-) -> dict[str, dict[str, float]]:
+) -> dict[str, dict[str, float] | str]:
     names: list[str] = []
     for run in runs:
         for item in run:
@@ -54,11 +60,34 @@ def summarize_seed_runs(
             record[f"{metric}_std"] = std
             record[f"{metric}_variance"] = std ** 2
         summary[name] = record
-    return summary
+    finished: dict[str, dict[str, float] | str] = dict(summary)
+    finished["statistical_conclusion"] = statistical_conclusion(summary)
+    return finished
 
 
-def is_unstable(summary: dict[str, dict[str, float]]) -> bool:
+def statistical_conclusion(summary: dict[str, dict[str, float]]) -> str:
+    ranked = [
+        (name, float(record[CONCLUSION_VARIANCE]))
+        for name, record in summary.items()
+        if isinstance(record, dict) and CONCLUSION_VARIANCE in record
+    ]
+    if len(ranked) < 2:
+        return ""
+    ranked.sort(key=lambda item: (item[1], item[0]))
+    lowest = ranked[0][1]
+    highest = ranked[-1][1]
+    if abs(highest - lowest) <= VARIANCE_TIE_GAP:
+        return TIE_CONCLUSION
+    winners = [name for name, value in ranked if abs(value - lowest) <= VARIANCE_TIE_GAP]
+    if len(winners) != 1:
+        return TIE_CONCLUSION
+    return f"{winners[0]} modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır"
+
+
+def is_unstable(summary: dict[str, dict[str, float] | str]) -> bool:
     for record in summary.values():
+        if not isinstance(record, dict):
+            continue
         for metric in ("roc_auc_std", "f1_std"):
             if float(record.get(metric, 0.0)) > UNSTABLE_STD:
                 return True
