@@ -8,9 +8,9 @@ Sahip: Bartu Önder, `onderbartu8@gmail.com`. Commitlerde yalnız bu ad ve e-pos
 
 ## Şu an neredeyiz
 
-Faz 7 bitti. Son kod işi, her `/start_research` çağrısının boş bir LangGraph oturumu açması ve eski modellerin rapora sızmamasıdır. Ondan hemen önce deney betiği `experiment-v4` oldu: veri bir kez ve sabit tohumla gelir, beşli döngü yalnız `train_test_split` tohumunu değiştirir.
+Faz 8 bitti. Son kod işi, raporun ve hakemin `statistical_conclusion` cümlesine bağlanmasıdır. Beraberlik kararında makale `superior`, `more stable`, `outperformed` veya `better` diyorsa hakem LLM'e gitmez. Ondan önce deney betiği `experiment-v5` oldu: sorguda adı geçmeyen model betiğe girmez. Doğrulayıcı varyansı `std ** 2` olarak yazar. ROC-AUC varyans farkı 0.005'i geçerse düşük varyanslı tek model kazanan ilan edilir.
 
-Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 8 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
+Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
 ## Çalıştırma
 
@@ -78,7 +78,9 @@ Faz 5. Küçük sentetik CSV tek veri olmaz. Gerçekçi bir sınıflandırma set
 
 Faz 6. Ortalama ve standart sapma NumPy ile hesaplanır (`ddof=1`) ve `statistical_results` sözlüğüne model adıyla yazılır. Anahtarlar `accuracy`, `f1`, `roc_auc`, `pr_auc`, `train_seconds` için `_mean` ve `_std` ekleridir. Rapor bu sayıları kopyalar, kendi ortalamasını kurmaz, tabloyu tek satıra göre yazmaz. `consistency_checker_node` makaleyi bu sözlükle okur. Sayı uyuşmazlığı, yüksek sapmaya rağmen kesin üstünlük ve yalnız ROC-AUC övgüsü tutarsızlıktır. En fazla 2 yeniden yazma olur. `research_status` `Completed` bu kontrolden sonra gelir. Konsoldaki son adım Claims'tir.
 
-Faz 7. `experiment-v4`. Veri döngünün dışında bir kez ve sabit tohumla gelir. `make_classification` ise `class_sep` en fazla 0.5 olur ve `weights` dengesiz dağılım kurar. Beşli döngü yalnız `train_test_split` `random_state` değerini 42, 100, 200, 300, 400 yapar. Model tohumu değişmez. Her model beş satır basar. Betik döngüyü içeriyorsa doğrulayıcı o satırları kullanır. İçermiyorsa yalnız bölme tohumunu AST ile değiştirip beş kez çalıştırır. `std` standart sapmadır. Varyans istenirse karesi alınır ve varyans diye yazılır. Her araştırma boş state ile başlar. `tested_models` yalnız bu koşunun modelleridir. RAG'ın kodu ve metriği rapor promptuna girmez. Results ve Conclusion, Methodology'de yazılmayan ve test edilmeyen modeli alamaz.
+Faz 7. `experiment-v4`. Veri döngünün dışında bir kez ve sabit tohumla gelir. `make_classification` ise `class_sep` en fazla 0.5 olur ve `weights` dengesiz dağılım kurar. Beşli döngü yalnız `train_test_split` `random_state` değerini 42, 100, 200, 300, 400 yapar. Model tohumu değişmez. Her model beş satır basar. Betik döngüyü içeriyorsa doğrulayıcı o satırları kullanır. İçermiyorsa yalnız bölme tohumunu AST ile değiştirip beş kez çalıştırır. `std` standart sapmadır. Her araştırma boş state ile başlar. `tested_models` yalnız bu koşunun modelleridir. RAG'ın kodu ve metriği rapor promptuna girmez. Results ve Conclusion, Methodology'de yazılmayan ve test edilmeyen modeli alamaz.
+
+Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptta ve şablonda varsayılan model yoktur. Üretilen `models` sözlüğü bu anahtarların dışına çıkamaz. Hipotez model ekleyemez. Sorguda model yoksa deney `query names no model` ile düşer. Her metriğin varyansı `std ** 2` olur ve `{metrik}_variance` diye yazılır. `statistical_conclusion` `roc_auc_variance` farkından kurulur. Eşik `VARIANCE_TIE_GAP = 0.005`. Fark bu değere eşit veya küçükse cümle `Modellerin performansı ve varyansı istatistiksel olarak farksızdır (Tie). Biri diğerine üstünlük kuramamıştır.` olur. Büyükse ve tek bir model eşiğin altındaysa `X modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır` yazılır. Results ve Conclusion yalnız bu metni kullanır. Beraberlik cümlesinde `farksızdır (Tie)` veya `üstünlük kuramamıştır` varken makalede `superior`, `more stable`, `outperformed` veya `better` geçiyorsa LLM çağrılmaz. Hata `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` olur ve rapor yeniden yazılır.
 
 ## Kodun durduğu yerler
 
@@ -89,7 +91,7 @@ Faz 7. `experiment-v4`. Veri döngünün dışında bir kez ve sabit tohumla gel
 | Düğümler | `app/graph/nodes.py` |
 | State alanları | `app/graph/state.py` |
 | Bölme tohumu ve NumPy özeti | `app/graph/verifier.py` |
-| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v4` |
+| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v5` |
 | Rapor promptu | `app/agents/report.py` |
 | İddia hakemi | `app/agents/consistency.py` |
 | Metrik ayrıştırma ve MLflow | `app/tracking/mlflow_logger.py` |
@@ -102,7 +104,7 @@ Konsol adımları: Literature, Planner, Experiment, Verifier, Report, Claims. Ne
 
 CSV şeması deney düğümünde sabittir: `age:float, monthly_spend:float, tenure_months:int, churn:int`. Betik bu CSV'yi tek veri diye kullanmaz. Şema sandbox'a yüklenir. Asıl veri sklearn'dendir.
 
-Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std` için geçerlidir. Eğitim süresi sapması bu eşiğe sokulmaz.
+Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std` için geçerlidir. Eğitim süresi sapması bu eşiğe sokulmaz. Beraberlik eşiği `VARIANCE_TIE_GAP = 0.005` ve yalnız `roc_auc_variance` içindir.
 
 ## Yeni oturumun uyması gereken kurallar
 
