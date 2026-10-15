@@ -49,8 +49,10 @@ def summarize_seed_runs(
                 if str(item["model"]) == name and metric in item
             ]
             array = np.asarray(values, dtype=float)
+            std = float(np.std(array, ddof=1)) if array.size > 1 else 0.0
             record[f"{metric}_mean"] = float(np.mean(array)) if array.size else 0.0
-            record[f"{metric}_std"] = float(np.std(array, ddof=1)) if array.size > 1 else 0.0
+            record[f"{metric}_std"] = std
+            record[f"{metric}_variance"] = std ** 2
         summary[name] = record
     return summary
 
