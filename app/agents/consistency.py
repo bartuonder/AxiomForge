@@ -1,15 +1,20 @@
 import json
+import re
 
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
+from app.graph.verifier import TIE_CONCLUSION
 
 MODEL = "gpt-4o"
+_WINNER_SENTENCE = re.compile(
+    r"\S+ modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır"
+)
 CONSISTENCY_PROMPT = (
     "Sen acımasız bir akademik hakemsin. "
     "1) Makaledeki sayılarla JSON'daki sayılar arasında uyuşmazlık var mı? "
-    "2) İstatistiksel olarak anlamsız (standart sapması çok yüksek) bir fark olmasına rağmen "
-    "bir modelin diğerine kesin üstünlüğü iddia edilmiş mi? "
+    "2) Kararlılık hükmünü sen verme. statistical_conclusion cümlesi hükümdür. "
+    "Makale bu cümleyle çelişen bir kazanan yazıyorsa bunu issues'a ekle. "
     "3) PR-AUC eksik bırakılıp sadece ROC-AUC mi övülmüş? "
     "Tüm tutarsızlıkları listele. "
     "issues listesine yalnız somut tutarsızlıkları yaz. "
@@ -57,3 +62,21 @@ def judge_consistency(paper: str, statistical_results: dict) -> tuple[bool, list
     if not consistent and not issues:
         issues = ["Hakem makaleyi tutarsız buldu ama madde yazmadı."]
     return consistent, issues
+
+
+def conclusion_issues(paper: str, statistical_results: dict) -> list[str]:
+    conclusion = statistical_results.get("statistical_conclusion", "")
+    if not isinstance(conclusion, str) or not conclusion:
+        return []
+    issues: list[str] = []
+    if conclusion not in paper:
+        issues.append("Makale statistical_conclusion cümlesini aynen kullanmıyor.")
+    winners = _WINNER_SENTENCE.findall(paper)
+    if conclusion == TIE_CONCLUSION and winners:
+        issues.append("Makale beraberlik kararına rağmen bir modeli daha kararlı ilan ediyor.")
+    if conclusion != TIE_CONCLUSION:
+        if TIE_CONCLUSION in paper:
+            issues.append("Makale kazanan kararına rağmen beraberlik yazıyor.")
+        if any(sentence != conclusion for sentence in winners):
+            issues.append("Makale Python kararından farklı bir modeli daha kararlı ilan ediyor.")
+    return issues
