@@ -4,6 +4,7 @@ from pathlib import Path
 from langchain_core.runnables import RunnableConfig
 
 from app.agents.consistency import judge_consistency
+from app.agents.experiment import requested_models
 from app.agents.literature import run_literature_agent
 from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
@@ -82,8 +83,11 @@ def planner_node(state: AgentState) -> dict:
 
 def experiment_node(state: AgentState) -> dict:
     logger.info("Onaylandı, deneylere başlanıyor")
-    hypothesis = state["hypotheses"][0] if state["hypotheses"] else state["query"]
-    prompt = f"User question:\n{state.get('query', '')}\n\nHypothesis:\n{hypothesis}"
+    query = state.get("query", "")
+    allowed = requested_models(query)
+    logger.info("experiment query_models=%s", [item["key"] for item in allowed])
+    hypothesis = state["hypotheses"][0] if state["hypotheses"] else query
+    prompt = f"User question:\n{query}\n\nHypothesis:\n{hypothesis}"
     criticism = state.get("verifier_feedback", "")
     if criticism:
         logger.info("experiment critic round=%s", state.get("critic_rounds", 0))
@@ -94,9 +98,10 @@ def experiment_node(state: AgentState) -> dict:
             existing_code=state.get("current_experiment_code", ""),
             criticism=criticism,
             record_memory=False,
+            models=allowed,
         )
     else:
-        result = execute_experiment(prompt, EXPERIMENT_CSV_SCHEMA)
+        result = execute_experiment(prompt, EXPERIMENT_CSV_SCHEMA, models=allowed)
     logger.info("experiment result status=%s", result.get("status"))
     metrics = {
         name: float(result[name])
