@@ -3,7 +3,7 @@ from pathlib import Path
 
 from langchain_core.runnables import RunnableConfig
 
-from app.agents.consistency import conclusion_issues, judge_consistency
+from app.agents.consistency import conclusion_issues, direction_conflict, judge_consistency
 from app.agents.experiment import requested_models
 from app.agents.literature import run_literature_agent
 from app.agents.report import write_workshop_paper
@@ -145,9 +145,15 @@ def consistency_checker_node(state: AgentState) -> dict:
     paper = state.get("paper_markdown", "")
     statistical_results = state.get("statistical_results") or {}
     logger.info("consistency_checker_node round=%s", rounds)
-    consistent, issues = judge_consistency(paper, statistical_results)
-    issues.extend(conclusion_issues(paper, statistical_results))
-    consistent = not issues
+    conflict = direction_conflict(paper, statistical_results)
+    if conflict:
+        logger.info("consistency direction_conflict=%s", conflict)
+        consistent = False
+        issues = [conflict]
+    else:
+        consistent, issues = judge_consistency(paper, statistical_results)
+        issues.extend(conclusion_issues(paper, statistical_results))
+        consistent = not issues
     for issue in issues:
         logger.info("consistency issue=%s", issue)
     if consistent:

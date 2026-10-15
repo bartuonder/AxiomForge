@@ -10,6 +10,12 @@ MODEL = "gpt-4o"
 _WINNER_SENTENCE = re.compile(
     r"\S+ modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır"
 )
+_TIE_MARKS = ("farksızdır (Tie)", "üstünlük kuramamıştır")
+_SUPERIORITY = re.compile(
+    r"\b(?:superior|more stable|outperformed|better)\b",
+    re.IGNORECASE,
+)
+DIRECTION_CONFLICT = "Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi"
 CONSISTENCY_PROMPT = (
     "Sen acımasız bir akademik hakemsin. "
     "1) Makaledeki sayılarla JSON'daki sayılar arasında uyuşmazlık var mı? "
@@ -62,6 +68,17 @@ def judge_consistency(paper: str, statistical_results: dict) -> tuple[bool, list
     if not consistent and not issues:
         issues = ["Hakem makaleyi tutarsız buldu ama madde yazmadı."]
     return consistent, issues
+
+
+def direction_conflict(paper: str, statistical_results: dict) -> str:
+    conclusion = statistical_results.get("statistical_conclusion", "")
+    if not isinstance(conclusion, str):
+        return ""
+    if not any(mark in conclusion for mark in _TIE_MARKS):
+        return ""
+    if _SUPERIORITY.search(paper):
+        return DIRECTION_CONFLICT
+    return ""
 
 
 def conclusion_issues(paper: str, statistical_results: dict) -> list[str]:
