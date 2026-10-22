@@ -99,12 +99,12 @@ def spec_code_error(code: str, spec: dict[str, Any], models: list[dict]) -> str:
     except SyntaxError:
         return ""
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
-    names = {_call_name(call.func) for call in calls}
+    names = {call_name(call.func) for call in calls}
     if spec["dataset"] == "breast_cancer":
         if "load_breast_cancer" not in names or "make_classification" in names:
             return "The dataset must be load_breast_cancer and make_classification must not appear."
     else:
-        generators = [call for call in calls if _call_name(call.func) == "make_classification"]
+        generators = [call for call in calls if call_name(call.func) == "make_classification"]
         weighted = any(keyword.arg == "weights" for call in generators for keyword in call.keywords)
         if not weighted or "load_breast_cancer" in names:
             return (
@@ -114,7 +114,7 @@ def spec_code_error(code: str, spec: dict[str, Any], models: list[dict]) -> str:
     classes = {str(item["key"]): tuple(item["classes"]) for item in models}
     missing: list[str] = []
     for model, values in spec.get("params", {}).items():
-        constructors = [call for call in calls if _call_name(call.func) in classes.get(model, ())]
+        constructors = [call for call in calls if call_name(call.func) in classes.get(model, ())]
         for name, value in values.items():
             if not any(
                 keyword.arg == name and _literal(keyword.value) == value
@@ -127,7 +127,7 @@ def spec_code_error(code: str, spec: dict[str, Any], models: list[dict]) -> str:
     return ""
 
 
-def _call_name(func: ast.expr) -> str:
+def call_name(func: ast.expr) -> str:
     if isinstance(func, ast.Name):
         return func.id
     if isinstance(func, ast.Attribute):
