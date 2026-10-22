@@ -9,6 +9,7 @@ from app.agents.experiment import (
     models_dict_error,
     requested_models,
 )
+from app.agents.spec import spec_code_error
 from app.memory.rag_memory import save_experiment
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
 from app.tracking.mlflow_logger import (
@@ -31,26 +32,30 @@ def execute_experiment(
     criticism: str = "",
     record_memory: bool = True,
     models: list[dict] | None = None,
+    spec: dict | None = None,
 ) -> dict:
     allowed = list(models) if models is not None else requested_models(prompt)
     if not allowed:
         raise QueryNamesNoModel()
     logger.info("allowed_models=%s", [item["key"] for item in allowed])
+    logger.info("experiment spec=%s", spec)
     if existing_code and criticism:
-        source = correct_classification_code(existing_code, criticism, prompt, csv_schema, allowed)
+        source = correct_classification_code(existing_code, criticism, prompt, csv_schema, allowed, spec)
     else:
-        source = generate_classification_code(prompt, csv_schema, allowed)
+        source = generate_classification_code(prompt, csv_schema, allowed, spec)
     last_error = ""
     for attempt in range(1, MAX_RETRIES + 1):
         logger.info("sandbox attempt %s/%s", attempt, MAX_RETRIES)
         contract_error = models_dict_error(source, allowed)
+        if not contract_error and spec:
+            contract_error = spec_code_error(source, spec, allowed)
         if contract_error:
             last_error = contract_error
             logger.error("sandbox attempt %s/%s failed:\n%s", attempt, MAX_RETRIES, last_error)
             if attempt == MAX_RETRIES:
                 break
             logger.info("requesting corrected code after attempt %s", attempt)
-            source = correct_classification_code(source, last_error, prompt, csv_schema, allowed)
+            source = correct_classification_code(source, last_error, prompt, csv_schema, allowed, spec)
             continue
         try:
             output = run_classification(source, csv_schema)
@@ -123,7 +128,7 @@ def execute_experiment(
         if attempt == MAX_RETRIES:
             break
         logger.info("requesting corrected code after attempt %s", attempt)
-        source = correct_classification_code(source, last_error, prompt, csv_schema, allowed)
+        source = correct_classification_code(source, last_error, prompt, csv_schema, allowed, spec)
     logger.error("sandbox failed after %s attempts", MAX_RETRIES)
     if record_memory:
         memory_id = save_experiment(

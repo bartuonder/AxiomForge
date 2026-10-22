@@ -94,6 +94,8 @@ def experiment_node(state: AgentState) -> dict:
     logger.info("experiment query_models=%s", [item["key"] for item in allowed])
     hypothesis = state["hypotheses"][0] if state["hypotheses"] else query
     prompt = f"User question:\n{query}\n\nHypothesis:\n{hypothesis}"
+    specs = state.get("experiment_specs") or []
+    spec = specs[0] if specs else None
     criticism = state.get("verifier_feedback", "")
     if criticism:
         logger.info("experiment critic round=%s", state.get("critic_rounds", 0))
@@ -105,9 +107,10 @@ def experiment_node(state: AgentState) -> dict:
             criticism=criticism,
             record_memory=False,
             models=allowed,
+            spec=spec,
         )
     else:
-        result = execute_experiment(prompt, EXPERIMENT_CSV_SCHEMA, models=allowed)
+        result = execute_experiment(prompt, EXPERIMENT_CSV_SCHEMA, models=allowed, spec=spec)
     logger.info("experiment result status=%s", result.get("status"))
     metrics = {
         name: float(result[name])

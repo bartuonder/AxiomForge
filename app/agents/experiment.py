@@ -3,10 +3,11 @@ import re
 
 from openai import OpenAI
 
+from app.agents.spec import spec_brief
 from app.config import OPENAI_API_KEY
 
 MODEL = "gpt-4o"
-PROMPT_VERSION = "experiment-v5"
+PROMPT_VERSION = "experiment-v6"
 QUERY_NAMES_NO_MODEL = "query names no model"
 
 
@@ -24,6 +25,7 @@ SYSTEM_PROMPT = (
     "Its keys are exactly the allowed names, in the listed order, and its values are unfitted estimators. "
     "Do not construct an estimator outside that dict. "
     "Train every models entry on the same rows and the same train/test split in each loop pass. "
+    "When an Experiment specification is given, its dataset and parameters decide the data and the constructor arguments. "
     "Do not use a tiny synthetic CSV as the only data. "
     "Load a realistic classification dataset from sklearn.datasets, such as load_breast_cancer, "
     "or build a clearly imbalanced set with sklearn.datasets.make_classification. "
@@ -242,7 +244,12 @@ def models_dict_error(code: str, models: list[dict]) -> str:
     return ""
 
 
-def generate_classification_code(prompt: str, csv_schema: str, models: list[dict]) -> str:
+def generate_classification_code(
+    prompt: str,
+    csv_schema: str,
+    models: list[dict],
+    spec: dict | None = None,
+) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
     if not models:
@@ -253,7 +260,7 @@ def generate_classification_code(prompt: str, csv_schema: str, models: list[dict
         temperature=0,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": _task(prompt, csv_schema, models)},
+            {"role": "user", "content": _task(prompt, csv_schema, models, spec)},
         ],
     )
     content = response.choices[0].message.content or ""
@@ -266,6 +273,7 @@ def correct_classification_code(
     prompt: str,
     csv_schema: str,
     models: list[dict],
+    spec: dict | None = None,
 ) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
@@ -284,7 +292,7 @@ def correct_classification_code(
                     "düzeltilmiş Python kodunu ver.\n\n"
                     f"Code:\n{code}\n\n"
                     f"Error:\n{error}\n\n"
-                    f"{_task(prompt, csv_schema, models)}"
+                    f"{_task(prompt, csv_schema, models, spec)}"
                 ),
             },
         ],
@@ -293,16 +301,19 @@ def correct_classification_code(
     return _plain_python(content)
 
 
-def _task(prompt: str, csv_schema: str, models: list[dict]) -> str:
+def _task(prompt: str, csv_schema: str, models: list[dict], spec: dict | None = None) -> str:
     lines = "\n".join(f"- {item['key']}: {item['hint']}" for item in models)
     names = ", ".join(str(item["key"]) for item in models)
-    return (
+    task = (
         f"Prompt:\n{prompt}\n\n"
         f"CSV structure:\n{csv_schema}\n\n"
         f"Allowed models:\n{lines}\n\n"
         f"Assign models = {{...}} with exactly these keys, in this order: {names}. "
         "Do not add any other key."
     )
+    if spec:
+        task += "\n\n" + spec_brief(spec)
+    return task
 
 
 def _models_keys(tree: ast.AST) -> list[str] | None:

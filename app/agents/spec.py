@@ -1,3 +1,5 @@
+import ast
+import json
 from typing import Any
 
 DATASETS = {
@@ -72,3 +74,69 @@ def allowed_params_text(model_keys: list[str]) -> str:
         f"- {key}: " + (", ".join(MODEL_PARAMS.get(key, ())) or "no parameters")
         for key in model_keys
     )
+
+
+def spec_brief(spec: dict[str, Any]) -> str:
+    dataset = DATASETS[str(spec["dataset"])]
+    lines = [
+        "Experiment specification (follow it exactly):",
+        json.dumps(spec, ensure_ascii=False),
+        f"Use this dataset and no other: {dataset}.",
+    ]
+    for model, values in spec.get("params", {}).items():
+        pairs = ", ".join(f"{name}={value!r}" for name, value in values.items())
+        lines.append(f"Construct {model} with these keyword arguments written literally: {pairs}.")
+    lines.append(
+        "Arguments the specification does not list are yours to choose, such as random_state or max_iter for convergence, "
+        "but they must not change a listed value."
+    )
+    return "\n".join(lines)
+
+
+def spec_code_error(code: str, spec: dict[str, Any], models: list[dict]) -> str:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return ""
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    names = {_call_name(call.func) for call in calls}
+    if spec["dataset"] == "breast_cancer":
+        if "load_breast_cancer" not in names or "make_classification" in names:
+            return "The dataset must be load_breast_cancer and make_classification must not appear."
+    else:
+        generators = [call for call in calls if _call_name(call.func) == "make_classification"]
+        weighted = any(keyword.arg == "weights" for call in generators for keyword in call.keywords)
+        if not weighted or "load_breast_cancer" in names:
+            return (
+                "The dataset must be make_classification with a weights argument "
+                "and load_breast_cancer must not appear."
+            )
+    classes = {str(item["key"]): tuple(item["classes"]) for item in models}
+    missing: list[str] = []
+    for model, values in spec.get("params", {}).items():
+        constructors = [call for call in calls if _call_name(call.func) in classes.get(model, ())]
+        for name, value in values.items():
+            if not any(
+                keyword.arg == name and _literal(keyword.value) == value
+                for call in constructors
+                for keyword in call.keywords
+            ):
+                missing.append(f"{model}.{name}={value!r}")
+    if missing:
+        return "The constructors must set these parameters literally: " + ", ".join(missing) + "."
+    return ""
+
+
+def _call_name(func: ast.expr) -> str:
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def _literal(node: ast.expr) -> Any:
+    try:
+        return ast.literal_eval(node)
+    except (ValueError, TypeError):
+        return object()
