@@ -29,7 +29,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 - Experiment Agent: GPT-4o (`experiment-v6`) ile sabit veride, sorguda adı geçen modelleri ve yalnız bölme tohumunu değiştiren karşılaştırma üretir
 - E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
 - Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
-- MLflow: veri profili üst run'da, her modelin Accuracy, F1, ROC-AUC, PR-AUC, süre ve karışıklık sayıları iç içe run'da
+- MLflow: grafta doğrulamadan sonra tek bir üst run açılır. Veri profili, her modelin doğrulanmış ortalama, standart sapma ve varyansı ve karar etiketleri üst run'a, her bölme `seed` ve `split_index` ile iç içe run'a yazılır
 - LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor → iddia kontrolü
 - Doğrulayıcı: beş tohum, NumPy ortalama, sapma ve varyans, Pitman-Morgan ve düzeltilmiş t-testleri, `statistical_conclusion`, sızıntı analizi ve en fazla 2 eleştiri turu
 - Rapor ajanı: makale İngilizcedir, Results ve Conclusion `statistical_decision` yönünde yazılır
@@ -40,7 +40,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 - PostgresSaver: her araştırma boş bir `thread_id` ile `DATABASE_URL` üzerine kaydedilir
 - Deney hafızası: `text-embedding-3-small` ile `experiment_memory` koleksiyonu
 
-Başarılı deneyde MLflow run'ı `Finished` olur. Üç deneme de başarısızsa run `Failed` olarak kapanır. Grafın dışındaki `POST /experiments` ucunda hafıza kaydı MLflow çağrısından önce yazılır. Üretilen deney kodu yerel makinede çalıştırılmaz.
+Grafın dışındaki `POST /experiments` ucunda başarılı deneyde MLflow run'ı `Finished` olur, üç deneme de başarısızsa run `Failed` olarak kapanır. Grafın içinde run doğrulamadan sonra bir kez açılır: doğrulama geçtiyse `Verified`, eleştiri hakkı bitip reddedildiyse `Failed`. Run kimliği state'te `mlflow_run_id` olarak durur. MLflow kapalıysa araştırma sürer ve kimlik boş kalır. Grafın dışındaki `POST /experiments` ucunda hafıza kaydı MLflow çağrısından önce yazılır. Üretilen deney kodu yerel makinede çalıştırılmaz.
 
 ## Dizin
 
@@ -145,7 +145,7 @@ Akış:
 2. Şema yapısına uygun küçük bir CSV sandbox içine yazılır.
 3. Betik E2B içinde çalıştırılır.
 4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
-5. Çıktıdan veri profili ve model satırları okunur. Üst MLflow run'ına profil ve `prompt_version=experiment-v6` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
+5. Çıktıdan veri profili ve model satırları okunur. Grafın dışındaki bu uçta üst MLflow run'ına profil ve `prompt_version=experiment-v6` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sayılar bilimsel gösterimle de yazılabilir (`4.5e-05`); ayrıştırıcı bunu okur. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
 6. Grafın dışındaki `POST /experiments` ucunda aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
 
 Başarılı yanıt:
