@@ -74,6 +74,18 @@ PERFORMANCE_OMISSION_NOTICE = (
     "effect_size_dz ile birlikte yaz; Abstract ve Conclusion bu metriği dışarıda bırakmasın."
 )
 EFFECT_SIZE_NOTICE = "{metric} karşılaştırmasının etki büyüklüğü (effect_size_dz = {value}) makalede yok."
+_VERDICT_WORDS = {
+    "supported": re.compile(r"(?<!not\s)(?<!un)\bsupported\b", re.IGNORECASE),
+    "contradicted": re.compile(r"\bcontradict\w*", re.IGNORECASE),
+    "inconclusive": re.compile(r"\binconclusive\b", re.IGNORECASE),
+}
+HYPOTHESIS_MISSING_NOTICE = (
+    "Hipotezin kararı {verdict} ama makalenin {section} bölümü bunu 'the hypothesis was {verdict}' "
+    "ifadesiyle yazmıyor."
+)
+HYPOTHESIS_REVERSED_NOTICE = (
+    "Hipotezin kararı {verdict} ama makalenin {section} bölümü hipotezin desteklendiğini yazıyor."
+)
 RELIABILITY_NOTICE = (
     "Doğrulama Passed ama makale bunu sonuçların güvenilir olduğunun kanıtı gibi anlatıyor "
     "('reliability', 'robust' gibi sözcüklerle). Passed yalnız deneyin hatasız çalıştığını "
@@ -160,13 +172,17 @@ def direction_conflict(paper: str, statistical_decision: dict) -> str:
     return ""
 
 
-def abstract_of(paper: str) -> str:
+def section_of(paper: str, title: str) -> str:
     headings = list(_HEADING.finditer(paper))
     for position, heading in enumerate(headings):
-        if heading.group(1).strip().rstrip(":").lower() == "abstract":
+        if heading.group(1).strip().rstrip(":").lower() == title.lower():
             end = headings[position + 1].start() if position + 1 < len(headings) else len(paper)
             return paper[heading.end():end]
     return paper
+
+
+def abstract_of(paper: str) -> str:
+    return section_of(paper, "abstract")
 
 
 def verification_issue(paper: str, verification_status: str) -> str:
@@ -228,6 +244,21 @@ def performance_issues(paper: str, performance: list[dict] | None) -> list[str]:
         effect = abs(float(item.get("effect_size_dz", 0.0)))
         if effect and not any(abs(number - effect) <= EFFECT_SIZE_TOLERANCE for number in numbers):
             issues.append(EFFECT_SIZE_NOTICE.format(metric=metric, value=f"{effect:.2f}"))
+    return issues
+
+
+def hypothesis_issues(paper: str, hypothesis: dict | None) -> list[str]:
+    verdict = str((hypothesis or {}).get("verdict", ""))
+    expected = _VERDICT_WORDS.get(verdict)
+    if expected is None:
+        return []
+    issues: list[str] = []
+    for title in ("Abstract", "Conclusion"):
+        section = section_of(paper, title)
+        if not expected.search(section):
+            issues.append(HYPOTHESIS_MISSING_NOTICE.format(verdict=verdict, section=title))
+        elif verdict != "supported" and _VERDICT_WORDS["supported"].search(section):
+            issues.append(HYPOTHESIS_REVERSED_NOTICE.format(verdict=verdict, section=title))
     return issues
 
 

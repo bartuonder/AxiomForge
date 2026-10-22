@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnableConfig
 from app.agents.consistency import (
     conclusion_issues,
     direction_conflict,
+    hypothesis_issues,
     instability_issues,
     judge_consistency,
     performance_issues,
@@ -260,6 +261,7 @@ def consistency_checker_node(state: AgentState) -> dict:
     if reliability:
         issues.append(reliability)
     issues.extend(performance_issues(paper, decision.get("performance")))
+    issues.extend(hypothesis_issues(paper, decision.get("hypothesis")))
     consistent = not issues
     for issue in issues:
         logger.info("consistency issue=%s", issue)
