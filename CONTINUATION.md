@@ -14,7 +14,9 @@ Faz 8'den sonra, yeni faz açmadan, bir denetimde çıkan üç sorun düzeltildi
 
 Sonra kararlılık hükmü gerçek bir istatistik testine bağlandı. `app/graph/stats.py` Pitman-Morgan varyans testini, Nadeau-Bengio düzeltmeli t-testini ve Holm düzeltmesini taşır. `stability_decision` artık özet değil ham koşuları alır, `performance_comparisons` ayrıca metrik farklarını test eder ve sonuç `statistical_decision["performance"]` içine yazılır. Sabit `VARIANCE_TIE_GAP` kalktı, eşik `ALPHA = 0.05`. Simülasyonda eşit std'de yanlış pozitif oranı yaklaşık %5, 4 kat std farkında güç beş bölmede yaklaşık %74 çıktı. Tie hükmü eşdeğerlik değil, anlamlı fark bulunamadığı demektir. Tie guard'ı olumsuzlama içeren cümleleri (`neither model is superior`) saymaz.
 
-Denetimden kalan açık işler: kritik döngüsü yüksek varyansı hata sayıyor ve aynı kodu boşuna yeniden üretiyor, planlayıcı hipotezleri deneye bağlanmıyor, bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
+Sonra kritik döngüsü düzeltildi: yüksek varyans artık `Failed` ve yeniden üretim nedeni değil. `verifier_node` bunu `statistical_decision["instability"]` bulgusuna (`unstable`, `std_threshold`, `flagged`) yazar. Rapor işaretli modelleri Results'a std ile koyar ve Conclusion'da limitasyon yazar, hakem raporlandığını kontrol eder. Yalnız metrik üretilmemesi, sandbox çökmesi ve sızıntı kodu geri gönderir.
+
+Denetimden kalan açık işler: planlayıcı hipotezleri deneye bağlanmıyor, bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
@@ -112,7 +114,7 @@ Konsol adımları: Literature, Planner, Experiment, Verifier, Report, Claims. Ne
 
 CSV şeması deney düğümünde sabittir: `age:float, monthly_spend:float, tenure_months:int, churn:int`. Betik bu CSV'yi tek veri diye kullanmaz. Şema sandbox'a yüklenir. Asıl veri sklearn'dendir.
 
-Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std` için geçerlidir. Eğitim süresi sapması bu eşiğe sokulmaz. Anlamlılık eşiği `ALPHA = 0.05` ve hem varyans testi hem performans testleri için geçerlidir.
+Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std` için geçerlidir. Eşiği aşmak bulgu üretir, döngüyü tetiklemez. Eğitim süresi sapması bu eşiğe sokulmaz. Anlamlılık eşiği `ALPHA = 0.05` ve hem varyans testi hem performans testleri için geçerlidir.
 
 ## Yeni oturumun uyması gereken kurallar
 
