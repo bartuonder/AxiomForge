@@ -14,3 +14,4 @@ langchain-postgres==0.0.19
 langchain-openai==1.7.0
 tiktoken==0.14.0
 numpy==2.5.3
+scipy==1.18.1
