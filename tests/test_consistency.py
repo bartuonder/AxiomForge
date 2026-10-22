@@ -22,7 +22,7 @@ WINNER = {"outcome": "winner", "winner": "XGBoost"}
     ],
 )
 def test_a_tie_paper_may_not_claim_superiority(sentence):
-    assert direction_conflict(sentence, TIE) == DIRECTION_CONFLICT
+    assert direction_conflict(sentence, TIE).startswith(DIRECTION_CONFLICT)
 
 
 @pytest.mark.parametrize(
@@ -45,7 +45,7 @@ def test_neutral_and_negated_sentences_are_allowed_in_a_tie_paper(sentence):
 
 def test_only_the_offending_sentence_matters():
     paper = "# Results\nThe models are comparable.\nXGBoost is better than RandomForest.\nEnd."
-    assert direction_conflict(paper, TIE) == DIRECTION_CONFLICT
+    assert direction_conflict(paper, TIE).startswith(DIRECTION_CONFLICT)
 
 
 def test_the_direction_check_ignores_other_outcomes():
@@ -142,20 +142,20 @@ def test_a_superiority_claim_about_a_significant_metric_is_allowed_in_a_stabilit
     ],
 )
 def test_the_guard_still_catches_stability_claims_and_claims_without_a_significant_metric(sentence):
-    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == DIRECTION_CONFLICT
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE).startswith(DIRECTION_CONFLICT)
 
 
 def test_a_significant_metric_does_not_excuse_a_claim_about_another_metric():
     sentence = "Random Forest outperforms Logistic Regression in F1."
-    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == DIRECTION_CONFLICT
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE).startswith(DIRECTION_CONFLICT)
     assert direction_conflict(sentence, {"outcome": "tie", "performance": [perf("f1")]}) == ""
 
 
 def test_without_performance_tests_nothing_excuses_a_metric_claim():
     sentence = "Random Forest outperforms Logistic Regression in ROC-AUC."
-    assert direction_conflict(sentence, {"outcome": "tie"}) == DIRECTION_CONFLICT
-    assert direction_conflict(sentence, {"outcome": "tie", "performance": []}) == DIRECTION_CONFLICT
-    assert direction_conflict(sentence, {"outcome": "tie", "performance": None}) == DIRECTION_CONFLICT
+    assert direction_conflict(sentence, {"outcome": "tie"}).startswith(DIRECTION_CONFLICT)
+    assert direction_conflict(sentence, {"outcome": "tie", "performance": []}).startswith(DIRECTION_CONFLICT)
+    assert direction_conflict(sentence, {"outcome": "tie", "performance": None}).startswith(DIRECTION_CONFLICT)
 
 
 def test_one_offending_sentence_among_exempt_ones_still_fails_the_paper():
@@ -164,4 +164,33 @@ def test_one_offending_sentence_among_exempt_ones_still_fails_the_paper():
         "Random Forest outperforms Logistic Regression in ROC-AUC.\n"
         "Random Forest is superior overall.\n"
     )
-    assert direction_conflict(paper, TIE_WITH_PERFORMANCE) == DIRECTION_CONFLICT
+    assert direction_conflict(paper, TIE_WITH_PERFORMANCE).startswith(DIRECTION_CONFLICT)
+
+
+def test_the_conflict_message_quotes_the_offending_sentence():
+    paper = "We compare two models.\nRandom Forest is superior overall.\nThat is all."
+    message = direction_conflict(paper, TIE)
+    assert message.startswith(DIRECTION_CONFLICT)
+    assert '"Random Forest is superior overall."' in message
+    assert "We compare two models" not in message
+
+
+def test_a_very_long_offending_sentence_is_cut_for_the_message():
+    sentence = "Random Forest is superior " + "and " * 200 + "that is it."
+    message = direction_conflict(sentence, TIE)
+    assert len(message) <= len(DIRECTION_CONFLICT) + 200 + 4
+
+
+def test_the_node_hands_the_quoted_sentence_back_to_the_writer(monkeypatch):
+    import app.graph.nodes as nodes
+
+    monkeypatch.setattr(nodes, "judge_consistency", lambda *args: (True, []))
+    state = {
+        "paper_markdown": "Intro.\nRandom Forest is superior overall.\n",
+        "statistical_results": {},
+        "statistical_decision": {"outcome": "tie"},
+        "consistency_rounds": 0,
+    }
+    result = nodes.consistency_checker_node(state)
+    assert result["consistency_continue"] is True
+    assert 'Random Forest is superior overall.' in result["consistency_feedback"]

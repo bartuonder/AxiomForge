@@ -184,7 +184,7 @@ def direction_conflict(paper: str, statistical_decision: dict) -> str:
             continue
         if not _STABILITY_TERMS.search(sentence) and any(label.search(sentence) for label in labels):
             continue
-        return DIRECTION_CONFLICT
+        return f'{DIRECTION_CONFLICT}: "{sentence.strip()[:200]}"'
     return ""
 
 
