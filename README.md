@@ -8,7 +8,7 @@ Faz 1 tek başına bir sınıflandırma deneyi üretir, kodu E2B sandbox içinde
 
 Faz 2 araştırma grafıdır. Literatür taranır, üç hipotez üretilir ve deney düğümüne geçmeden önce onay beklenir. Graf durumu PostgreSQL'de tutulur.
 
-Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, ilk hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir.
+Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, ilk hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir. Grafın içinde bu kayıt deney düğümünden değil, doğrulamadan sonra `verifier_node` içinden bir kez yazılır: `hypothesis` onaylanan spesifikasyonun `statement` metnidir, `spec` alanı spesifikasyonu taşır, `metric` doğrulayıcının ortalama ± standart sapma özetidir. Doğrulama geçtiyse `outcome` `success` olur. Yüksek varyans bulgusu varsa `outcome` `finding` olur, `finding` alanı hangi modelin hangi metriğinin eşiği aştığını yazar ve `is_success` doğru kalır. Planlayıcı yalnız `is_success=False` kayıtları okuyup eler.
 
 Faz 3 doğrulayıcıdır. `verifier_node` kodu veri sızıntısı için inceler. Kararlılık ölçümü Faz 5'teki beş tohumdur. `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır.
 
@@ -40,7 +40,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 - PostgresSaver: her araştırma boş bir `thread_id` ile `DATABASE_URL` üzerine kaydedilir
 - Deney hafızası: `text-embedding-3-small` ile `experiment_memory` koleksiyonu
 
-Başarılı deneyde MLflow run'ı `Finished` olur. Üç deneme de başarısızsa run `Failed` olarak kapanır. Hafıza kaydı MLflow çağrısından önce yazılır. Üretilen deney kodu yerel makinede çalıştırılmaz.
+Başarılı deneyde MLflow run'ı `Finished` olur. Üç deneme de başarısızsa run `Failed` olarak kapanır. Grafın dışındaki `POST /experiments` ucunda hafıza kaydı MLflow çağrısından önce yazılır. Üretilen deney kodu yerel makinede çalıştırılmaz.
 
 ## Dizin
 
@@ -145,7 +145,7 @@ Akış:
 3. Betik E2B içinde çalıştırılır.
 4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
 5. Çıktıdan veri profili ve model satırları okunur. Üst MLflow run'ına profil ve `prompt_version=experiment-v6` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
-6. Aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
+6. Grafın dışındaki `POST /experiments` ucunda aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
 
 Başarılı yanıt:
 
