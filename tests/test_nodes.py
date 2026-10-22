@@ -1,14 +1,17 @@
 import pytest
 
 import app.graph.nodes as nodes
+from app.graph.verifier import VERIFICATION_SEEDS
 from app.sandbox.e2b_runner import SandboxCodeError
 
 LINE = (
     "model={model} accuracy=0.9 f1=0.8 roc_auc={roc} pr_auc=0.8 "
     "train_seconds=1.0 tn=50 fp=5 fn=5 tp=40"
 )
-WILD = [0.95, 0.60, 0.97, 0.70, 0.99]
-STEADY = [0.90, 0.91, 0.89, 0.92, 0.90]
+SPLITS = len(VERIFICATION_SEEDS)
+WILD = ([0.95, 0.60, 0.97, 0.70, 0.99] * SPLITS)[:SPLITS]
+STEADY = ([0.90, 0.91, 0.89, 0.92, 0.90] * SPLITS)[:SPLITS]
+QUIET = ([0.91, 0.92, 0.90, 0.93, 0.91] * SPLITS)[:SPLITS]
 SPEC = {"statement": "stmt", "dataset": "imbalanced", "models": ["A", "B"], "params": {}}
 PROFILE = {"dataset": "d", "samples": 500.0, "features": 20.0, "negative_ratio": 0.9, "positive_ratio": 0.1}
 
@@ -79,7 +82,7 @@ def world(monkeypatch):
 
 
 def test_a_stable_run_passes_and_is_remembered_as_a_success(world):
-    world.output = sandbox_output(STEADY, [0.91, 0.92, 0.90, 0.93, 0.91])
+    world.output = sandbox_output(STEADY, QUIET)
     result = nodes.verifier_node(base_state())
     assert result["verification_status"] == "Passed"
     assert result["critic_continue"] is False
@@ -120,7 +123,7 @@ def test_the_decision_carries_the_performance_tests(world):
 def test_results_are_summarised_per_model(world):
     result = nodes.verifier_node(base_state())
     assert set(result["statistical_results"]) == {"A", "B", "statistical_conclusion"}
-    assert result["statistical_results"]["B"]["roc_auc_mean"] == pytest.approx(sum(STEADY) / 5)
+    assert result["statistical_results"]["B"]["roc_auc_mean"] == pytest.approx(sum(STEADY) / SPLITS)
 
 
 def test_leakage_sends_the_code_back_without_writing_memory(world):
@@ -195,7 +198,7 @@ def test_memory_is_written_before_mlflow(world):
     assert order == ["memory", "mlflow"]
 
 
-def test_the_script_split_loop_is_used_when_it_prints_five_rows(world):
+def test_the_script_split_loop_is_used_when_it_prints_a_row_per_seed(world):
     calls = []
     original = nodes.run_classification
     nodes.run_classification = lambda code, schema: (calls.append(1), original(code, schema))[1]
@@ -209,7 +212,7 @@ def test_a_script_without_a_loop_is_rerun_once_per_seed(world):
     original = nodes.run_classification
     nodes.run_classification = lambda code, schema: (calls.append(1), original(code, schema))[1]
     result = nodes.verifier_node(base_state())
-    assert len(calls) == 6
+    assert len(calls) == 1 + SPLITS
     assert result["verification_status"] == "Passed"
 
 

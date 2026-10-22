@@ -8,8 +8,9 @@ from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
 from app.graph.stats import MIN_SPLITS, corrected_resampled_t, holm_adjust, pitman_morgan_p
+from app.seeds import SPLIT_SEEDS
 
-VERIFICATION_SEEDS = (42, 100, 200, 300, 400)
+VERIFICATION_SEEDS = SPLIT_SEEDS
 UNSTABLE_STD = 0.05
 ALPHA = 0.05
 CONCLUSION_METRIC = "roc_auc"

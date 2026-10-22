@@ -186,29 +186,43 @@ def test_metric_summary_lists_each_model_with_mean_and_std():
     assert "statistical_conclusion" not in text
 
 
+SPLITS = len(VERIFICATION_SEEDS)
+
+
+def test_ten_repeats_are_verified():
+    assert SPLITS == 10
+    assert len(set(VERIFICATION_SEEDS)) == SPLITS
+
+
 def test_seeds_follow_the_split_order_in_a_script_loop():
-    rows = seeded_rows(loop_run(ROC))
+    rows = seeded_rows(loop_run({"A": [0.9] * SPLITS, "B": [0.8] * SPLITS}))
     seeds_of_a = [item["seed"] for item in rows if item["model"] == "A"]
     assert seeds_of_a == list(VERIFICATION_SEEDS)
-    assert [item["split_index"] for item in rows if item["model"] == "B"] == [0, 1, 2, 3, 4]
+    assert [item["split_index"] for item in rows if item["model"] == "B"] == list(range(SPLITS))
 
 
 def test_seeds_follow_the_run_order_when_the_verifier_reruns():
-    rows = seeded_rows(per_seed_runs(ROC))
+    runs = [[row("B", 0.9)] for _ in range(SPLITS)]
+    rows = seeded_rows(runs)
     assert [item["seed"] for item in rows if item["model"] == "B"] == list(VERIFICATION_SEEDS)
 
 
 def test_rows_beyond_the_known_seeds_have_no_seed():
-    runs = [[row("A", 0.9)] for _ in range(7)]
+    runs = [[row("A", 0.9)] for _ in range(SPLITS + 2)]
     rows = seeded_rows(runs)
-    assert [item["seed"] for item in rows][5:] == [None, None]
+    assert [item["seed"] for item in rows][SPLITS:] == [None, None]
 
 
-def test_has_split_loop_needs_five_rows_for_every_model():
-    assert has_split_loop(loop_run(ROC)[0]) is True
-    assert has_split_loop([row("A", 0.9)] * 4) is False
-    assert has_split_loop([row("A", 0.9)] * 5 + [row("B", 0.9)] * 4) is False
+def test_has_split_loop_needs_a_row_for_every_seed_and_every_model():
+    full = {"A": [0.9] * SPLITS, "B": [0.8] * SPLITS}
+    assert has_split_loop(loop_run(full)[0]) is True
+    assert has_split_loop([row("A", 0.9)] * (SPLITS - 1)) is False
+    assert has_split_loop([row("A", 0.9)] * SPLITS + [row("B", 0.9)] * (SPLITS - 1)) is False
     assert has_split_loop([]) is False
+
+
+def test_an_old_five_row_script_is_not_taken_as_a_split_loop():
+    assert has_split_loop([row("A", 0.9)] * 5 + [row("B", 0.9)] * 5) is False
 
 
 SPLIT_CODE = """
