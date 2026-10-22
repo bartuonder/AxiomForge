@@ -1,19 +1,19 @@
 import ast
 import json
+from itertools import combinations
+from typing import Any
 
 import numpy as np
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
+from app.graph.stats import MIN_SPLITS, holm_adjust, pitman_morgan_p
 
 VERIFICATION_SEEDS = (42, 100, 200, 300, 400)
 UNSTABLE_STD = 0.05
-VARIANCE_TIE_GAP = 0.005
-CONCLUSION_VARIANCE = "roc_auc_variance"
-TIE_CONCLUSION = (
-    "The models' performance and variance are statistically indistinguishable (Tie). "
-    "Neither model has established superiority over the other."
-)
+ALPHA = 0.05
+CONCLUSION_METRIC = "roc_auc"
+STABILITY_TEST = "Pitman-Morgan variance test on paired splits with Holm adjustment"
 DROP_LIMIT = 0.10
 MAX_CRITIC_ROUNDS = 2
 LEAKAGE_PROMPT = (
@@ -61,47 +61,92 @@ def summarize_seed_runs(
             record[f"{metric}_variance"] = std ** 2
         summary[name] = record
     finished: dict[str, dict[str, float] | str] = dict(summary)
-    finished["statistical_conclusion"] = statistical_conclusion(summary)
+    finished["statistical_conclusion"] = conclusion_sentence(stability_decision(runs))
     return finished
 
 
-def stability_decision(summary: dict[str, dict[str, float] | str]) -> dict[str, str | float]:
-    ranked = [
-        (name, float(record[CONCLUSION_VARIANCE]))
-        for name, record in summary.items()
-        if isinstance(record, dict) and CONCLUSION_VARIANCE in record
-    ]
-    decision: dict[str, str | float] = {
+def model_series(
+    runs: list[list[dict[str, str | float]]],
+    metric: str,
+) -> dict[str, list[float]]:
+    series: dict[str, list[float]] = {}
+    for run in runs:
+        for item in run:
+            if metric in item:
+                series.setdefault(str(item["model"]), []).append(float(item[metric]))
+    return series
+
+
+def stability_decision(runs: list[list[dict[str, str | float]]]) -> dict[str, Any]:
+    decision: dict[str, Any] = {
         "outcome": "none",
         "winner": "",
-        "metric": CONCLUSION_VARIANCE,
-        "gap": 0.0,
-        "tie_gap": VARIANCE_TIE_GAP,
+        "metric": CONCLUSION_METRIC,
+        "test": STABILITY_TEST,
+        "alpha": ALPHA,
+        "n_splits": 0,
+        "min_adjusted_p": 1.0,
+        "comparisons": [],
     }
-    if len(ranked) < 2:
+    series = model_series(runs, CONCLUSION_METRIC)
+    lengths = {len(values) for values in series.values()}
+    if len(series) < 2 or len(lengths) != 1:
         return decision
-    ranked.sort(key=lambda item: (item[1], item[0]))
-    lowest = ranked[0][1]
-    decision["gap"] = abs(ranked[-1][1] - lowest)
-    winners = [name for name, value in ranked if abs(value - lowest) <= VARIANCE_TIE_GAP]
-    if decision["gap"] <= VARIANCE_TIE_GAP or len(winners) != 1:
-        decision["outcome"] = "tie"
+    splits = lengths.pop()
+    decision["n_splits"] = splits
+    if splits < MIN_SPLITS:
         return decision
-    decision["outcome"] = "winner"
-    decision["winner"] = winners[0]
+    variances = {name: float(np.var(values, ddof=1)) for name, values in series.items()}
+    pairs = list(combinations(series, 2))
+    raw = [pitman_morgan_p(series[first], series[second]) for first, second in pairs]
+    adjusted = holm_adjust(raw)
+    decision["comparisons"] = [
+        {
+            "a": first,
+            "b": second,
+            "variance_a": variances[first],
+            "variance_b": variances[second],
+            "p_value": p_value,
+            "adjusted_p_value": adjusted_p,
+        }
+        for (first, second), p_value, adjusted_p in zip(pairs, raw, adjusted)
+    ]
+    decision["min_adjusted_p"] = min(adjusted)
+    decision["outcome"] = "tie"
+    for name in series:
+        rivals = [
+            (item, item["b"] if item["a"] == name else item["a"])
+            for item in decision["comparisons"]
+            if name in (item["a"], item["b"])
+        ]
+        if all(
+            item["adjusted_p_value"] < ALPHA and variances[name] < variances[rival]
+            for item, rival in rivals
+        ):
+            decision["outcome"] = "winner"
+            decision["winner"] = name
+            break
     return decision
 
 
-def conclusion_sentence(decision: dict[str, str | float]) -> str:
-    if decision.get("outcome") == "tie":
-        return TIE_CONCLUSION
-    if decision.get("outcome") == "winner":
-        return f"{decision['winner']} is statistically significantly more stable."
-    return ""
-
-
-def statistical_conclusion(summary: dict[str, dict[str, float]]) -> str:
-    return conclusion_sentence(stability_decision(summary))
+def conclusion_sentence(decision: dict[str, Any]) -> str:
+    outcome = decision.get("outcome")
+    if outcome not in {"tie", "winner"}:
+        return ""
+    method = (
+        f"Pitman-Morgan test, alpha = {decision['alpha']:g}, n = {decision['n_splits']} splits"
+    )
+    if outcome == "tie":
+        return (
+            "No statistically significant difference in ROC-AUC stability was detected "
+            f"(Tie; {method}, smallest Holm-adjusted p = {decision['min_adjusted_p']:.3f}). "
+            "This does not establish equivalence."
+        )
+    return (
+        f"{decision['winner']} is statistically significantly more stable: "
+        "its ROC-AUC variance is lower than every other model's "
+        f"(Holm-adjusted p < {decision['alpha']:g}; {method})."
+    )
 
 
 def is_unstable(summary: dict[str, dict[str, float] | str]) -> bool:

@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Any, TypedDict
 
 
 class AgentState(TypedDict):
@@ -12,7 +12,7 @@ class AgentState(TypedDict):
     tested_models: list[str]
     dataset_profile: dict[str, str | float]
     statistical_results: dict[str, dict[str, float] | str]
-    statistical_decision: dict[str, str | float]
+    statistical_decision: dict[str, Any]
     verification_status: str
     verifier_feedback: str
     critic_rounds: int

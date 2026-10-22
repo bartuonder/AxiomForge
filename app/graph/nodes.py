@@ -189,10 +189,10 @@ def verifier_node(state: AgentState) -> dict:
     logger.info("verifier_node round=%s original_metrics=%s", rounds, original)
     reasons: list[str] = []
     statistical_results: dict[str, dict[str, float] | str] = {}
+    collected: list[list[dict[str, str | float]]] = []
     if not code or not original:
         reasons.append("Deney metrik üretmedi.")
     else:
-        collected: list[list[dict[str, str | float]]] = []
         try:
             first_output = run_classification(code, EXPERIMENT_CSV_SCHEMA)
             first_rows = parse_model_results(first_output)
@@ -227,7 +227,7 @@ def verifier_node(state: AgentState) -> dict:
         logger.info("verifier leakage=%s reason=%s", leakage, leakage_reason)
         if leakage:
             reasons.append(f"Leakage çözülemedi: {leakage_reason}")
-    decision = stability_decision(statistical_results)
+    decision = stability_decision(collected)
     logger.info("verifier statistical_decision=%s", decision)
     if not reasons:
         logger.info("verification_status=Passed")
