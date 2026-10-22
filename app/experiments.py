@@ -8,6 +8,7 @@ from app.agents.experiment import (
     generate_classification_code,
     models_dict_error,
     requested_models,
+    split_contract_error,
 )
 from app.agents.spec import spec_code_error
 from app.memory.rag_memory import save_experiment
@@ -50,6 +51,8 @@ def execute_experiment(
         contract_error = models_dict_error(source, allowed)
         if not contract_error and spec:
             contract_error = spec_code_error(source, spec, allowed)
+        if not contract_error:
+            contract_error = split_contract_error(source)
         if contract_error:
             last_error = contract_error
             logger.error("sandbox attempt %s/%s failed:\n%s", attempt, MAX_RETRIES, last_error)

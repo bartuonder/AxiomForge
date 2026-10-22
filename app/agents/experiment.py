@@ -3,11 +3,12 @@ import re
 
 from openai import OpenAI
 
-from app.agents.spec import spec_brief
+from app.agents.spec import call_name, spec_brief
 from app.config import OPENAI_API_KEY
+from app.seeds import SPLIT_SEEDS
 
 MODEL = "gpt-4o"
-PROMPT_VERSION = "experiment-v6"
+PROMPT_VERSION = "experiment-v7"
 QUERY_NAMES_NO_MODEL = "query names no model"
 
 
@@ -32,8 +33,9 @@ SYSTEM_PROMPT = (
     "Veri Üretimi Sabiti: Veriyi herhangi bir döngünün dışında tek bir kere yükle veya üret. "
     "make_classification kullanıyorsan class_sep 0.5 veya daha düşük olsun ve weights ile net bir imbalanced dağılım kur. "
     "Veri üretiminin random_state değeri sabit bir tam sayı olsun ve split döngüsünde değişmesin. "
-    "Seed Döngüsü Protokolü: Beşli test döngüsü yalnız train_test_split random_state değerini değiştirir. "
-    "Döngü tam olarak bu tohumlar olsun: 42, 100, 200, 300, 400. "
+    "Seed Döngüsü Protokolü: Test döngüsü yalnız train_test_split random_state değerini değiştirir. "
+    f"Döngü tam olarak şu {len(SPLIT_SEEDS)} tohum olsun, bu sırayla: {', '.join(str(seed) for seed in SPLIT_SEEDS)}. "
+    "Every train_test_split call must pass stratify=y, the label array, so that every split keeps the class ratio. "
     "Model random_state ve veri üretim tohumu döngünün dışında sabit kalsın. "
     "Başka bir random_state bu döngüde değişmesin. "
     "Dengesiz (imbalanced) veri setlerinde asla sadece Accuracy'ye güvenme; "
@@ -46,7 +48,7 @@ SYSTEM_PROMPT = (
     "Time only model.fit with time.time(). "
     "If an allowed model is not already installed, install its package with subprocess before importing it. "
     "Inside the split loop, print one line per model for that split and no other output. "
-    "Each model name appears exactly five times. The printed name is the models key. "
+    f"Each model name appears exactly {len(SPLIT_SEEDS)} times. The printed name is the models key. "
     "model=<name> accuracy=<float> f1=<float> roc_auc=<float> pr_auc=<float> "
     "train_seconds=<float> tn=<int> fp=<int> fn=<int> tp=<int> "
     "Do not wrap the source in markdown. Do not explain it. Do not use comments."
@@ -241,6 +243,29 @@ def models_dict_error(code: str, models: list[dict]) -> str:
     foreign = _foreign_models(code, models)
     if foreign:
         return "Remove estimators that the query did not name: " + ", ".join(foreign) + "."
+    return ""
+
+
+def split_contract_error(code: str) -> str:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return ""
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and call_name(node.func) == "train_test_split"
+    ]
+    if not calls:
+        return "The script must split with train_test_split so that its random_state can be changed."
+    for call in calls:
+        stratified = any(
+            keyword.arg == "stratify"
+            and not (isinstance(keyword.value, ast.Constant) and keyword.value.value is None)
+            for keyword in call.keywords
+        )
+        if not stratified:
+            return "Every train_test_split call must pass stratify=y, the label array."
     return ""
 
 
