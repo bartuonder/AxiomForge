@@ -26,7 +26,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 
 - FastAPI uygulaması
 - Celery işçisi, broker olarak Redis
-- Experiment Agent: GPT-4o (`experiment-v5`) ile sabit veride, sorguda adı geçen modelleri ve yalnız bölme tohumunu değiştiren karşılaştırma üretir
+- Experiment Agent: GPT-4o (`experiment-v6`) ile sabit veride, sorguda adı geçen modelleri ve yalnız bölme tohumunu değiştiren karşılaştırma üretir
 - E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
 - Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
 - MLflow: veri profili üst run'da, her modelin Accuracy, F1, ROC-AUC, PR-AUC, süre ve karışıklık sayıları iç içe run'da
@@ -36,7 +36,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 - İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir, en fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
 - Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
 - arXiv araması: sorguya en yakın 3 makalenin başlığı ve özeti
-- Planlayıcı: literatür ve geçmiş başarısız deneylerden 3 test edilebilir hipotez
+- Planlayıcı: literatür ve geçmiş başarısız deneylerden, deney ajanının yapabildiği 3 doğrulanmış deney spesifikasyonu
 - PostgresSaver: her araştırma boş bir `thread_id` ile `DATABASE_URL` üzerine kaydedilir
 - Deney hafızası: `text-embedding-3-small` ile `experiment_memory` koleksiyonu
 
@@ -53,6 +53,7 @@ app/
   agents/experiment.py       kod üreten ve düzelten ajan
   agents/literature.py       arXiv araçlı literatür ajanı
   agents/planner.py          geçmiş hataları eleyen hipotez ajanı
+  agents/spec.py             deney spesifikasyonu doğrulaması ve kod denetimi
   agents/report.py           atölye makalesi yazan ajan
   agents/consistency.py      makale sayıları ile istatistik sözlüğünü karşılaştıran hakem
   tools/arxiv.py             arXiv arama aracı
@@ -143,7 +144,7 @@ Akış:
 2. Şema yapısına uygun küçük bir CSV sandbox içine yazılır.
 3. Betik E2B içinde çalıştırılır.
 4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
-5. Çıktıdan veri profili ve model satırları okunur. Üst MLflow run'ına profil ve `prompt_version=experiment-v5` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
+5. Çıktıdan veri profili ve model satırları okunur. Üst MLflow run'ına profil ve `prompt_version=experiment-v6` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
 6. Aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
 
 Başarılı yanıt:
@@ -186,7 +187,7 @@ Akış `literature_node` ve `planner_node` çalıştıktan sonra, `experiment_no
 
 1. Literatür ajanı arXiv'den 3 makalenin başlık ve özetini alır, `literature_context` listesine yazar.
 2. Planlayıcı `search_past_experiments` ile sorguya en yakın 3 geçmiş deneyi okur. Başarısız kayıtları prompta koyar ve aynı yaklaşımı tekrar etmez.
-3. Üç test edilebilir hipotez `hypotheses` listesine yazılır.
+3. Üç hipotez `hypotheses` listesine, spesifikasyonları `experiment_specs` listesine yazılır. Her hipotez bir deney spesifikasyonudur: `statement`, `models` (sorgudaki modellerin tamamı, Python doldurur), `dataset` (`breast_cancer` veya `imbalanced`) ve `params` (model başına izinli kurucu parametreleri). Geçersiz bir spesifikasyon bir kez düzeltme istenerek yeniden denenir, yine geçersizse çalışma `failed` olur.
 4. Graf `approval_gate` öncesinde duraklar. Eleştiri turları bu kapıdan tekrar geçmez.
 
 Geçmiş hata bulunursa logda `planner memory_note` satırı görünür. Örnek: geçmiş `KeyError: missing_target` deneyi yüzünden planlayıcı farklı bir yaklaşım önerir.
@@ -214,7 +215,7 @@ Gövde:
 {"thread_id": "...", "decision": "Y"}
 ```
 
-`Y` state'i `approval_status="approved"` yapar ve graf kaldığı yerden devam eder. `experiment_node` `Onaylandı, deneylere başlanıyor` logunu basar. Betiğe yalnız sorguda adı geçen modeller girer. Ardından ilk hipotezi şu CSV şemasıyla Faz 1 döngüsüne verir:
+`Y` state'i `approval_status="approved"` yapar ve graf kaldığı yerden devam eder. `experiment_node` `Onaylandı, deneylere başlanıyor` logunu basar. Betiğe yalnız sorguda adı geçen modeller girer. Ardından ilk hipotezi ve `experiment_specs` içindeki spesifikasyonunu şu CSV şemasıyla Faz 1 döngüsüne verir. Üretilen kod veri setini ve `params` değerlerini kurucularda aynen kullanmıyorsa AST denetimi reddeder ve kod düzeltilir:
 
 ```text
 age:float, monthly_spend:float, tenure_months:int, churn:int
