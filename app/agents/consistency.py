@@ -65,6 +65,7 @@ _DIFFERENCE_TERMS = re.compile(
     r"\bsignific\w*|\bhigher\b|\blower\b|\bdiffer\w*|\bexceed\w*|\bgreater\b|\blarger\b|\bbetter\b|\boutperform\w*",
     re.IGNORECASE,
 )
+_HYPOTHESIS_WORD = re.compile(r"\bhypothes\w*", re.IGNORECASE)
 _STABILITY_TERMS = re.compile(r"\bstabil\w*|\bvarianc\w*|\bvariab\w*", re.IGNORECASE)
 _NUMBER = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 EFFECT_SIZE_TOLERANCE = 0.006
@@ -163,12 +164,27 @@ def judge_consistency(
     return consistent, issues
 
 
+def _significant_metric_labels(statistical_decision: dict) -> list[re.Pattern[str]]:
+    significant = {
+        str(item.get("metric"))
+        for item in statistical_decision.get("performance") or []
+        if item.get("significant")
+    }
+    return [pattern for key, pattern in _METRIC_LABELS.items() if key in significant]
+
+
 def direction_conflict(paper: str, statistical_decision: dict) -> str:
     if statistical_decision.get("outcome") != "tie":
         return ""
+    labels = _significant_metric_labels(statistical_decision)
     for sentence in _SENTENCE_BREAK.split(paper):
-        if _SUPERIORITY.search(sentence) and not _NEGATION.search(sentence):
-            return DIRECTION_CONFLICT
+        if not _SUPERIORITY.search(sentence) or _NEGATION.search(sentence):
+            continue
+        if _HYPOTHESIS_WORD.search(sentence):
+            continue
+        if not _STABILITY_TERMS.search(sentence) and any(label.search(sentence) for label in labels):
+            continue
+        return DIRECTION_CONFLICT
     return ""
 
 

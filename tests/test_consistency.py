@@ -84,3 +84,84 @@ def test_a_consistent_winner_paper_has_no_issues():
 def test_conclusion_issues_only_apply_to_a_winner():
     assert conclusion_issues("indistinguishable", TIE) == []
     assert conclusion_issues("anything", {"outcome": "none"}) == []
+
+
+def perf(metric, significant=True):
+    return {
+        "metric": metric,
+        "a": "RandomForest",
+        "b": "LogisticRegression",
+        "mean_difference": 0.1,
+        "effect_size_dz": 2.0,
+        "p_value": 0.001,
+        "adjusted_p_value": 0.001,
+        "significant": significant,
+    }
+
+
+TIE_WITH_PERFORMANCE = {
+    "outcome": "tie",
+    "performance": [perf("roc_auc"), perf("pr_auc"), perf("f1", significant=False)],
+}
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The hypothesis that Random Forest is more stable than Logistic Regression in ROC-AUC variance was inconclusive.",
+        "The hypothesis that Logistic Regression would outperform Random Forest in terms of ROC-AUC was contradicted.",
+        "We hypothesized that Random Forest is superior to Logistic Regression.",
+        "Hypothesis: Random Forest is more stable than Logistic Regression.",
+    ],
+)
+def test_a_sentence_that_describes_the_hypothesis_is_not_a_superiority_claim(sentence):
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == ""
+    assert direction_conflict(sentence, {"outcome": "tie"}) == ""
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Random Forest showed superior performance across ROC-AUC and PR-AUC.",
+        "Random Forest outperforms Logistic Regression in ROC-AUC.",
+        "Random Forest is better than Logistic Regression on PR-AUC.",
+    ],
+)
+def test_a_superiority_claim_about_a_significant_metric_is_allowed_in_a_stability_tie(sentence):
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == ""
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "Random Forest is more stable than Logistic Regression in ROC-AUC variance.",
+        "Random Forest has a superior ROC-AUC stability.",
+        "Random Forest outperforms Logistic Regression in F1.",
+        "Random Forest is superior.",
+        "Random Forest is better than Logistic Regression.",
+    ],
+)
+def test_the_guard_still_catches_stability_claims_and_claims_without_a_significant_metric(sentence):
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == DIRECTION_CONFLICT
+
+
+def test_a_significant_metric_does_not_excuse_a_claim_about_another_metric():
+    sentence = "Random Forest outperforms Logistic Regression in F1."
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == DIRECTION_CONFLICT
+    assert direction_conflict(sentence, {"outcome": "tie", "performance": [perf("f1")]}) == ""
+
+
+def test_without_performance_tests_nothing_excuses_a_metric_claim():
+    sentence = "Random Forest outperforms Logistic Regression in ROC-AUC."
+    assert direction_conflict(sentence, {"outcome": "tie"}) == DIRECTION_CONFLICT
+    assert direction_conflict(sentence, {"outcome": "tie", "performance": []}) == DIRECTION_CONFLICT
+    assert direction_conflict(sentence, {"outcome": "tie", "performance": None}) == DIRECTION_CONFLICT
+
+
+def test_one_offending_sentence_among_exempt_ones_still_fails_the_paper():
+    paper = (
+        "The hypothesis that Random Forest is more stable was inconclusive.\n"
+        "Random Forest outperforms Logistic Regression in ROC-AUC.\n"
+        "Random Forest is superior overall.\n"
+    )
+    assert direction_conflict(paper, TIE_WITH_PERFORMANCE) == DIRECTION_CONFLICT
