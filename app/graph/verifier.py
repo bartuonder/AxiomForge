@@ -7,12 +7,13 @@ import numpy as np
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
-from app.graph.stats import MIN_SPLITS, holm_adjust, pitman_morgan_p
+from app.graph.stats import MIN_SPLITS, corrected_resampled_t, holm_adjust, pitman_morgan_p
 
 VERIFICATION_SEEDS = (42, 100, 200, 300, 400)
 UNSTABLE_STD = 0.05
 ALPHA = 0.05
 CONCLUSION_METRIC = "roc_auc"
+PERFORMANCE_METRICS = ("roc_auc", "pr_auc", "f1")
 STABILITY_TEST = "Pitman-Morgan variance test on paired splits with Holm adjustment"
 DROP_LIMIT = 0.10
 MAX_CRITIC_ROUNDS = 2
@@ -127,6 +128,44 @@ def stability_decision(runs: list[list[dict[str, str | float]]]) -> dict[str, An
             decision["winner"] = name
             break
     return decision
+
+
+def performance_comparisons(
+    runs: list[list[dict[str, str | float]]],
+    samples: float,
+) -> list[dict[str, Any]]:
+    rows = [item for run in runs for item in run]
+    if not rows or not all(key in rows[0] for key in ("tn", "fp", "fn", "tp")):
+        return []
+    test_size = float(rows[0]["tn"] + rows[0]["fp"] + rows[0]["fn"] + rows[0]["tp"])
+    train_size = float(samples) - test_size
+    if test_size <= 0 or train_size <= 0:
+        return []
+    comparisons: list[dict[str, Any]] = []
+    for metric in PERFORMANCE_METRICS:
+        series = model_series(runs, metric)
+        lengths = {len(values) for values in series.values()}
+        if len(series) < 2 or len(lengths) != 1 or lengths.pop() < MIN_SPLITS:
+            return []
+        for first, second in combinations(series, 2):
+            mean_difference, effect_size, p_value = corrected_resampled_t(
+                series[first], series[second], train_size, test_size
+            )
+            comparisons.append(
+                {
+                    "metric": metric,
+                    "a": first,
+                    "b": second,
+                    "mean_difference": mean_difference,
+                    "effect_size_dz": effect_size,
+                    "p_value": p_value,
+                }
+            )
+    adjusted = holm_adjust([item["p_value"] for item in comparisons])
+    for item, adjusted_p in zip(comparisons, adjusted):
+        item["adjusted_p_value"] = adjusted_p
+        item["significant"] = adjusted_p < ALPHA
+    return comparisons
 
 
 def conclusion_sentence(decision: dict[str, Any]) -> str:

@@ -16,6 +16,7 @@ from app.graph.verifier import (
     has_split_loop,
     is_unstable,
     judge_data_leakage,
+    performance_comparisons,
     rewrite_seeds,
     stability_decision,
     summarize_seed_runs,
@@ -228,6 +229,10 @@ def verifier_node(state: AgentState) -> dict:
         if leakage:
             reasons.append(f"Leakage çözülemedi: {leakage_reason}")
     decision = stability_decision(collected)
+    decision["performance"] = performance_comparisons(
+        collected,
+        float((state.get("dataset_profile") or {}).get("samples", 0.0)),
+    )
     logger.info("verifier statistical_decision=%s", decision)
     if not reasons:
         logger.info("verification_status=Passed")
