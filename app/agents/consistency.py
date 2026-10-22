@@ -30,6 +30,21 @@ _FAILED_VERIFICATION = re.compile(
     re.IGNORECASE,
 )
 DIRECTION_CONFLICT ="Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi"
+_INSTABILITY_TERMS = re.compile(
+    r"\bunstab\w*|\binstabilit\w*|\bhigh(?:er)?\s+(?:variance|variability)\b"
+    r"|\b(?:large|high|substantial)\s+(?:standard\s+deviation|std|spread)\b"
+    r"|\bexceed\w*\s+(?:the\s+)?(?:\w+\s+){0,3}threshold\b"
+    r"|\bsensitiv\w*\s+to\s+(?:the\s+)?(?:data\s+|train\w*\s+)?split",
+    re.IGNORECASE,
+)
+INSTABILITY_ABSTRACT_NOTICE = (
+    "Kararsızlık bulgusu var ama makalenin özeti (Abstract) bunu yazmıyor. "
+    "Özet 'high variance across splits' ifadesini ve hangi modelin kararsız olduğunu içermeli."
+)
+INSTABILITY_MODEL_NOTICE = (
+    "Kararsızlık bulgusunda {model} işaretlendi ama makale bu modelin bölmeye duyarlılığını "
+    "tablo dışında bir cümlede açıklamıyor."
+)
 VERIFICATION_NOTICE = (
     "Doğrulama Failed olduğu halde makalenin özeti (Abstract) bunu açıkça yazmıyor. "
     "Özet 'failed verification' ifadesini ve nedenini içermeli."
@@ -124,6 +139,29 @@ def verification_issue(paper: str, verification_status: str) -> str:
     if verification_status != "Failed":
         return ""
     return "" if _FAILED_VERIFICATION.search(abstract_of(paper)) else VERIFICATION_NOTICE
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def instability_issues(paper: str, instability: dict | None) -> list[str]:
+    if not instability or not instability.get("unstable"):
+        return []
+    issues: list[str] = []
+    if not _INSTABILITY_TERMS.search(abstract_of(paper)):
+        issues.append(INSTABILITY_ABSTRACT_NOTICE)
+    prose = [
+        sentence
+        for line in paper.splitlines()
+        if not line.lstrip().startswith("|")
+        for sentence in _SENTENCE_BREAK.split(line)
+    ]
+    for model in dict.fromkeys(str(item["model"]) for item in instability.get("flagged", [])):
+        squashed = _squash(model)
+        if not any(squashed in _squash(sentence) and _INSTABILITY_TERMS.search(sentence) for sentence in prose):
+            issues.append(INSTABILITY_MODEL_NOTICE.format(model=model))
+    return issues
 
 
 def conclusion_issues(paper: str, statistical_decision: dict) -> list[str]:
