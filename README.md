@@ -10,7 +10,7 @@ Faz 2 araştırma grafıdır. Literatür taranır, üç hipotez üretilir ve den
 
 Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, seçilen hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir. Grafın içinde bu kayıt deney düğümünden değil, doğrulamadan sonra `verifier_node` içinden bir kez yazılır: `hypothesis` onaylanan spesifikasyonun `statement` metnidir, `spec` alanı spesifikasyonu taşır, `metric` doğrulayıcının ortalama ± standart sapma özetidir. Doğrulama geçtiyse `outcome` `success` olur. Yüksek varyans bulgusu varsa `outcome` `finding` olur, `finding` alanı hangi modelin hangi metriğinin eşiği aştığını yazar ve `is_success` doğru kalır. Planlayıcı yalnız `is_success=False` kayıtları okuyup eler.
 
-Faz 3 doğrulayıcıdır. `verifier_node` kodu veri sızıntısı için inceler. Kararlılık ölçümü Faz 5'teki beş tohumdur. `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır.
+Faz 3 doğrulayıcıdır. `verifier_node` kodu veri sızıntısı için inceler. Kararlılık ölçümü bölme tohumlarıdır (Faz 5'te beş, sonradan on). `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır.
 
 Faz 4 rapor ajanı ve onu süren arayüzdür. Doğrulama `Passed` olunca ya da eleştiri hakkı bitip `Failed` hafızaya yazılınca `report_node` çalışır. Atölye makalesi `reports/{thread_id}_paper.md` dosyasına kaydedilir. `research_status` `Completed` olması Faz 6'daki iddia kontrolünden sonradır. Next.js konsolu aynı akışı `http://127.0.0.1:3000` üzerinde gösterir. Grafın düğüm sırası `GRAPH.md` içindedir.
 
@@ -26,14 +26,14 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 
 - FastAPI uygulaması
 - Celery işçisi, broker olarak Redis: araştırma onaya kadar ve onaydan sonra rapora kadar işçide çalışır
-- Experiment Agent: GPT-4o (`experiment-v6`) ile sabit veride, sorguda adı geçen modelleri ve yalnız bölme tohumunu değiştiren karşılaştırma üretir
+- Experiment Agent: GPT-4o (`experiment-v7`) ile sabit veride, sorguda adı geçen modelleri ve yalnız bölme tohumunu değiştiren, stratify'lı on bölmelik karşılaştırma üretir
 - E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
 - Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
 - MLflow: grafta doğrulamadan sonra tek bir üst run açılır. Veri profili, her modelin doğrulanmış ortalama, standart sapma ve varyansı ve karar etiketleri üst run'a, her bölme `seed` ve `split_index` ile iç içe run'a yazılır
 - LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor → iddia kontrolü
-- Doğrulayıcı: beş tohum, NumPy ortalama, sapma ve varyans, Pitman-Morgan ve düzeltilmiş t-testleri, `statistical_conclusion`, sızıntı analizi ve en fazla 2 eleştiri turu
+- Doğrulayıcı: on tohum, NumPy ortalama, sapma ve varyans, Pitman-Morgan ve düzeltilmiş t-testleri, `statistical_conclusion`, sızıntı analizi ve en fazla 2 eleştiri turu
 - Rapor ajanı: makale İngilizcedir, Results ve Conclusion `statistical_decision` yönünde yazılır
-- İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir. Doğrulama `Failed` iken özette bunu söylemeyen makale de LLM'siz reddedilir. En fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
+- İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir. Doğrulama `Failed` iken özette bunu söylemeyen makale de LLM'siz reddedilir. Kararsızlık bulgusu varken özette `high variance across splits` yoksa veya işaretli model bir cümlede anlatılmıyorsa da reddedilir. En fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
 - Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
 - arXiv araması: LLM sorudan anahtar kelime aramaları üretir, adaylar gömü benzerliğiyle süzülür ve en alakalı 3 makalenin başlığı ve özeti alınır
 - Planlayıcı: literatür ve geçmiş başarısız deneylerden, deney ajanının yapabildiği 3 doğrulanmış deney spesifikasyonu
@@ -60,7 +60,7 @@ app/
   tasks.py                   Celery görevleri: araştırmayı başlat ve onaydan sonra sürdür
   graph/state.py             AgentState
   graph/nodes.py             literatür, plan, deney, doğrulayıcı, rapor ve iddia düğümleri
-  graph/verifier.py          beş tohum, sapma, yapısal karar ve sızıntı kararı
+  graph/verifier.py          on tohum, sapma, yapısal karar ve sızıntı kararı
   graph/errors.py            araştırma hatalarının PostgreSQL'e kaydı
   graph/stats.py             Pitman-Morgan testi, düzeltilmiş t-testi ve Holm düzeltmesi
   graph/workflow.py          StateGraph, kesinti, onay ve koşullu dönüş
@@ -170,7 +170,7 @@ Akış:
 2. Şema yapısına uygun küçük bir CSV sandbox içine yazılır.
 3. Betik E2B içinde çalıştırılır.
 4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
-5. Çıktıdan veri profili ve model satırları okunur. Grafın dışındaki bu uçta üst MLflow run'ına profil ve `prompt_version=experiment-v6` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sayılar bilimsel gösterimle de yazılabilir (`4.5e-05`); ayrıştırıcı bunu okur. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
+5. Çıktıdan veri profili ve model satırları okunur. Grafın dışındaki bu uçta üst MLflow run'ına profil ve `prompt_version=experiment-v7` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sayılar bilimsel gösterimle de yazılabilir (`4.5e-05`); ayrıştırıcı bunu okur. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
 6. Grafın dışındaki `POST /experiments` ucunda aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
 
 Başarılı yanıt:
@@ -251,7 +251,7 @@ age:float, monthly_spend:float, tenure_months:int, churn:int
 
 Son çalışan kod `current_experiment_code` alanına, ilk modelin Accuracy ve F1 değerleri `experiment_metrics` alanına, tüm modeller `model_results` alanına, veri profili `dataset_profile` alanına yazılır. Ardından `verifier_node` iki kontrol yapar:
 
-1. Betik beş bölme tohumunu kendi döngüsünde basıyorsa o satırlar kullanılır. Basılmıyorsa yalnız `train_test_split` içindeki `random_state` 42, 100, 200, 300 ve 400 yapılır ve her değer E2B'de yeniden çalışır. Veri üretim tohumu ve model tohumu değişmez. Her model için Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresinin ortalaması, standart sapması ve varyansı NumPy ile hesaplanır ve `statistical_results` sözlüğüne yazılır. Varyans, standart sapmanın karesidir. Aynı sözlüğe `statistical_conclusion` yazılır. Karar ROC-AUC için eşleştirilmiş Pitman-Morgan testi ve Holm düzeltmesiyle verilir, alfa 0.05'tir. Anlamlı fark yoksa beraberlik cümlesi kurulur. Tek bir model her rakibine karşı anlamlı biçimde düşük varyanslıysa o model daha kararlı ilan edilir. ROC-AUC veya F1 standart sapması 0.05'i geçerse doğrulayıcı bunu `statistical_decision` içindeki `instability` bulgusuna yazar (`unstable`, `std_threshold`, `flagged`). Bu bir hata değildir, kodu yeniden ürettirmez ve `Passed` sonucunu bozmaz.
+1. Betik on bölme tohumunu kendi döngüsünde basıyorsa o satırlar kullanılır. Basılmıyorsa yalnız `train_test_split` içindeki `random_state` 42, 100, 200, 300, 400, 500, 600, 700, 800 ve 900 yapılır ve her değer E2B'de yeniden çalışır (on ayrı sandbox koşusu). Bölmeler stratify'lıdır: deney ajanı her `train_test_split` çağrısına `stratify=y` verir ve üretilen kod bunu taşımıyorsa AST denetimi reddedip kodu düzelttirir. Tohumlar `app/seeds.py` içinde tek yerde durur, prompt ve doğrulayıcı oradan okur. Veri üretim tohumu ve model tohumu değişmez. Her model için Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresinin ortalaması, standart sapması ve varyansı NumPy ile hesaplanır ve `statistical_results` sözlüğüne yazılır. Varyans, standart sapmanın karesidir. Aynı sözlüğe `statistical_conclusion` yazılır. Karar ROC-AUC için eşleştirilmiş Pitman-Morgan testi ve Holm düzeltmesiyle verilir, alfa 0.05'tir. Anlamlı fark yoksa beraberlik cümlesi kurulur. Tek bir model her rakibine karşı anlamlı biçimde düşük varyanslıysa o model daha kararlı ilan edilir. ROC-AUC veya F1 standart sapması 0.05'i geçerse doğrulayıcı bunu `statistical_decision` içindeki `instability` bulgusuna yazar (`unstable`, `std_threshold`, `flagged`). Bu bir hata değildir, kodu yeniden ürettirmez ve `Passed` sonucunu bozmaz.
 2. Kodu veri sızıntısı için inceler. Örneğin ayrılmadan önce `fit_transform` veya imputation varsa sebebiyle birlikte `Failed` döner.
 
 `verification_status` `Passed` ise akış `report_node`'a gider. Yalnız gerçek hatalar `Failed` yapar: metrik üretilmemesi, sandbox çökmesi ve veri sızıntısı. Yüksek varyans `Failed` yapmaz; rapor onu Results ve Conclusion içinde limitasyon olarak yazar, hakem raporlandığını kontrol eder. `Failed` ise eleştiri `verifier_feedback` olarak `experiment_node`'a geri gider ve kod düzeltilir. Bu dönüş en fazla 2 kez olur. İkinci düzeltmeden sonra doğrulayıcı hâlâ onaylamazsa deney `is_success=False` ile hafızaya yazılır ve yine `report_node` çalışır. Sızıntı mesajı `Leakage çözülemedi` ile başlar.
