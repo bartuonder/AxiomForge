@@ -1,3 +1,19 @@
+x-image: &image
+  build: .
+  image: axiomforge-app
+
+x-app: &app
+  <<: *image
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgresql://axiomforge:axiomforge@postgres:5432/axiomforge
+    REDIS_URL: redis://redis:6379/0
+    MLFLOW_TRACKING_URI: http://mlflow:5000
+  volumes:
+    - reports:/srv/reports
+
 services:
   redis:
     image: redis:7-alpine
@@ -13,3 +29,48 @@ services:
       - "5432:5432"
     volumes:
       - ./app/memory/enable_pgvector.sql:/docker-entrypoint-initdb.d/enable_pgvector.sql:ro
+  mlflow:
+    <<: *image
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - sqlite:////mlflow/mlflow.db
+      - --default-artifact-root
+      - /mlflow/artifacts
+      - --allowed-hosts
+      - mlflow:5000,localhost:5000,127.0.0.1:5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow:/mlflow
+  api:
+    <<: *app
+    depends_on:
+      - redis
+      - postgres
+      - mlflow
+    ports:
+      - "8000:8000"
+  worker:
+    <<: *app
+    command:
+      - celery
+      - -A
+      - app.celery_app
+      - worker
+      - --pool=threads
+      - --concurrency=4
+      - --loglevel=info
+    depends_on:
+      - redis
+      - postgres
+      - mlflow
+
+volumes:
+  reports:
+  mlflow:
