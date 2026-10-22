@@ -20,6 +20,7 @@ from app.graph.nodes import (
     route_after_verifier,
     verifier_node,
 )
+from app.graph.selection import selected_index, validate_selection
 from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
@@ -156,6 +157,8 @@ def get_research(thread_id: str) -> dict:
         "next": next_nodes,
         "active_step": _active_step(values, next_nodes, status),
         "hypotheses": list(values.get("hypotheses") or []),
+        "experiment_specs": list(values.get("experiment_specs") or []),
+        "selected_hypothesis": selected_index(values),
         "approval_status": values.get("approval_status") or "",
         "verification_status": values.get("verification_status") or "",
         "verifier_feedback": values.get("verifier_feedback") or "",
@@ -247,7 +250,7 @@ def _steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, s
     return steps
 
 
-def decide_plan(thread_id: str, decision: str) -> dict:
+def decide_plan(thread_id: str, decision: str, selected: int | None = None) -> dict:
     normalized = decision.strip().upper()
     if normalized not in {"Y", "N"}:
         raise RuntimeError("decision must be Y or N")
@@ -275,11 +278,13 @@ def decide_plan(thread_id: str, decision: str) -> dict:
                 "approval_status": "rejected",
                 "hypotheses": hypotheses,
             }
-        compiled.update_state(config, {"approval_status": "approved"})
+        choice = validate_selection(len(hypotheses), selected)
+        compiled.update_state(config, {"approval_status": "approved", "selected_hypothesis": choice})
     return {
         "thread_id": thread_id,
         "status": "running",
         "approval_status": "approved",
+        "selected_hypothesis": choice,
         "hypotheses": hypotheses,
     }
 

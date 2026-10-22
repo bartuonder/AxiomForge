@@ -40,6 +40,7 @@ class StartResearchRequest(BaseModel):
 class ApprovePlanRequest(BaseModel):
     thread_id: str = Field(min_length=1)
     decision: str = Field(min_length=1)
+    selected: int | None = None
 
 
 def _no_model_detail(exc: QueryNamesNoModel) -> str:
@@ -135,7 +136,7 @@ def research_report(thread_id: str):
 @app.post("/approve_plan")
 def approve_plan_endpoint(body: ApprovePlanRequest):
     try:
-        result = decide_plan(body.thread_id, body.decision)
+        result = decide_plan(body.thread_id, body.decision, body.selected)
         if result["approval_status"] == "approved":
             try:
                 _enqueue(resume_research_task, body.thread_id)
@@ -143,6 +144,8 @@ def approve_plan_endpoint(body: ApprovePlanRequest):
                 revoke_approval(body.thread_id)
                 raise
         return result
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
