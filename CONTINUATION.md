@@ -24,13 +24,17 @@ Sonra literatür ajanı ve Celery düzeldi: literatür artık LLM anahtar kelime
 
 Sonra MLflow kaydı doğrulayıcıya taşındı: grafta tek bir `Verified` (veya `Failed`) üst run açılır, doğrulanmış ortalama, std ve varyans üst run'a, tohum iç içe run'lara yazılır (`log_verified_comparison`, `seeded_rows`). `execute_experiment` grafta `track_run=False` ile çağrılır, `POST /experiments` eskisi gibi kendisi loglar. Ayrıştırma regex'i bilimsel gösterimi okur (`_NUMBER`); önceden `train_seconds=4.5e-05` satırı sessizce düşüyordu. Beraberlik kapısı artık yalnız karşılaştırma kalıplarını sayar (`to better understand` geçer, `outperforms` ve `superiority` yakalanır).
 
-Sonra `tests/` altında pytest testleri yazıldı (205 test, yaklaşık 6 saniye, hiçbir dış servis çağrılmaz). Ayrıştırma, model adı çıkarma ve `models` sözlüğü sözleşmesi, spesifikasyon doğrulaması ve kod denetimi, planlayıcı planı, istatistik fonksiyonları, doğrulayıcı özeti ve kararı, beraberlik kapısı, araştırma durumu ve düğümler kapsanır. Düğüm testleri `app.graph.nodes` içindeki dış çağrıları `monkeypatch` ile taklit eder. Çalıştırma: `.\.venv\Scripts\python.exe -m pytest`. Bağımlılık `requirements-dev.txt` içindedir. Testlerin hata yakaladığı dört kasıtlı bozmayla doğrulandı. 12. maddenin kalan işleri de bitti: `requirements.txt` kodun doğrudan import ettiği `httpx`, `kombu`, `langchain-core` ve `pydantic` ile tamamlandı (temiz imaj kurulumunda `import app.main, app.tasks` ile doğrulandı). `Dockerfile` tek imajdır ve API, Celery işçisi ve MLflow sunucusu aynı imajdan farklı komutla çalışır (`docker compose up -d --build`). `REDIS_URL` ve `MLFLOW_TRACKING_URI` ortam değişkeniyle okunur. API ve işçi `reports` hacmini paylaşır. Konsol konteynerde değildir. Yerel geliştirmede yalnız `docker compose up -d redis postgres` çalıştırılır, yoksa konteynerlerle 5000 ve 8000 portları çakışır.
+Sonra `tests/` altında pytest testleri yazıldı (333 test, yaklaşık 6 saniye, hiçbir dış servis çağrılmaz). Ayrıştırma, model adı çıkarma ve `models` sözlüğü sözleşmesi, spesifikasyon doğrulaması ve kod denetimi, planlayıcı planı, istatistik fonksiyonları, doğrulayıcı özeti ve kararı, beraberlik kapısı, araştırma durumu ve düğümler kapsanır. Düğüm testleri `app.graph.nodes` içindeki dış çağrıları `monkeypatch` ile taklit eder. Çalıştırma: `.\.venv\Scripts\python.exe -m pytest`. Bağımlılık `requirements-dev.txt` içindedir. Testlerin hata yakaladığı dört kasıtlı bozmayla doğrulandı. 12. maddenin kalan işleri de bitti: `requirements.txt` kodun doğrudan import ettiği `httpx`, `kombu`, `langchain-core` ve `pydantic` ile tamamlandı (temiz imaj kurulumunda `import app.main, app.tasks` ile doğrulandı). `Dockerfile` tek imajdır ve API, Celery işçisi ve MLflow sunucusu aynı imajdan farklı komutla çalışır (`docker compose up -d --build`). `REDIS_URL` ve `MLFLOW_TRACKING_URI` ortam değişkeniyle okunur. API ve işçi `reports` hacmini paylaşır. Konsol konteynerde değildir. Yerel geliştirmede yalnız `docker compose up -d redis postgres` çalıştırılır, yoksa konteynerlerle 5000 ve 8000 portları çakışır.
 
 Sonra sonuç sayfası düzeldi (13. madde): `GET /research/{thread_id}` `verifier_feedback` ve `instability` döner, `frontend/components/ResearchStatus.tsx` bunları üç kontrol satırı olarak gösterir. `paper-view.tsx` raporu her 2 saniyede sonsuza dek okumuyor: `setTimeout` zinciri araştırma `completed`, `needs_review`, `failed` veya `rejected` olunca durur. Arayüz başsız Edge ve sahte bir API ile doğrulandı (otomatik arayüz testi yok). Önerilen 13 maddelik listenin hepsi bitti.
 
 Sonra raporun `Failed` doğrulamayı söylemesi sağlandı: yazıcı prompt'u `Failed` iken Abstract'ta `failed verification` ve nedenini ister, `consistency.verification_issue` Abstract bölümünü (`abstract_of`) LLM'siz tarar ve yoksa makale geri gider. Kalıp başta yalnız bitişik `verification failed` halini tanıyordu; gerçek bir `gpt-4o` çıktısı (`the verification of the experiment failed due to ...`) dürüst olduğu halde reddedilecekti, kalıp aynı cümlede araya kelime girmesine izin verecek şekilde genişletildi. Yazıcının `Failed` ve `Passed` için gerçekten uyduğu iki canlı çağrıyla doğrulandı.
 
-Denetimden kalan açık işler: bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır). Bunun için kullanıcının mesajı beklenir.
+Sonra kararsızlık bulgusu makaleye zorunlu taşındı: yazıcı özette `high variance across splits` der, `consistency.instability_issues` LLM'siz Abstract'ı ve işaretli her modelin tablo dışı bir cümlede anlatılıp anlatılmadığını denetler (model adı boşluk ve büyük-küçük harften bağımsız). İlk denemede bulgunun Results ve Conclusion'da zaten olduğu, eksiğin özet olduğu görüldü. İki canlı `gpt-4o` çağrısı kontrolü sorunsuz geçti.
+
+Sonra tekrar sayısı beşten ona çıktı ve bölmeler stratify'lı oldu. Tohumlar `app/seeds.py` içindeki `SPLIT_SEEDS` (42, 100, ..., 900) tek kaynaktan gelir, deney prompt'u (`experiment-v7`) ve doğrulayıcı oradan okur. `split_contract_error` her `train_test_split` çağrısında `stratify=y` ister ve çağrı hiç yoksa kodu reddeder; böylece doğrulayıcının tohum yeniden yazma yolu her zaman işler. Kontrol `execute_experiment` içindeki mevcut düzeltme döngüsüne bağlıdır. Betik on satır basmazsa doğrulayıcı kodu on kez yeniden çalıştırır (önceden beş). Sandbox süreleri iki katına çıkarıldı (`RUN_TIMEOUT_SECONDS = 240`, `SANDBOX_LIFETIME_SECONDS = 300`). Bu süreler ölçüme değil orantıya dayanır; gerçek bir tam koşuda aşılırsa ayarlanmalı. Önceki güç ölçümü (%74) beş bölmeye aittir ve on bölmede artmalıdır, yeniden ölçülmedi.
+
+Denetimden kalan açık iş yok. Yeni iş için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
@@ -117,7 +121,7 @@ Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptt
 | Bölme tohumu, NumPy özeti ve `stability_decision` | `app/graph/verifier.py` |
 | Araştırma hatalarının kaydı | `app/graph/errors.py` |
 | Pitman-Morgan, düzeltilmiş t-testi, Holm | `app/graph/stats.py` |
-| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v6` |
+| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v7` |
 | Deney spesifikasyonu | `app/agents/spec.py` |
 | Planlayıcı | `app/agents/planner.py` |
 | Rapor promptu | `app/agents/report.py` |
@@ -150,7 +154,7 @@ Kullanıcı Türkçe yazar. Yanıt Türkçe ve kısa olur. İstemediği faz baş
 
 MLflow kapalıyken urllib uzun süre dener. Hafıza kaydı bundan önce yazılır. Kayıt hatası araştırmayı durdurmaz, `mlflow_run_id` boş kalır. MLflow'un emoji logu Windows konsolunda `UnicodeEncodeError` verebilir. Kayıt tarafında stdout utf-8'e çekilmiştir.
 
-Onaydan sonraki iş uzundur: üretim denemeleri, beş bölme, sızıntı hakemi, rapor ve iddia turu. `POST /approve_plan` artık hemen döner; bu süre işçide geçer. İşçi görev sürerken ölürse araştırma `running` kalır, otomatik kurtarma yoktur.
+Onaydan sonraki iş uzundur: üretim denemeleri, on bölme, sızıntı hakemi, rapor ve iddia turu. `POST /approve_plan` artık hemen döner; bu süre işçide geçer. İşçi görev sürerken ölürse araştırma `running` kalır, otomatik kurtarma yoktur.
 
 `test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı aynı hatayı tekrar etmemek için onu okuyabilir. Bu kayıt yeni koşunun `tested_models` listesine yazılmaz.
 
