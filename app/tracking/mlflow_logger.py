@@ -1,6 +1,8 @@
+import json
 import os
 import re
 import sys
+from typing import Any
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
@@ -144,6 +146,77 @@ def log_model_comparison(
         for item in results:
             with mlflow.start_run(nested=True, run_name=str(item["model"])):
                 mlflow.log_param("model", str(item["model"]))
+                for name in metric_names:
+                    mlflow.log_metric(name, float(item[name]))
+        return parent.info.run_id
+
+
+def log_verified_comparison(
+    rows: list[dict[str, str | float | None]],
+    summary: dict[str, dict[str, float] | str],
+    decision: dict[str, Any],
+    prompt_version: str,
+    model: str,
+    critic_rounds: int,
+    hypothesis: str,
+    dataset: dict[str, str | float] | None = None,
+    spec: dict[str, Any] | None = None,
+) -> str:
+    _start_experiment()
+    metric_names = (
+        "accuracy",
+        "f1",
+        "roc_auc",
+        "pr_auc",
+        "train_seconds",
+        "tn",
+        "fp",
+        "fn",
+        "tp",
+    )
+    models = [name for name, record in summary.items() if isinstance(record, dict)]
+    seeds = sorted({int(item["seed"]) for item in rows if item["seed"] is not None})
+    with mlflow.start_run() as parent:
+        mlflow.log_param("prompt_version", prompt_version)
+        mlflow.log_param("model", model)
+        mlflow.log_param("status", "Verified")
+        mlflow.log_param("critic_rounds", str(critic_rounds))
+        mlflow.log_param("compared_models", ",".join(models))
+        mlflow.log_param("seeds", ",".join(str(seed) for seed in seeds))
+        mlflow.log_param("n_splits", str(decision.get("n_splits", 0)))
+        mlflow.log_param("stability_test", str(decision.get("test", "")))
+        mlflow.set_tag("hypothesis", hypothesis[:5000])
+        mlflow.set_tag("outcome", str(decision.get("outcome", "none")))
+        mlflow.set_tag("winner", str(decision.get("winner", "")))
+        if spec:
+            mlflow.log_param("spec_dataset", str(spec.get("dataset", "")))
+            mlflow.log_param("spec_params", json.dumps(spec.get("params", {}), ensure_ascii=False)[:500])
+        if dataset:
+            mlflow.log_param("dataset", str(dataset["dataset"]))
+            mlflow.log_metric("samples", float(dataset["samples"]))
+            mlflow.log_metric("features", float(dataset["features"]))
+            mlflow.log_metric("negative_ratio", float(dataset["negative_ratio"]))
+            mlflow.log_metric("positive_ratio", float(dataset["positive_ratio"]))
+        for name in models:
+            for key, value in summary[name].items():
+                mlflow.log_metric(f"{name}/{key}", float(value))
+        mlflow.log_metric("min_adjusted_p", float(decision.get("min_adjusted_p", 1.0)))
+        instability = decision.get("instability") or {}
+        mlflow.log_metric("unstable", 1.0 if instability.get("unstable") else 0.0)
+        performance = decision.get("performance") or []
+        mlflow.log_metric(
+            "significant_performance_differences",
+            float(sum(1 for item in performance if item.get("significant"))),
+        )
+        conclusion = summary.get("statistical_conclusion")
+        if isinstance(conclusion, str) and conclusion:
+            mlflow.set_tag("statistical_conclusion", conclusion[:5000])
+        for item in rows:
+            seed = "unknown" if item["seed"] is None else str(item["seed"])
+            with mlflow.start_run(nested=True, run_name=f"{item['model']} seed={seed}"):
+                mlflow.log_param("model", str(item["model"]))
+                mlflow.log_param("seed", seed)
+                mlflow.log_param("split_index", str(item["split_index"]))
                 for name in metric_names:
                     mlflow.log_metric(name, float(item[name]))
         return parent.info.run_id

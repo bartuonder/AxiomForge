@@ -66,6 +66,19 @@ def summarize_seed_runs(
     return finished
 
 
+def seeded_rows(runs: list[list[dict[str, str | float]]]) -> list[dict[str, str | float | None]]:
+    counts: dict[str, int] = {}
+    rows: list[dict[str, str | float | None]] = []
+    for run in runs:
+        for item in run:
+            name = str(item["model"])
+            index = counts.get(name, 0)
+            counts[name] = index + 1
+            seed = VERIFICATION_SEEDS[index] if index < len(VERIFICATION_SEEDS) else None
+            rows.append({**item, "split_index": index, "seed": seed})
+    return rows
+
+
 def model_series(
     runs: list[list[dict[str, str | float]]],
     metric: str,
