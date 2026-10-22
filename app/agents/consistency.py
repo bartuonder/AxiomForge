@@ -24,7 +24,7 @@ _SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\n")
 _HEADING = re.compile(r"^#{1,6}[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 _FAILED_VERIFICATION = re.compile(
     r"\bfailed\s+(?:the\s+)?(?:\w+\s+)?verification\b"
-    r"|\bverification\s+(?:has\s+|had\s+)?(?:failed|was\s+rejected|did\s+not\s+pass)\b"
+    r"|\bverification\b[^.\n]{0,80}?\b(?:failed|was\s+rejected|did\s+not\s+pass)\b"
     r"|\bdid\s+not\s+pass\s+(?:the\s+)?(?:\w+\s+)?verification\b"
     r"|\bunverified\b|\bnot\s+(?:been\s+)?verified\b|\bcould\s+not\s+be\s+verified\b|\bfailed\s+to\s+verify\b",
     re.IGNORECASE,

@@ -37,6 +37,8 @@ def paper(abstract, results="Numbers."):
         "The results could not be verified.",
         "The pipeline failed to verify the metrics.",
         "FAILED VERIFICATION, so treat the numbers with care.",
+        "However, the verification of the experiment failed due to data leakage in the imputer.",
+        "The verification of the run was rejected after the leakage check.",
     ],
 )
 def test_a_failed_run_is_acknowledged_in_the_abstract(sentence):
@@ -49,6 +51,7 @@ def test_a_failed_run_is_acknowledged_in_the_abstract(sentence):
         "We compare two models on an imbalanced dataset.",
         "XGBoost is more stable than RandomForest.",
         "The verification step ran on five splits.",
+        "The verification covered five splits. Training failed on none of them.",
         "",
     ],
 )
