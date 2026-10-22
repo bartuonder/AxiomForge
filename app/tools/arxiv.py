@@ -10,11 +10,26 @@ def search_arxiv(query: str, limit: int = 3) -> list[dict[str, str]]:
     cleaned = " ".join(query.split())
     if not cleaned:
         raise RuntimeError("arxiv query is empty")
+    papers = _fetch(f"all:{cleaned}", limit)
+    if not papers:
+        raise RuntimeError("arxiv returned no papers")
+    return papers
+
+
+def search_arxiv_phrases(phrases: list[str], limit: int = 8) -> list[dict[str, str]]:
+    cleaned = [" ".join(phrase.replace('"', " ").split()) for phrase in phrases]
+    cleaned = [phrase for phrase in cleaned if phrase]
+    if not cleaned:
+        raise RuntimeError("arxiv query is empty")
+    return _fetch(" AND ".join(f'all:"{phrase}"' for phrase in cleaned), limit)
+
+
+def _fetch(search_query: str, limit: int) -> list[dict[str, str]]:
     try:
         response = httpx.get(
             API_URL,
             params={
-                "search_query": f"all:{cleaned}",
+                "search_query": search_query,
                 "start": 0,
                 "max_results": limit,
                 "sortBy": "relevance",
@@ -37,8 +52,6 @@ def search_arxiv(query: str, limit: int = 3) -> list[dict[str, str]]:
         papers.append({"title": title, "abstract": abstract})
         if len(papers) == limit:
             break
-    if not papers:
-        raise RuntimeError("arxiv returned no papers")
     return papers
 
 
