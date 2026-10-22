@@ -5,6 +5,7 @@ import pytest
 from app.agents.experiment import QueryNamesNoModel
 from app.graph.workflow import (
     _active_step,
+    _instability,
     _research_status,
     _steps,
     empty_research_state,
@@ -188,3 +189,25 @@ def test_each_thread_gets_a_new_uuid():
     second = new_thread_id("Compare SVM and KNN")
     assert first != second
     assert str(uuid.UUID(first)) == first
+
+
+def test_instability_comes_from_the_statistical_decision():
+    values = {
+        "statistical_decision": {
+            "instability": {
+                "unstable": True,
+                "std_threshold": 0.05,
+                "flagged": [{"model": "A", "metric": "roc_auc", "std": 0.18}],
+            }
+        }
+    }
+    assert _instability(values) == {
+        "unstable": True,
+        "std_threshold": 0.05,
+        "flagged": [{"model": "A", "metric": "roc_auc", "std": 0.18}],
+    }
+
+
+def test_instability_is_quiet_before_the_verifier_has_run():
+    assert _instability({}) == {"unstable": False, "std_threshold": 0.0, "flagged": []}
+    assert _instability({"statistical_decision": {}}) == {"unstable": False, "std_threshold": 0.0, "flagged": []}

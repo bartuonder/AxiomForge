@@ -157,10 +157,21 @@ def get_research(thread_id: str) -> dict:
         "hypotheses": list(values.get("hypotheses") or []),
         "approval_status": values.get("approval_status") or "",
         "verification_status": values.get("verification_status") or "",
+        "verifier_feedback": values.get("verifier_feedback") or "",
+        "instability": _instability(values),
         "research_status": values.get("research_status") or "",
         "consistency_feedback": values.get("consistency_feedback") or "",
         "error": error,
         "steps": _steps(values, next_nodes, status),
+    }
+
+
+def _instability(values: dict) -> dict:
+    finding = (values.get("statistical_decision") or {}).get("instability") or {}
+    return {
+        "unstable": bool(finding.get("unstable")),
+        "std_threshold": float(finding.get("std_threshold", 0.0)),
+        "flagged": list(finding.get("flagged") or []),
     }
 
 
