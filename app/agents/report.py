@@ -4,6 +4,7 @@ from pathlib import Path
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
+from app.graph.evidence import evidence_sentences
 from app.graph.selection import primary_hypothesis
 from app.graph.state import AgentState
 
@@ -72,6 +73,8 @@ SYSTEM_PROMPT = (
     "'the hypothesis was supported', 'the hypothesis was contradicted' veya 'the hypothesis was inconclusive'. "
     "verdict untested ise hipotezin bu veriyle sınanamadığını yaz. "
     "Hipotezi yeniden çerçeveleme, verdict'i değiştirme ve verdict contradicted veya inconclusive iken hipotezin desteklendiğini yazma. "
+    "Evidence sentences bölümündeki her cümleyi Results içinde aynen kopyala: sırayı, sayıları ve model adlarını değiştirme, yeniden yazma. "
+    "Bu cümleler hipotez kararını, anlamlı her performans farkını (p ve dz ile) ve kararsızlık bulgusunu taşır. "
     "Verification status Failed ise deney doğrulamadan geçmemiştir ve makale bunu gizleyemez. "
     "Abstract içinde 'failed verification' ifadesini aynen kullan ve nedenini İngilizce tek cümleyle yaz; "
     "Verifier feedback Türkçedir, onu çevirerek özetle. "
@@ -119,6 +122,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
     dataset_profile = state.get("dataset_profile") or {}
     statistical_results = state.get("statistical_results") or {}
     statistical_decision = state.get("statistical_decision") or {}
+    evidence = "\n".join(f"- {sentence}" for sentence in evidence_sentences(statistical_decision))
     failures = [
         {"error_log": item.get("error_log", "")}
         for item in past_experiments
@@ -144,6 +148,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Model results (rows from this run only; do not average and do not add models that are absent here):\n{json.dumps(model_results, ensure_ascii=False)}\n"
         f"Statistical results (exact Python means, standard deviations, variances, and statistical_conclusion; copy these, do not choose a winner):\n{json.dumps(statistical_results, ensure_ascii=False)}\n"
         f"Statistical decision (structured verdict from Python; the paper must not contradict it):\n{json.dumps(statistical_decision, ensure_ascii=False)}\n"
+        f"Evidence sentences (written by Python from the statistical decision; copy each one word for word into Results, in this order):\n{evidence}\n"
         f"Final code:\n{state.get('current_experiment_code', '')}\n"
         f"RAG memory failures:\n{json.dumps(failures, ensure_ascii=False)}\n"
         f"Claim review:\n{state.get('consistency_feedback', '')}\n"
