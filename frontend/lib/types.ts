@@ -7,13 +7,14 @@ export type ResearchStep = {
 
 export type ResearchSnapshot = {
   thread_id: string;
-  status: "starting" | "running" | "paused" | "rejected" | "completed" | "failed";
+  status: "starting" | "running" | "paused" | "rejected" | "completed" | "needs_review" | "failed";
   next: string[];
   active_step: string;
   hypotheses: string[];
   approval_status: string;
   verification_status: string;
   research_status: string;
+  consistency_feedback: string;
   error: string;
   steps: ResearchStep[];
 };

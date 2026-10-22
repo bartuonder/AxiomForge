@@ -37,7 +37,7 @@ export default function Home() {
           return;
         }
         setSnapshot(next);
-        if (next.status === "completed") {
+        if (next.status === "completed" || next.status === "needs_review") {
           router.push(`/result/${threadId}`);
         }
         if (next.error) {

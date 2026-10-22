@@ -172,7 +172,7 @@ def consistency_checker_node(state: AgentState) -> dict:
         return {
             "consistency_feedback": feedback,
             "consistency_continue": False,
-            "research_status": "Completed",
+            "research_status": "NeedsReview",
         }
     logger.info("consistency_checker_node returning to report_node")
     return {

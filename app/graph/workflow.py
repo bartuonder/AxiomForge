@@ -25,6 +25,7 @@ from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
 
+FINISHED_STATUSES = {"completed", "needs_review"}
 _STEP_ORDER = [
     "literature_node",
     "planner_node",
@@ -162,6 +163,7 @@ def get_research(thread_id: str) -> dict:
         "approval_status": values.get("approval_status") or "",
         "verification_status": values.get("verification_status") or "",
         "research_status": values.get("research_status") or "",
+        "consistency_feedback": values.get("consistency_feedback") or "",
         "error": error,
         "steps": _steps(values, next_nodes, status),
     }
@@ -170,6 +172,8 @@ def get_research(thread_id: str) -> dict:
 def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
     if values.get("research_status") == "Completed":
         return "completed"
+    if values.get("research_status") == "NeedsReview":
+        return "needs_review"
     if error:
         return "failed"
     if values.get("approval_status") == "rejected":
@@ -182,7 +186,7 @@ def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
 
 
 def _active_step(values: dict, next_nodes: list[str], status: str) -> str:
-    if status == "completed":
+    if status in FINISHED_STATUSES:
         return "consistency_checker_node"
     if status in {"paused", "rejected"}:
         return "planner_node"
@@ -217,12 +221,12 @@ def _steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, s
         "verifier_node": values.get("verification_status") in {"Passed", "Failed"}
         and not values.get("critic_continue"),
         "report_node": bool(values.get("paper_markdown")) and not values.get("consistency_continue"),
-        "consistency_checker_node": values.get("research_status") == "Completed",
+        "consistency_checker_node": values.get("research_status") in {"Completed", "NeedsReview"},
     }
     active = _active_step(values, next_nodes, status)
     steps = []
     for name in _STEP_ORDER:
-        if status == "completed" or done[name]:
+        if status in FINISHED_STATUSES or done[name]:
             phase = "done"
         elif status not in {"rejected", "failed"} and name == active:
             phase = "active"
