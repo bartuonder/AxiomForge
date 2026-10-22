@@ -52,6 +52,8 @@ SYSTEM_PROMPT = (
     "Statistical decision içindeki performance listesi düzeltilmiş eşleştirilmiş t-testi sonuçlarıdır. "
     "Bir modelin metriğinin diğerinden farklı olduğunu yalnız significant true olan satır için yaz ve "
     "adjusted_p_value ile effect_size_dz değerlerini olduğu gibi kopyala. "
+    "significant true olan HER satırı Results içinde bir cümleyle yaz: metrik adı, hangi modelin higher veya lower olduğu, "
+    "adjusted_p_value ve effect_size_dz. ROC-AUC dahil hiçbir anlamlı metriği Abstract ve Conclusion'dan çıkarma. "
     "significant false ise o metrikte anlamlı fark bulunamadığını yaz; ortalamalar farklı görünse bile fark iddia etme. "
     "Performans farkını higher veya lower ile anlat, better kullanma. "
     "Statistical decision içindeki instability alanı bir bulgudur, hata değildir. "
