@@ -5,6 +5,7 @@ import redis
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from kombu.exceptions import OperationalError
 from openai import OpenAIError
 from pydantic import BaseModel, Field
 
@@ -12,7 +13,8 @@ from app.agents.experiment import QueryNamesNoModel
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
-from app.graph.workflow import approve_plan, get_research, start_research
+from app.graph.workflow import decide_plan, get_research, new_thread_id, revoke_approval
+from app.tasks import resume_research_task, run_research_task
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("axiomforge")
@@ -91,10 +93,19 @@ def create_experiment(body: ExperimentRequest):
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
+def _enqueue(task, *args) -> None:
+    try:
+        task.delay(*args)
+    except OperationalError as exc:
+        raise HTTPException(status_code=503, detail=f"task queue is unavailable: {exc}") from exc
+
+
 @app.post("/start_research")
 def start_research_endpoint(body: StartResearchRequest):
     try:
-        return start_research(body.query)
+        thread_id = new_thread_id(body.query)
+        _enqueue(run_research_task, thread_id, body.query)
+        return {"thread_id": thread_id, "status": "running"}
     except QueryNamesNoModel as exc:
         raise HTTPException(status_code=422, detail=_no_model_detail(exc)) from exc
     except RuntimeError as exc:
@@ -124,7 +135,14 @@ def research_report(thread_id: str):
 @app.post("/approve_plan")
 def approve_plan_endpoint(body: ApprovePlanRequest):
     try:
-        return approve_plan(body.thread_id, body.decision)
+        result = decide_plan(body.thread_id, body.decision)
+        if result["approval_status"] == "approved":
+            try:
+                _enqueue(resume_research_task, body.thread_id)
+            except HTTPException:
+                revoke_approval(body.thread_id)
+                raise
+        return result
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:

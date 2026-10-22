@@ -1,5 +1,4 @@
 import logging
-import threading
 import uuid
 from typing import Any
 
@@ -104,7 +103,7 @@ def empty_research_state(query: str) -> AgentState:
     }
 
 
-def _run_until_pause(thread_id: str, query: str) -> None:
+def run_until_pause(thread_id: str, query: str) -> None:
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
     fresh = empty_research_state(query)
     logger.info("start_research thread_id=%s", thread_id)
@@ -134,17 +133,10 @@ def _run_until_pause(thread_id: str, query: str) -> None:
         record_error(thread_id, describe_error(exc))
 
 
-def start_research(query: str) -> dict:
+def new_thread_id(query: str) -> str:
     if not requested_models(query):
         raise QueryNamesNoModel()
-    thread_id = str(uuid.uuid4())
-    worker = threading.Thread(
-        target=_run_until_pause,
-        args=(thread_id, query),
-        daemon=True,
-    )
-    worker.start()
-    return {"thread_id": thread_id, "status": "running"}
+    return str(uuid.uuid4())
 
 
 def get_research(thread_id: str) -> dict:
@@ -180,7 +172,11 @@ def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
         return "failed"
     if values.get("approval_status") == "rejected":
         return "rejected"
-    if "approval_gate" in next_nodes and values.get("hypotheses"):
+    if (
+        "approval_gate" in next_nodes
+        and values.get("hypotheses")
+        and values.get("approval_status") != "approved"
+    ):
         return "paused"
     if not values and not next_nodes:
         return "starting"
@@ -238,7 +234,7 @@ def _steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, s
     return steps
 
 
-def approve_plan(thread_id: str, decision: str) -> dict:
+def decide_plan(thread_id: str, decision: str) -> dict:
     normalized = decision.strip().upper()
     if normalized not in {"Y", "N"}:
         raise RuntimeError("decision must be Y or N")
@@ -251,32 +247,44 @@ def approve_plan(thread_id: str, decision: str) -> dict:
             raise RuntimeError("research thread was not found")
         if snapshot.next != ("approval_gate",):
             raise RuntimeError("research thread is not waiting for approval")
+        if snapshot.values.get("approval_status"):
+            raise RuntimeError("research thread was already decided")
         hypotheses = list(snapshot.values.get("hypotheses", []))
-        logger.info("approve_plan thread_id=%s decision=%s", thread_id, normalized)
+        logger.info("decide_plan thread_id=%s decision=%s", thread_id, normalized)
         for index, item in enumerate(hypotheses, start=1):
             logger.info("approve hypothesis %s=%s", index, item)
         if normalized == "N":
             logger.info("plan rejected thread_id=%s", thread_id)
             compiled.update_state(config, {"approval_status": "rejected"})
-            state = compiled.get_state(config).values
             return {
                 "thread_id": thread_id,
                 "status": "ended",
                 "approval_status": "rejected",
                 "hypotheses": hypotheses,
-                "state": state,
             }
         compiled.update_state(config, {"approval_status": "approved"})
-        try:
-            state = compiled.invoke(None, config)
-        except Exception as exc:
-            logger.exception("research failed thread_id=%s", thread_id)
-            record_error(thread_id, describe_error(exc))
-            raise
     return {
         "thread_id": thread_id,
-        "status": "finished",
+        "status": "running",
         "approval_status": "approved",
         "hypotheses": hypotheses,
-        "state": state,
     }
+
+
+def revoke_approval(thread_id: str) -> None:
+    config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    with _open_graph() as checkpointer:
+        compiled = _compile(checkpointer)
+        compiled.update_state(config, {"approval_status": ""})
+
+
+def resume_research(thread_id: str) -> None:
+    config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    logger.info("resume_research thread_id=%s", thread_id)
+    try:
+        with _open_graph() as checkpointer:
+            compiled = _compile(checkpointer)
+            compiled.invoke(None, config)
+    except Exception as exc:
+        logger.exception("research failed thread_id=%s", thread_id)
+        record_error(thread_id, describe_error(exc))
