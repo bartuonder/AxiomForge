@@ -204,3 +204,63 @@ def test_a_run_without_verified_results_is_not_asked_for_a_table(referee):
 def test_the_writer_is_told_to_copy_the_cells_with_four_decimals():
     assert "dört ondalıkla kopyala" in SYSTEM_PROMPT
     assert "0.9346 ± 0.0296" in SYSTEM_PROMPT
+
+
+REAL_RUN_TWO_TABLE = """| Model        | Accuracy (Mean ± Std) | F1 (Mean ± Std) | ROC-AUC (Mean ± Std) | PR-AUC (Mean ± Std) | Train Seconds (Mean ± Std) |
+|--------------|-----------------------|-----------------|----------------------|---------------------|----------------------------|
+| SVM          | 0.9515 ± 0.0100       | 0.6979 ± 0.0793 | 0.9141 ± 0.0330      | 0.7974 ± 0.0418     | 0.0280 ± 0.0022            |
+| KNN          | 0.9455 ± 0.0101       | 0.6695 ± 0.0681 | 0.8655 ± 0.0292      | 0.7185 ± 0.0582     | 0.0005 ± 0.0001            |
+| RandomForest | 0.9710 ± 0.0077       | 0.8433 ± 0.0454 | 0.9441 ± 0.0252      | 0.8504 ± 0.0345     | 0.1234 ± 0.0101            |
+"""
+
+
+def record(accuracy, f1, roc, pr, seconds):
+    keys = ("accuracy", "f1", "roc_auc", "pr_auc", "train_seconds")
+    out = {}
+    for key, (mean, std) in zip(keys, (accuracy, f1, roc, pr, seconds)):
+        out[f"{key}_mean"], out[f"{key}_std"] = mean, std
+    return out
+
+
+REAL_RUN_TWO = {
+    "SVM": record((0.9515, 0.0100), (0.6979, 0.0793), (0.9141, 0.0330), (0.7974, 0.0418), (0.0280, 0.0022)),
+    "KNN": record((0.9455, 0.0101), (0.6695, 0.0681), (0.8655, 0.0292), (0.7185, 0.0582), (0.0005, 0.0001)),
+    "RandomForest": record((0.9710, 0.0077), (0.8433, 0.0454), (0.9441, 0.0252), (0.8504, 0.0345), (0.1234, 0.0101)),
+}
+
+
+def test_the_table_the_writer_really_produced_is_read_and_verified():
+    assert table_issues("# Results\n\n" + REAL_RUN_TWO_TABLE, REAL_RUN_TWO) == []
+
+
+def test_a_transposed_digit_in_the_real_table_is_caught():
+    text = "# Results\n\n" + REAL_RUN_TWO_TABLE.replace("0.9441 ± 0.0252", "0.9414 ± 0.0252")
+    issues = table_issues(text, REAL_RUN_TWO)
+    assert issues == [
+        TABLE_CELL_NOTICE.format(
+            model="RandomForest", metric="ROC-AUC", found="0.9414 ± 0.0252", expected="0.9441 ± 0.0252"
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "| Model | Accuracy (mean ± std) | F1 (mean ± std) | ROC-AUC (mean ± std) | PR-AUC (mean ± std) | Train seconds (mean ± std) |",
+        "| Model | Accuracy Mean ± Std | F1 Mean ± Std | ROC-AUC Mean ± Std | PR-AUC Mean ± Std | Train Seconds Mean ± Std |",
+        "| Model | Accuracy (%) | F1 (score) | ROC AUC (higher is better) | PR-AUC (avg precision) | Training time (s) |",
+        "| Model | Accuracy ± SD | F1 ± SD | ROC-AUC ± SD | PR-AUC ± SD | Train seconds ± SD |",
+    ],
+)
+def test_decorated_headers_are_still_recognised(header):
+    lines = REAL_RUN_TWO_TABLE.splitlines()
+    text = "# Results\n" + "\n".join([header] + lines[1:]) + "\n"
+    assert table_issues(text, REAL_RUN_TWO) == []
+
+
+def test_a_decorated_header_does_not_hide_a_wrong_cell():
+    lines = REAL_RUN_TWO_TABLE.splitlines()
+    lines[2] = lines[2].replace("0.9141", "0.9999")
+    issues = table_issues("# Results\n" + "\n".join(lines) + "\n", REAL_RUN_TWO)
+    assert len(issues) == 1
+    assert "SVM" in issues[0] and "ROC-AUC" in issues[0]

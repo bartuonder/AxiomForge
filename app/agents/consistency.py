@@ -114,6 +114,7 @@ _TABLE_LABELS = {
 _NUMBER_TEXT = r"\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
 _CELL = re.compile(rf"(-?{_NUMBER_TEXT})\s*(?:±|\+/-|\+-)\s*({_NUMBER_TEXT})")
 _SEPARATOR_CELL = re.compile(r":?-{2,}:?")
+_HEADER_DECORATION = re.compile(r"\([^)]*\)|\b(?:mean|std|sd|dev|deviation)\b|±|\+/-", re.IGNORECASE)
 TABLE_MISSING_NOTICE = (
     "Makalede sonuç tablosu yok. Results içine Model, Accuracy, F1, ROC-AUC, PR-AUC ve Train seconds "
     "sütunlu bir Markdown tablosu koy ve her modelin ortalama ± standart sapmasını statistical_results'tan kopyala."
@@ -327,6 +328,10 @@ def hypothesis_issues(paper: str, hypothesis: dict | None) -> list[str]:
     return issues
 
 
+def _column_key(header: str) -> str | None:
+    return _TABLE_COLUMNS.get(_squash(_HEADER_DECORATION.sub("", header)))
+
+
 def _markdown_tables(paper: str) -> list[list[list[str]]]:
     blocks: list[list[str]] = []
     block: list[str] = []
@@ -367,9 +372,9 @@ def table_issues(paper: str, statistical_results: dict | None) -> list[str]:
     chosen = None
     for rows in _markdown_tables(paper):
         columns = {
-            index: _TABLE_COLUMNS[_squash(cell)]
+            index: key
             for index, cell in enumerate(rows[0])
-            if _squash(cell) in _TABLE_COLUMNS
+            if (key := _column_key(cell)) is not None
         }
         if columns:
             chosen = (rows, columns)
