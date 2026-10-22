@@ -20,11 +20,15 @@ export async function fetchResearch(threadId: string): Promise<ResearchSnapshot>
   return response.json();
 }
 
-export async function approvePlan(threadId: string, decision: "Y" | "N"): Promise<void> {
+export async function approvePlan(
+  threadId: string,
+  decision: "Y" | "N",
+  selected?: number,
+): Promise<void> {
   const response = await fetch(`${API_URL}/approve_plan`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ thread_id: threadId, decision }),
+    body: JSON.stringify({ thread_id: threadId, decision, selected }),
   });
   if (!response.ok) {
     throw new Error(await readError(response));

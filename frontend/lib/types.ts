@@ -17,12 +17,21 @@ export type Instability = {
   flagged: FlaggedMetric[];
 };
 
+export type ExperimentSpec = {
+  statement: string;
+  models: string[];
+  dataset: string;
+  params: Record<string, Record<string, string | number | null>>;
+};
+
 export type ResearchSnapshot = {
   thread_id: string;
   status: "starting" | "running" | "paused" | "rejected" | "completed" | "needs_review" | "failed";
   next: string[];
   active_step: string;
   hypotheses: string[];
+  experiment_specs: ExperimentSpec[];
+  selected_hypothesis: number;
   approval_status: string;
   verification_status: string;
   verifier_feedback: string;

@@ -71,14 +71,14 @@ export default function Home() {
     }
   }
 
-  async function onDecide(decision: "Y" | "N") {
+  async function onDecide(decision: "Y" | "N", selected?: number) {
     if (!threadId) {
       return;
     }
     setError("");
     setBusy(true);
     try {
-      await approvePlan(threadId, decision);
+      await approvePlan(threadId, decision, selected);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Approval failed");
     } finally {
@@ -101,7 +101,12 @@ export default function Home() {
       {error ? <p className="text-center text-sm text-[#9b3d2b]">{error}</p> : null}
       <AgentTimeline steps={steps} />
       {paused ? (
-        <ApprovalDialog hypotheses={snapshot.hypotheses} busy={busy} onDecide={(decision) => void onDecide(decision)} />
+        <ApprovalDialog
+          hypotheses={snapshot.hypotheses}
+          specs={snapshot.experiment_specs}
+          busy={busy}
+          onDecide={(decision, selected) => void onDecide(decision, selected)}
+        />
       ) : null}
       {snapshot?.status === "rejected" ? (
         <p className="text-center text-sm text-[#5c564e]">Plan rejected. The experiment did not start.</p>
