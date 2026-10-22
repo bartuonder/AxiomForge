@@ -18,6 +18,8 @@ Sonra kritik döngüsü düzeltildi: yüksek varyans artık `Failed` ve yeniden 
 
 Sonra planlayıcı deneye bağlandı: her hipotez `app/agents/spec.py` içinde doğrulanan bir spesifikasyondur (`statement`, `models`, `dataset`, `params`) ve `experiment_specs` alanına yazılır. Model eksenini sorgu belirler, planlayıcı yalnız `breast_cancer` veya `imbalanced` veri setini ve model başına izinli kurucu parametrelerini seçer. Deney ajanı `experiment-v6` ilk spesifikasyonu prompta alır ve `spec_code_error` üretilen kodu AST ile denetler. Onay diyalogu hâlâ 3 hipotez gösterir ama yalnız ilk spesifikasyon çalışır. Konsol spesifikasyonu göstermez.
 
+Sonra hafıza kaydı tek yere taşındı: grafta kaydı yalnız `verifier_node` yazar (`_remember`). Doğrulama geçerse `outcome` `success`, yüksek varyans bulgusu varsa `finding` olur ve `is_success` doğru kalır. Eleştiri hakkı bitip `Failed` kalırsa `failure` ve `is_success=False` olur. `hypothesis` onaylanan spesifikasyonun `statement` metnidir, `spec` ve doğrulanmış ortalama ± std özeti kayda girer. Deney düğümü `record_memory=False` ile çağırır ve son hatayı `experiment_error` ile taşır. `POST /experiments` ucu doğrulama olmadığı için eskisi gibi deneyden sonra yazar.
+
 Denetimden kalan açık işler: bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
