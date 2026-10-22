@@ -194,3 +194,79 @@ def test_the_node_hands_the_quoted_sentence_back_to_the_writer(monkeypatch):
     result = nodes.consistency_checker_node(state)
     assert result["consistency_continue"] is True
     assert 'Random Forest is superior overall.' in result["consistency_feedback"]
+
+
+INTENT_SENTENCE = (
+    "This paper compares these two models on an imbalanced dataset to determine which model "
+    "performs better in predicting customer churn."
+)
+MIXED_SENTENCE = (
+    "These findings suggest that while Random Forest may offer better predictive performance on this dataset, "
+    "its stability in ROC-AUC is comparable to that of Logistic Regression."
+)
+
+
+@pytest.mark.parametrize(
+    "decision",
+    [TIE_WITH_PERFORMANCE, {"outcome": "tie"}, {"outcome": "tie", "performance": []}],
+)
+def test_a_sentence_that_states_the_aim_of_the_study_is_not_a_claim(decision):
+    assert direction_conflict(INTENT_SENTENCE, decision) == ""
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "We investigate whether Random Forest is better than Logistic Regression.",
+        "The study asks which model is better for churn.",
+        "We run the test to see which one outperforms the other.",
+    ],
+)
+def test_question_and_aim_phrasing_is_not_a_claim(sentence):
+    assert direction_conflict(sentence, {"outcome": "tie"}) == ""
+
+
+def test_a_hedged_performance_clause_next_to_a_stability_clause_is_allowed():
+    assert direction_conflict(MIXED_SENTENCE, TIE_WITH_PERFORMANCE) == ""
+
+
+def test_the_same_mixed_sentence_is_flagged_when_no_metric_is_significant():
+    quiet = {"outcome": "tie", "performance": [perf("roc_auc", significant=False)]}
+    message = direction_conflict(MIXED_SENTENCE, quiet)
+    assert message.startswith(DIRECTION_CONFLICT)
+    assert "better predictive performance" in message
+    assert "its stability" not in message
+
+
+def test_generic_performance_wording_needs_a_significant_metric_somewhere():
+    sentence = "Random Forest showed superior performance overall."
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == ""
+    assert direction_conflict(sentence, {"outcome": "tie"}).startswith(DIRECTION_CONFLICT)
+    assert direction_conflict(sentence, {"outcome": "tie", "performance": [perf("f1", significant=False)]}).startswith(
+        DIRECTION_CONFLICT
+    )
+
+
+def test_a_metric_named_after_a_comma_still_excuses_the_whole_sentence():
+    sentence = "Random Forest outperforms Logistic Regression, particularly in ROC-AUC."
+    assert direction_conflict(sentence, TIE_WITH_PERFORMANCE) == ""
+
+
+def test_a_stability_claim_in_a_second_clause_is_flagged_and_quoted_alone():
+    sentence = (
+        "Random Forest is better in PR-AUC, and Random Forest is more stable than Logistic Regression "
+        "in ROC-AUC variance."
+    )
+    message = direction_conflict(sentence, TIE_WITH_PERFORMANCE)
+    assert message.startswith(DIRECTION_CONFLICT)
+    assert "more stable" in message
+    assert "better in PR-AUC" not in message
+
+
+def test_an_unqualified_claim_is_still_flagged_even_with_significant_metrics_present():
+    for sentence in (
+        "Random Forest is superior.",
+        "Random Forest is better than Logistic Regression.",
+        "Random Forest outperforms Logistic Regression overall.",
+    ):
+        assert direction_conflict(sentence, TIE_WITH_PERFORMANCE).startswith(DIRECTION_CONFLICT), sentence

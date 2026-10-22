@@ -66,6 +66,12 @@ _DIFFERENCE_TERMS = re.compile(
     re.IGNORECASE,
 )
 _HYPOTHESIS_WORD = re.compile(r"\bhypothes\w*", re.IGNORECASE)
+_INTENT = re.compile(
+    r"\bto\s+(?:determine|investigate|examine|assess|evaluate|compare|test|see)\b|\bwhether\b|\bwhich\s+(?:model|one|classifier)\b",
+    re.IGNORECASE,
+)
+_CLAUSE_BREAK = re.compile(r"[;,]|\b(?:while|whereas|but|although|though|however)\b", re.IGNORECASE)
+_GENERIC_PERFORMANCE = re.compile(r"\bperform\w*|\bpredictive\b", re.IGNORECASE)
 _STABILITY_TERMS = re.compile(r"\bstabil\w*|\bvarianc\w*|\bvariab\w*", re.IGNORECASE)
 _NUMBER = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 EFFECT_SIZE_TOLERANCE = 0.006
@@ -170,7 +176,12 @@ def _significant_metric_labels(statistical_decision: dict) -> list[re.Pattern[st
         for item in statistical_decision.get("performance") or []
         if item.get("significant")
     }
-    return [pattern for key, pattern in _METRIC_LABELS.items() if key in significant]
+    labels = [pattern for key, pattern in _METRIC_LABELS.items() if key in significant]
+    return labels + [_GENERIC_PERFORMANCE] if labels else labels
+
+
+def _is_excused(text: str, labels: list[re.Pattern[str]]) -> bool:
+    return not _STABILITY_TERMS.search(text) and any(label.search(text) for label in labels)
 
 
 def direction_conflict(paper: str, statistical_decision: dict) -> str:
@@ -180,11 +191,19 @@ def direction_conflict(paper: str, statistical_decision: dict) -> str:
     for sentence in _SENTENCE_BREAK.split(paper):
         if not _SUPERIORITY.search(sentence) or _NEGATION.search(sentence):
             continue
-        if _HYPOTHESIS_WORD.search(sentence):
+        if _HYPOTHESIS_WORD.search(sentence) or _INTENT.search(sentence):
             continue
-        if not _STABILITY_TERMS.search(sentence) and any(label.search(sentence) for label in labels):
+        if _is_excused(sentence, labels):
             continue
-        return f'{DIRECTION_CONFLICT}: "{sentence.strip()[:200]}"'
+        clauses = [
+            clause
+            for clause in _CLAUSE_BREAK.split(sentence)
+            if _SUPERIORITY.search(clause) and not _NEGATION.search(clause)
+        ]
+        offending = next((clause for clause in clauses if not _is_excused(clause, labels)), None)
+        if offending is None:
+            continue
+        return f'{DIRECTION_CONFLICT}: "{offending.strip()[:200]}"'
     return ""
 
 
