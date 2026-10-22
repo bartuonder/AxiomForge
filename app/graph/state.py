@@ -8,6 +8,7 @@ class AgentState(TypedDict):
     experiment_specs: list[dict[str, Any]]
     approval_status: str
     current_experiment_code: str
+    experiment_error: str
     experiment_metrics: dict[str, float]
     model_results: list[dict[str, str | float]]
     tested_models: list[str]

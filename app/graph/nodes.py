@@ -15,7 +15,9 @@ from app.graph.verifier import (
     VERIFICATION_SEEDS,
     has_split_loop,
     instability_finding,
+    instability_text,
     judge_data_leakage,
+    metric_summary,
     performance_comparisons,
     rewrite_seeds,
     stability_decision,
@@ -87,15 +89,44 @@ def planner_node(state: AgentState) -> dict:
     }
 
 
+def _primary_hypothesis(state: AgentState) -> tuple[str, dict | None]:
+    specs = state.get("experiment_specs") or []
+    if specs:
+        return str(specs[0]["statement"]), specs[0]
+    hypotheses = state.get("hypotheses") or []
+    return (str(hypotheses[0]) if hypotheses else state.get("query", "")), None
+
+
+def _remember(
+    state: AgentState,
+    code: str,
+    metric: str,
+    is_success: bool,
+    outcome: str,
+    error_log: str = "",
+    finding: str = "",
+) -> None:
+    hypothesis, spec = _primary_hypothesis(state)
+    memory_id = save_experiment(
+        hypothesis=hypothesis,
+        code=code,
+        metric=metric,
+        error_log=error_log,
+        is_success=is_success,
+        outcome=outcome,
+        finding=finding,
+        spec=spec,
+    )
+    logger.info("saved %s memory_id=%s", outcome, memory_id)
+
+
 def experiment_node(state: AgentState) -> dict:
     logger.info("Onaylandı, deneylere başlanıyor")
     query = state.get("query", "")
     allowed = requested_models(query)
     logger.info("experiment query_models=%s", [item["key"] for item in allowed])
-    hypothesis = state["hypotheses"][0] if state["hypotheses"] else query
+    hypothesis, spec = _primary_hypothesis(state)
     prompt = f"User question:\n{query}\n\nHypothesis:\n{hypothesis}"
-    specs = state.get("experiment_specs") or []
-    spec = specs[0] if specs else None
     criticism = state.get("verifier_feedback", "")
     if criticism:
         logger.info("experiment critic round=%s", state.get("critic_rounds", 0))
@@ -110,7 +141,13 @@ def experiment_node(state: AgentState) -> dict:
             spec=spec,
         )
     else:
-        result = execute_experiment(prompt, EXPERIMENT_CSV_SCHEMA, models=allowed, spec=spec)
+        result = execute_experiment(
+            prompt,
+            EXPERIMENT_CSV_SCHEMA,
+            record_memory=False,
+            models=allowed,
+            spec=spec,
+        )
     logger.info("experiment result status=%s", result.get("status"))
     metrics = {
         name: float(result[name])
@@ -125,6 +162,7 @@ def experiment_node(state: AgentState) -> dict:
             tested_models.append(name)
     return {
         "current_experiment_code": result.get("code", ""),
+        "experiment_error": str(result.get("error") or ""),
         "experiment_metrics": metrics,
         "model_results": model_results,
         "tested_models": tested_models,
@@ -199,7 +237,7 @@ def verifier_node(state: AgentState) -> dict:
     statistical_results: dict[str, dict[str, float] | str] = {}
     collected: list[list[dict[str, str | float]]] = []
     if not code or not original:
-        reasons.append("Deney metrik üretmedi.")
+        reasons.append(f"Deney metrik üretmedi. {state.get('experiment_error', '')}".strip())
     else:
         try:
             first_output = run_classification(code, EXPERIMENT_CSV_SCHEMA)
@@ -239,6 +277,15 @@ def verifier_node(state: AgentState) -> dict:
     logger.info("verifier statistical_decision=%s", decision)
     if not reasons:
         logger.info("verification_status=Passed")
+        finding = instability_text(decision["instability"])
+        _remember(
+            state,
+            code,
+            metric_summary(statistical_results),
+            True,
+            "finding" if finding else "success",
+            finding=finding,
+        )
         return {
             "verification_status": "Passed",
             "verifier_feedback": "",
@@ -249,16 +296,10 @@ def verifier_node(state: AgentState) -> dict:
     feedback = " ".join(reasons)
     logger.info("verification_status=Failed feedback=%s", feedback)
     if rounds >= MAX_CRITIC_ROUNDS:
-        hypothesis = state["hypotheses"][0] if state.get("hypotheses") else state.get("query", "")
-        metric = " ".join(f"{name}={value}" for name, value in original.items())
-        memory_id = save_experiment(
-            hypothesis=hypothesis,
-            code=code,
-            metric=metric,
-            error_log=feedback,
-            is_success=False,
+        metric = metric_summary(statistical_results) or " ".join(
+            f"{name}={value}" for name, value in original.items()
         )
-        logger.info("saved rejected verification memory_id=%s", memory_id)
+        _remember(state, code, metric, False, "failure", error_log=feedback)
         return {
             "verification_status": "Failed",
             "verifier_feedback": feedback,

@@ -200,6 +200,29 @@ def instability_finding(summary: dict[str, dict[str, float] | str]) -> dict[str,
     return {"unstable": bool(flagged), "std_threshold": UNSTABLE_STD, "flagged": flagged}
 
 
+def metric_summary(summary: dict[str, dict[str, float] | str]) -> str:
+    parts: list[str] = []
+    for model, record in summary.items():
+        if not isinstance(record, dict):
+            continue
+        scores = " ".join(
+            f"{metric}={record[f'{metric}_mean']:.4f}±{record[f'{metric}_std']:.4f}"
+            for metric in ("accuracy", "f1", "roc_auc", "pr_auc")
+            if f"{metric}_mean" in record
+        )
+        parts.append(f"{model} {scores}")
+    return "; ".join(parts)
+
+
+def instability_text(finding: dict[str, Any]) -> str:
+    if not finding.get("unstable"):
+        return ""
+    flagged = "; ".join(
+        f"{item['model']} {item['metric']} std={item['std']:.4f}" for item in finding["flagged"]
+    )
+    return f"Standard deviation above {finding['std_threshold']:g} across splits: {flagged}."
+
+
 def judge_data_leakage(code: str) -> tuple[bool, str]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")

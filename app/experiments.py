@@ -155,4 +155,5 @@ def execute_experiment(
         "status": "Failed",
         "attempts": MAX_RETRIES,
         "mlflow_run_id": run_id,
+        "error": last_error,
     }
