@@ -55,6 +55,25 @@ _NEGATED_RELIABILITY = re.compile(
     r"(?:\W+\w+){0,4}?\W+(?:reliab\w*|trustworth\w*|credib\w*|robust\w*|guarantee\w*)",
     re.IGNORECASE,
 )
+_METRIC_NAMES = {"roc_auc": "ROC-AUC", "pr_auc": "PR-AUC", "f1": "F1"}
+_METRIC_LABELS = {
+    "roc_auc": re.compile(r"\bROC[- _]?AUC\b", re.IGNORECASE),
+    "pr_auc": re.compile(r"\bPR[- _]?AUC\b|\baverage\s+precision\b", re.IGNORECASE),
+    "f1": re.compile(r"\bF1\b", re.IGNORECASE),
+}
+_DIFFERENCE_TERMS = re.compile(
+    r"\bsignific\w*|\bhigher\b|\blower\b|\bdiffer\w*|\bexceed\w*|\bgreater\b|\blarger\b|\bbetter\b|\boutperform\w*",
+    re.IGNORECASE,
+)
+_STABILITY_TERMS = re.compile(r"\bstabil\w*|\bvarianc\w*|\bvariab\w*", re.IGNORECASE)
+_NUMBER = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+EFFECT_SIZE_TOLERANCE = 0.006
+PERFORMANCE_OMISSION_NOTICE = (
+    "{metric} için {a} ile {b} arasında anlamlı bir fark var (significant true) ama makale bunu "
+    "tablo dışında bir cümlede yazmıyor. Results içinde yönü (higher veya lower), adjusted_p_value ve "
+    "effect_size_dz ile birlikte yaz; Abstract ve Conclusion bu metriği dışarıda bırakmasın."
+)
+EFFECT_SIZE_NOTICE = "{metric} karşılaştırmasının etki büyüklüğü (effect_size_dz = {value}) makalede yok."
 RELIABILITY_NOTICE = (
     "Doğrulama Passed ama makale bunu sonuçların güvenilir olduğunun kanıtı gibi anlatıyor "
     "('reliability', 'robust' gibi sözcüklerle). Passed yalnız deneyin hatasız çalıştığını "
@@ -181,6 +200,35 @@ def reliability_issue(paper: str, verification_status: str) -> str:
         ):
             return RELIABILITY_NOTICE
     return ""
+
+
+def performance_issues(paper: str, performance: list[dict] | None) -> list[str]:
+    significant = [item for item in performance or [] if item.get("significant")]
+    if not significant:
+        return []
+    prose = _prose_sentences(paper)
+    numbers = [float(match.group()) for sentence in prose for match in _NUMBER.finditer(sentence)]
+    issues: list[str] = []
+    for item in significant:
+        key = str(item.get("metric", ""))
+        pattern = _METRIC_LABELS.get(key)
+        if pattern is None:
+            continue
+        metric = _METRIC_NAMES[key]
+        reported = any(
+            pattern.search(sentence)
+            and _DIFFERENCE_TERMS.search(sentence)
+            and not _STABILITY_TERMS.search(sentence)
+            and not _NEGATION.search(sentence)
+            for sentence in prose
+        )
+        if not reported:
+            issues.append(PERFORMANCE_OMISSION_NOTICE.format(metric=metric, a=item["a"], b=item["b"]))
+            continue
+        effect = abs(float(item.get("effect_size_dz", 0.0)))
+        if effect and not any(abs(number - effect) <= EFFECT_SIZE_TOLERANCE for number in numbers):
+            issues.append(EFFECT_SIZE_NOTICE.format(metric=metric, value=f"{effect:.2f}"))
+    return issues
 
 
 def instability_issues(paper: str, instability: dict | None) -> list[str]:
