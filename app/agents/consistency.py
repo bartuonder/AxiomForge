@@ -11,7 +11,12 @@ _NO_DIFFERENCE = re.compile(
     re.IGNORECASE,
 )
 _SUPERIORITY = re.compile(
-    r"\b(?:superior|more stable|outperformed|better)\b",
+    r"\b(?:superior(?:ity)?|more\s+stable|outperform(?:s|ed|ing)?)\b"
+    r"|\bbetter\s+than\b"
+    r"|\b(?:perform\w*|is|are|was|were|be|proves?|proved|appears?|seems?|remains?|yields?|achieves?)"
+    r"\s+(?:\w+ly\s+)?better\b"
+    r"|\bbetter\s+(?:performance|results?|accuracy|stability|generali[sz]ation|predictive\s+\w+)\b"
+    r"|\bthe\s+better\s+(?:model|classifier|performer|choice)\b",
     re.IGNORECASE,
 )
 _NEGATION = re.compile(r"\b(?:no|not|neither|nor|none|never|cannot|without)\b|n't", re.IGNORECASE)
