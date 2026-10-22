@@ -71,10 +71,12 @@ def _format_past_experiments(past_experiments: list[dict]) -> str:
         return "Geçmişte başarısız deney kaydı yok."
     blocks = []
     for item in past_experiments:
+        spec = item.get("spec")
         blocks.append(
             "Hypothesis: "
             f"{item.get('hypothesis', '')}\n"
-            f"Metric: {item.get('metric', '')}\n"
+            + (f"Spec: {json.dumps(spec, ensure_ascii=False)}\n" if spec else "")
+            + f"Metric: {item.get('metric', '')}\n"
             f"Error log: {str(item.get('error_log', ''))[:800]}\n"
             f"Code: {str(item.get('code', ''))[:400]}"
         )
