@@ -33,6 +33,13 @@ CLAIM_KINDS = ("performance", "stability")
 CLAIM_METRICS = ("roc_auc", "pr_auc", "f1")
 
 
+_COMPARISON_WORDS = re.compile(
+    r"\bthan\b|\bversus\b|\bvs\b|\bcompar\w*|\boutperform\w*|\bbetter\b|\bworse\b|\bhigher\b|\blower\b"
+    r"|\bimprov\w*|\bincreas\w*|\breduc\w*|\bmore\s+(?:stable|accurate|robust)\b",
+    re.IGNORECASE,
+)
+
+
 class SpecError(ValueError):
     pass
 
@@ -43,6 +50,11 @@ def _squash(text: str) -> str:
 
 def _validate_claim(raw: Any, model_keys: list[str], statement: str) -> dict[str, str] | None:
     if len(model_keys) < 2:
+        if _COMPARISON_WORDS.search(statement):
+            raise SpecError(
+                "the query names one model, so there is nothing to compare it with: "
+                "write an absolute statement about its ROC-AUC, PR-AUC or F1 without any comparison word"
+            )
         return None
     if not isinstance(raw, dict):
         raise SpecError("claim is missing: a hypothesis must compare two of the models the query named")

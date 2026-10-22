@@ -275,8 +275,46 @@ def test_a_single_model_query_has_no_claim():
 
 
 def test_a_single_model_query_ignores_a_claim_the_planner_added():
-    spec = validate_spec(raw(), ["RandomForest"])
+    spec = validate_spec(raw(statement="RandomForest reaches a high ROC-AUC"), ["RandomForest"])
     assert spec["claim"] is None
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "XGBoost with n_estimators set to 100 has a higher ROC-AUC than XGBoost with n_estimators set to 50",
+        "XGBoost with learning_rate 0.1 improves the PR-AUC",
+        "XGBoost is more stable in ROC-AUC variance with max_depth 6",
+        "XGBoost outperforms its default configuration",
+        "XGBoost versus its tuned version on F1",
+        "XGBoost reaches a lower F1 on the imbalanced set",
+        "XGBoost compared to a baseline",
+        "XGBoost gives a better PR-AUC",
+    ],
+)
+def test_a_single_model_statement_may_not_compare_anything(statement):
+    with pytest.raises(SpecError, match="nothing to compare it with"):
+        validate_spec({"statement": statement, "dataset": "imbalanced"}, ["XGBoost"])
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "XGBoost reaches an ROC-AUC above 0.9 on the imbalanced dataset",
+        "XGBoost keeps a high F1 on the breast cancer dataset",
+        "XGBoost with n_estimators 100 yields a PR-AUC near 0.8",
+    ],
+)
+def test_an_absolute_single_model_statement_is_accepted(statement):
+    spec = validate_spec({"statement": statement, "dataset": "imbalanced"}, ["XGBoost"])
+    assert spec["claim"] is None
+    assert spec["statement"] == statement
+
+
+def test_a_comparison_word_is_fine_when_two_models_are_compared():
+    spec = validate_spec(raw(), KEYS)
+    assert "higher" in spec["statement"] and "than" in spec["statement"]
+    assert spec["claim"] == CLAIM
 
 
 def test_three_models_allow_any_pair():
@@ -357,3 +395,32 @@ def test_the_prompt_lists_the_models_the_claim_may_use(planner_client):
     completions = planner_client.install([three()])
     planner_client.run()
     assert "Allowed models: RandomForest, XGBoost" in completions.prompts[0]
+
+
+def test_the_planner_is_asked_again_when_a_one_model_plan_compares_configurations(monkeypatch):
+    import app.agents.planner as planner
+
+    single = requested_models("Evaluate XGBoost on an imbalanced fraud dataset")
+    comparing = [
+        {"statement": f"XGBoost with depth {n} has a higher ROC-AUC than XGBoost with depth 3", "dataset": "imbalanced", "params": {}}
+        for n in (4, 5, 6)
+    ]
+    absolute = [
+        {"statement": f"XGBoost reaches an ROC-AUC above 0.{n} on the imbalanced dataset", "dataset": "imbalanced", "params": {}}
+        for n in (7, 8, 9)
+    ]
+    completions = FakeCompletions([plan(comparing), plan(absolute)])
+    fake = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    monkeypatch.setattr(planner, "OpenAI", lambda api_key: fake)
+    monkeypatch.setattr(planner, "OPENAI_API_KEY", "key")
+    specs, _ = planner.run_planner_agent("q", [], [], single)
+    assert [spec["claim"] for spec in specs] == [None, None, None]
+    assert len(completions.prompts) == 2
+    assert "nothing to compare it with" in completions.prompts[1]
+
+
+def test_the_planner_prompt_forbids_comparison_words_for_a_single_model():
+    from app.agents.planner import SYSTEM_PROMPT
+
+    assert "without any comparison word" in SYSTEM_PROMPT
+    assert "no second configuration" in SYSTEM_PROMPT
