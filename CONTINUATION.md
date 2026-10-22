@@ -1,6 +1,6 @@
 # Devam rehberi
 
-Bu dosya, AxiomForge'u yeni bir bilgisayarda veya yeni bir Cursor oturumunda kaldığı yerden sürdürmek içindir. Yeni oturumda önce bu dosya okunur, sonra `README.md` ve `GRAPH.md`. Kullanıcı bir sonraki fazın metnini gönderene kadar yeni faz açılmaz.
+Bu dosya, AxiomForge'u yeni bir bilgisayarda veya yeni bir Cursor oturumunda kaldığı yerden sürdürmek içindir. Yeni oturumda önce `AI_CONTEXT.md` (en güncel devir dosyası), sonra bu dosya, sonra `README.md` ve `GRAPH.md` okunur. Kullanıcı bir sonraki fazın metnini gönderene kadar yeni faz açılmaz.
 
 Depo: `https://github.com/bartuonder/AxiomForge.git`
 
