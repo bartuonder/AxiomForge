@@ -16,7 +16,9 @@ Sonra kararlılık hükmü gerçek bir istatistik testine bağlandı. `app/graph
 
 Sonra kritik döngüsü düzeltildi: yüksek varyans artık `Failed` ve yeniden üretim nedeni değil. `verifier_node` bunu `statistical_decision["instability"]` bulgusuna (`unstable`, `std_threshold`, `flagged`) yazar. Rapor işaretli modelleri Results'a std ile koyar ve Conclusion'da limitasyon yazar, hakem raporlandığını kontrol eder. Yalnız metrik üretilmemesi, sandbox çökmesi ve sızıntı kodu geri gönderir.
 
-Denetimden kalan açık işler: planlayıcı hipotezleri deneye bağlanmıyor, bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
+Sonra planlayıcı deneye bağlandı: her hipotez `app/agents/spec.py` içinde doğrulanan bir spesifikasyondur (`statement`, `models`, `dataset`, `params`) ve `experiment_specs` alanına yazılır. Model eksenini sorgu belirler, planlayıcı yalnız `breast_cancer` veya `imbalanced` veri setini ve model başına izinli kurucu parametrelerini seçer. Deney ajanı `experiment-v6` ilk spesifikasyonu prompta alır ve `spec_code_error` üretilen kodu AST ile denetler. Onay diyalogu hâlâ 3 hipotez gösterir ama yalnız ilk spesifikasyon çalışır. Konsol spesifikasyonu göstermez.
+
+Denetimden kalan açık işler: bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
@@ -101,7 +103,9 @@ Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptt
 | Bölme tohumu, NumPy özeti ve `stability_decision` | `app/graph/verifier.py` |
 | Araştırma hatalarının kaydı | `app/graph/errors.py` |
 | Pitman-Morgan, düzeltilmiş t-testi, Holm | `app/graph/stats.py` |
-| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v5` |
+| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v6` |
+| Deney spesifikasyonu | `app/agents/spec.py` |
+| Planlayıcı | `app/agents/planner.py` |
 | Rapor promptu | `app/agents/report.py` |
 | İddia hakemi | `app/agents/consistency.py` |
 | Metrik ayrıştırma ve MLflow | `app/tracking/mlflow_logger.py` |
