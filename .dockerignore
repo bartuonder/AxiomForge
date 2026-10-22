@@ -1,0 +1,14 @@
+.git
+.idea
+.venv
+.env
+.pytest_cache
+__pycache__
+*.py[cod]
+frontend
+tests
+reports
+mlruns
+mlartifacts
+mlflow.db
+*.md
