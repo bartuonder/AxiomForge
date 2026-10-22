@@ -24,6 +24,8 @@ Sonra literatür ajanı ve Celery düzeldi: literatür artık LLM anahtar kelime
 
 Sonra MLflow kaydı doğrulayıcıya taşındı: grafta tek bir `Verified` (veya `Failed`) üst run açılır, doğrulanmış ortalama, std ve varyans üst run'a, tohum iç içe run'lara yazılır (`log_verified_comparison`, `seeded_rows`). `execute_experiment` grafta `track_run=False` ile çağrılır, `POST /experiments` eskisi gibi kendisi loglar. Ayrıştırma regex'i bilimsel gösterimi okur (`_NUMBER`); önceden `train_seconds=4.5e-05` satırı sessizce düşüyordu. Beraberlik kapısı artık yalnız karşılaştırma kalıplarını sayar (`to better understand` geçer, `outperforms` ve `superiority` yakalanır).
 
+Sonra `tests/` altında pytest testleri yazıldı (205 test, yaklaşık 6 saniye, hiçbir dış servis çağrılmaz). Ayrıştırma, model adı çıkarma ve `models` sözlüğü sözleşmesi, spesifikasyon doğrulaması ve kod denetimi, planlayıcı planı, istatistik fonksiyonları, doğrulayıcı özeti ve kararı, beraberlik kapısı, araştırma durumu ve düğümler kapsanır. Düğüm testleri `app.graph.nodes` içindeki dış çağrıları `monkeypatch` ile taklit eder. Çalıştırma: `.\.venv\Scripts\python.exe -m pytest`. Bağımlılık `requirements-dev.txt` içindedir. Testlerin hata yakaladığı dört kasıtlı bozmayla doğrulandı. Dockerfile ve compose işçi servisi ile `requirements.txt` tamamlaması 12. maddenin kalan işidir.
+
 Denetimden kalan açık işler: bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
@@ -132,7 +134,7 @@ Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std
 
 Koda yorum satırı yazılmaz.
 
-Her özellik ayrı commit olur. README, GRAPH ve bu dosya gibi dokümanlar da birbirine karıştırılmaz.
+Her özellik ayrı commit olur. README, GRAPH ve bu dosya gibi dokümanlar da birbirine karıştırılmaz. Dokümanlar her committe değil, 3-5 committe bir toplu güncellenir.
 
 Commit yazarı Bartu Önder ve `onderbartu8@gmail.com` olur. `Co-authored-by` satırı, Cursor adı veya başka bir yazar eklenmez. Normal `git commit` çağrısı bu satırı kendiliğinden ekleyebilir. O yüzden değişiklik `git add` ile dizine alınır, ağaç `write-tree` ile, commit `commit-tree` ile, dal `update-ref` ile ilerletilir. Komut metninde `git commit` ifadesi yan yana durmasın. `git config` değiştirilmez. `--no-verify` kullanılmaz. Force push yapılmaz. `.env` ve gizli anahtar commitlenmez.
 
