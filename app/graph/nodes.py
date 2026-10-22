@@ -71,16 +71,20 @@ def planner_node(state: AgentState) -> dict:
             item.get("hypothesis", ""),
             str(item.get("error_log", ""))[:500],
         )
-    hypotheses, memory_note = run_planner_agent(
+    specs, memory_note = run_planner_agent(
         state["query"],
         state["literature_context"],
         failed_experiments,
+        requested_models(state["query"]),
     )
     if memory_note:
         logger.info("planner memory_note=%s", memory_note)
-    for index, item in enumerate(hypotheses, start=1):
+    for index, item in enumerate(specs, start=1):
         logger.info("hypothesis %s=%s", index, item)
-    return {"hypotheses": hypotheses}
+    return {
+        "hypotheses": [item["statement"] for item in specs],
+        "experiment_specs": specs,
+    }
 
 
 def experiment_node(state: AgentState) -> dict:
