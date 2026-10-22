@@ -73,7 +73,8 @@ test_memory.py               hafızaya yazıp okuma denemesi
 pytest.ini                   test dizini ve import yolu
 GRAPH.md                     araştırma grafının mimarisi
 frontend/                    Next.js araştırma konsolu
-docker-compose.yml           Redis ve pgvector PostgreSQL
+docker-compose.yml           Redis, pgvector PostgreSQL, MLflow, API ve Celery işçisi
+Dockerfile                   API, işçi ve MLflow için tek imaj
 requirements.txt
 requirements-dev.txt          requirements.txt ve pytest
 .env                         OPENAI_API_KEY, E2B_API_KEY, DATABASE_URL
@@ -89,7 +90,7 @@ E2B_API_KEY=
 DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
 ```
 
-`E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı ve deney hafızası başlamaz. Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir. Postgres imajı `pgvector/pgvector:pg16` kullanır.
+`E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı ve deney hafızası başlamaz. `REDIS_URL` varsayılanı `redis://localhost:6379/0`, `MLFLOW_TRACKING_URI` varsayılanı `http://127.0.0.1:5000` olur ve ortam değişkeniyle değiştirilir. Postgres imajı `pgvector/pgvector:pg16` kullanır.
 
 `AgentState` alanları `GRAPH.md` içindedir. İddia kontrolü temiz bitince `research_status` değeri `Completed`, tutarsızlık sürerse `NeedsReview` olur.
 
@@ -98,12 +99,14 @@ DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-docker compose up -d
+docker compose up -d redis postgres
 ```
 
 ## Çalıştırma
 
-API, kuyruk, takip ve konsol ayrı ayrı açılır.
+İki yol var. Yerelde API, kuyruk, takip ve konsol ayrı ayrı açılır. Ya da API, işçi ve MLflow konteynerde çalışır (aşağıdaki Docker bölümü).
+
+Yerel yol:
 
 ```powershell
 .\.venv\Scripts\mlflow.exe server --host 127.0.0.1 --port 5000
@@ -120,6 +123,16 @@ Hafızayı grafın dışında denemek için:
 ```powershell
 .\.venv\Scripts\python.exe test_memory.py
 ```
+
+## Docker
+
+API, Celery işçisi ve MLflow sunucusu tek imajdan (`Dockerfile`) çalışır. Komut servise göre değişir. Redis ve Postgres hazır imajlardır.
+
+```powershell
+docker compose up -d --build
+```
+
+API `http://127.0.0.1:8000`, MLflow `http://127.0.0.1:5000` adresindedir. Konteynerler `DATABASE_URL`, `REDIS_URL` ve `MLFLOW_TRACKING_URI` değerlerini compose içinden alır (`postgres`, `redis`, `mlflow` servis adları). `OPENAI_API_KEY` ve `E2B_API_KEY` yerel `.env` dosyasından gelir; dosya imaja girmez ve yoksa compose yine çalışır. Makaleler `reports` hacmindedir ve API ile işçi aynı hacmi paylaşır. MLflow verisi `mlflow` hacmindedir. Konsol (Next.js) konteynerde değildir, `npm run dev` ile yerelde açılır. Yerel yolu kullanırken konteynerdeki API, işçi ve MLflow'u açmayın, 5000 ve 8000 portları çakışır: yalnız `docker compose up -d redis postgres` çalıştırın.
 
 ## Testler
 
