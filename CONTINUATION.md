@@ -28,7 +28,9 @@ Sonra `tests/` altında pytest testleri yazıldı (205 test, yaklaşık 6 saniye
 
 Sonra sonuç sayfası düzeldi (13. madde): `GET /research/{thread_id}` `verifier_feedback` ve `instability` döner, `frontend/components/ResearchStatus.tsx` bunları üç kontrol satırı olarak gösterir. `paper-view.tsx` raporu her 2 saniyede sonsuza dek okumuyor: `setTimeout` zinciri araştırma `completed`, `needs_review`, `failed` veya `rejected` olunca durur. Arayüz başsız Edge ve sahte bir API ile doğrulandı (otomatik arayüz testi yok). Önerilen 13 maddelik listenin hepsi bitti.
 
-Denetimden kalan açık işler: bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
+Sonra raporun `Failed` doğrulamayı söylemesi sağlandı: yazıcı prompt'u `Failed` iken Abstract'ta `failed verification` ve nedenini ister, `consistency.verification_issue` Abstract bölümünü (`abstract_of`) LLM'siz tarar ve yoksa makale geri gider. Kalıp başta yalnız bitişik `verification failed` halini tanıyordu; gerçek bir `gpt-4o` çıktısı (`the verification of the experiment failed due to ...`) dürüst olduğu halde reddedilecekti, kalıp aynı cümlede araya kelime girmesine izin verecek şekilde genişletildi. Yazıcının `Failed` ve `Passed` için gerçekten uyduğu iki canlı çağrıyla doğrulandı.
+
+Denetimden kalan açık işler: bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır). Bunun için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
