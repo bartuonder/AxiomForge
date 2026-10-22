@@ -6,16 +6,6 @@ ATOM = "{http://www.w3.org/2005/Atom}"
 API_URL = "https://export.arxiv.org/api/query"
 
 
-def search_arxiv(query: str, limit: int = 3) -> list[dict[str, str]]:
-    cleaned = " ".join(query.split())
-    if not cleaned:
-        raise RuntimeError("arxiv query is empty")
-    papers = _fetch(f"all:{cleaned}", limit)
-    if not papers:
-        raise RuntimeError("arxiv returned no papers")
-    return papers
-
-
 def search_arxiv_phrases(phrases: list[str], limit: int = 8) -> list[dict[str, str]]:
     cleaned = [" ".join(phrase.replace('"', " ").split()) for phrase in phrases]
     cleaned = [phrase for phrase in cleaned if phrase]
