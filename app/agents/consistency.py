@@ -24,6 +24,8 @@ CONSISTENCY_PROMPT = (
     "Makale bu hükümle çelişen bir kazanan yazıyorsa bunu issues'a ekle. "
     "Makalenin cümleyi kendi sözleriyle yazması tutarsızlık değildir. "
     "3) PR-AUC eksik bırakılıp sadece ROC-AUC mi övülmüş? "
+    "4) Makale bir metrikte modeller arasında fark olduğunu, statistical_decision.performance içinde "
+    "significant true olmayan bir karşılaştırma için mi iddia ediyor? Öyleyse issues'a ekle. "
     "Tüm tutarsızlıkları listele. "
     "issues listesine yalnız somut tutarsızlıkları yaz. "
     "Bir kontrol temizse onu issues listesine koyma. "
