@@ -68,11 +68,14 @@ app/
   memory/rag_memory.py       vektör kayıt ve arama
   sandbox/e2b_runner.py      E2B çalıştırma
   tracking/mlflow_logger.py  metrik ayrıştırma ve MLflow kaydı
+tests/                       pytest testleri: ayrıştırma, model adları, spesifikasyon, istatistik, doğrulayıcı, hakem, durum ve düğümler
 test_memory.py               hafızaya yazıp okuma denemesi
+pytest.ini                   test dizini ve import yolu
 GRAPH.md                     araştırma grafının mimarisi
 frontend/                    Next.js araştırma konsolu
 docker-compose.yml           Redis ve pgvector PostgreSQL
 requirements.txt
+requirements-dev.txt          requirements.txt ve pytest
 .env                         OPENAI_API_KEY, E2B_API_KEY, DATABASE_URL
 ```
 
@@ -116,6 +119,15 @@ Hafızayı grafın dışında denemek için:
 
 ```powershell
 .\.venv\Scripts\python.exe test_memory.py
+```
+
+## Testler
+
+Testler LLM, E2B, MLflow, Postgres ve Redis çağırmaz. Bu servisler düğüm testlerinde taklit edilir.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 ## Uçlar
