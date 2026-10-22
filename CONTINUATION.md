@@ -22,7 +22,9 @@ Sonra hafıza kaydı tek yere taşındı: grafta kaydı yalnız `verifier_node` 
 
 Sonra literatür ajanı ve Celery düzeldi: literatür artık LLM anahtar kelime aramaları, arXiv'de tırnaklı ifadelerin `AND`'i ve `0.35` gömü eşiğiyle çalışır (eşik canlı ölçümle seçildi: alakalı 0.29-0.56, alakasız 0.13-0.21). Araştırma `app/tasks.py` içindeki Celery görevlerinde çalışır, `daemon thread` kalktı. Onay hemen döner. Çift karar `already decided` ile reddedilir.
 
-Denetimden kalan açık işler: bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
+Sonra MLflow kaydı doğrulayıcıya taşındı: grafta tek bir `Verified` (veya `Failed`) üst run açılır, doğrulanmış ortalama, std ve varyans üst run'a, tohum iç içe run'lara yazılır (`log_verified_comparison`, `seeded_rows`). `execute_experiment` grafta `track_run=False` ile çağrılır, `POST /experiments` eskisi gibi kendisi loglar. Ayrıştırma regex'i bilimsel gösterimi okur (`_NUMBER`); önceden `train_seconds=4.5e-05` satırı sessizce düşüyordu. Beraberlik kapısı artık yalnız karşılaştırma kalıplarını sayar (`to better understand` geçer, `outperforms` ve `superiority` yakalanır).
+
+Denetimden kalan açık işler: bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
@@ -140,7 +142,7 @@ Kullanıcı Türkçe yazar. Yanıt Türkçe ve kısa olur. İstemediği faz baş
 
 ## Bilinen pürüzler
 
-MLflow kapalıyken urllib uzun süre dener. Hafıza kaydı bundan önce yazılır. MLflow'un emoji logu Windows konsolunda `UnicodeEncodeError` verebilir. Kayıt tarafında stdout utf-8'e çekilmiştir.
+MLflow kapalıyken urllib uzun süre dener. Hafıza kaydı bundan önce yazılır. Kayıt hatası araştırmayı durdurmaz, `mlflow_run_id` boş kalır. MLflow'un emoji logu Windows konsolunda `UnicodeEncodeError` verebilir. Kayıt tarafında stdout utf-8'e çekilmiştir.
 
 Onaydan sonraki iş uzundur: üretim denemeleri, beş bölme, sızıntı hakemi, rapor ve iddia turu. `POST /approve_plan` artık hemen döner; bu süre işçide geçer. İşçi görev sürerken ölürse araştırma `running` kalır, otomatik kurtarma yoktur.
 
