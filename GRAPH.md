@@ -1,6 +1,6 @@
 # Araştırma grafı
 
-LangGraph akışı `app/graph/workflow.py` içinde kurulur. Her `/start_research` yeni bir `thread_id` ve `empty_research_state` ile başlar. Checkpoint'te o kimlik için kayıt varsa yazma yapılmaz. FastAPI isteği bitse de durum durur; arayüz `GET /research/{thread_id}` ile aynı kaydı okur.
+LangGraph akışı `app/graph/workflow.py` içinde kurulur. Her `/start_research` yeni bir `thread_id` ve `empty_research_state` ile başlar. Checkpoint'te o kimlik için kayıt varsa yazma yapılmaz. Graf API sürecinde değil Celery işçisinde çalışır: `POST /start_research` ve `POST /approve_plan` işi kuyruğa atar (`app/tasks.py`), işçi `run_until_pause` ve `resume_research` fonksiyonlarını yürütür. Durum checkpoint'te durur; arayüz `GET /research/{thread_id}` ile aynı kaydı okur. Onay verildikten sonra işçi devralana kadar durum `running` sayılır.
 
 ## Sıra
 
@@ -22,11 +22,11 @@ START
 
 ## Düğümler
 
-`literature_node` sorguyu arXiv'de aratır. En ilgili 3 makalenin başlık ve özetini `literature_context` listesine yazar.
+`literature_node` LLM ile sorudan en fazla 3 anahtar kelime araması üretir ve her birini arXiv'de tırnaklı ifadeler arasında `AND` ile aratır. Adayları sorunun gömüsüyle kosinüs benzerliğine göre puanlar, `0.35` altını eler ve en alakalı 3 makalenin `başlık: özet` metnini `literature_context` listesine yazar. Metni LLM değil Python kurar. Alakalı makale yoksa çalışma hata verir.
 
 `planner_node` literatürü ve RAG hafızasındaki başarısız deneyleri okur. Aynı hatayı tekrar etmeyen 3 hipotezi `hypotheses` listesine yazar. Her hipotez deney ajanının yapabildiği bir spesifikasyondur ve `experiment_specs` listesine yazılır: `statement`, `models` (sorgudaki modellerin tamamı), `dataset` (`breast_cancer` veya `imbalanced`) ve `params` (model başına izinli kurucu parametreleri). Model adı, parametre adı ve veri seti Python'da doğrulanır. Geçersizse planlayıcıya bir kez hata gösterilir ve yeniden denenir.
 
-`approval_gate` boş bir kapıdır. Graf burada bekler. `POST /approve_plan` kararı yazar.
+`approval_gate` boş bir kapıdır. Graf burada bekler. `POST /approve_plan` kararı yazar; `Y` ise devamı Celery'ye atar. Karar bir kez verilir.
 
 `Y` ise `approval_status` `approved` olur ve akış devam eder. `N` ise `approval_status` `rejected` olur; deney, doğrulayıcı ve rapor çalışmaz.
 
