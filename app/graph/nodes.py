@@ -9,6 +9,7 @@ from app.agents.literature import run_literature_agent
 from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
 from app.experiments import execute_experiment
+from app.graph.selection import primary_hypothesis
 from app.graph.state import AgentState
 from app.graph.verifier import (
     MAX_CRITIC_ROUNDS,
@@ -95,14 +96,6 @@ def planner_node(state: AgentState) -> dict:
     }
 
 
-def _primary_hypothesis(state: AgentState) -> tuple[str, dict | None]:
-    specs = state.get("experiment_specs") or []
-    if specs:
-        return str(specs[0]["statement"]), specs[0]
-    hypotheses = state.get("hypotheses") or []
-    return (str(hypotheses[0]) if hypotheses else state.get("query", "")), None
-
-
 def _remember(
     state: AgentState,
     code: str,
@@ -112,7 +105,7 @@ def _remember(
     error_log: str = "",
     finding: str = "",
 ) -> None:
-    hypothesis, spec = _primary_hypothesis(state)
+    hypothesis, spec = primary_hypothesis(state)
     memory_id = save_experiment(
         hypothesis=hypothesis,
         code=code,
@@ -132,7 +125,7 @@ def _track_verified(
     summary: dict[str, dict[str, float] | str],
     decision: dict,
 ) -> str:
-    hypothesis, spec = _primary_hypothesis(state)
+    hypothesis, spec = primary_hypothesis(state)
     try:
         run_id = log_verified_comparison(
             seeded_rows(collected),
@@ -173,7 +166,7 @@ def experiment_node(state: AgentState) -> dict:
     query = state.get("query", "")
     allowed = requested_models(query)
     logger.info("experiment query_models=%s", [item["key"] for item in allowed])
-    hypothesis, spec = _primary_hypothesis(state)
+    hypothesis, spec = primary_hypothesis(state)
     prompt = f"User question:\n{query}\n\nHypothesis:\n{hypothesis}"
     criticism = state.get("verifier_feedback", "")
     if criticism:

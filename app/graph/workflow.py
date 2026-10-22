@@ -82,6 +82,7 @@ def empty_research_state(query: str) -> AgentState:
         "literature_context": [],
         "hypotheses": [],
         "experiment_specs": [],
+        "selected_hypothesis": 0,
         "approval_status": "",
         "current_experiment_code": "",
         "experiment_error": "",

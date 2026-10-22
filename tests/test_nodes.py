@@ -221,18 +221,6 @@ def test_routes_follow_the_flags():
     assert nodes.route_after_consistency({"consistency_continue": False}) == "end"
 
 
-def test_the_first_spec_decides_the_hypothesis():
-    statement, spec = nodes._primary_hypothesis(
-        {"experiment_specs": [SPEC, {**SPEC, "statement": "other"}], "hypotheses": ["x"], "query": "q"}
-    )
-    assert (statement, spec) == ("stmt", SPEC)
-
-
-def test_without_specs_the_first_hypothesis_or_the_query_is_used():
-    assert nodes._primary_hypothesis({"hypotheses": ["only"], "query": "q"}) == ("only", None)
-    assert nodes._primary_hypothesis({"hypotheses": [], "query": "q"}) == ("q", None)
-
-
 @pytest.fixture
 def experiment_calls(monkeypatch):
     calls = []
@@ -265,6 +253,32 @@ def test_the_experiment_runs_the_approved_spec_without_side_effects(experiment_c
     assert result["experiment_metrics"] == {"accuracy": 0.9, "f1": 0.8}
     assert result["experiment_error"] == ""
     assert result["critic_continue"] is False
+
+
+def test_only_the_selected_hypothesis_is_run(experiment_calls):
+    other = {**SPEC, "statement": "chosen", "dataset": "breast_cancer"}
+    state = base_state(
+        query="Compare SVM and Random Forest",
+        hypotheses=["stmt", "chosen"],
+        experiment_specs=[SPEC, other],
+        selected_hypothesis=1,
+    )
+    nodes.experiment_node(state)
+    assert len(experiment_calls) == 1
+    assert experiment_calls[0]["spec"] == other
+    assert "Hypothesis:\nchosen" in experiment_calls[0]["prompt"]
+
+
+def test_the_memory_record_names_the_selected_hypothesis(world):
+    other = {**SPEC, "statement": "chosen"}
+    state = base_state(
+        hypotheses=["stmt", "chosen"],
+        experiment_specs=[SPEC, other],
+        selected_hypothesis=1,
+    )
+    nodes.verifier_node(state)
+    assert world.memory[0]["hypothesis"] == "chosen"
+    assert world.memory[0]["spec"] == other
 
 
 def test_a_critique_makes_the_experiment_correct_the_existing_code(experiment_calls):

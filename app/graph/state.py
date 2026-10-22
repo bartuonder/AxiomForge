@@ -6,6 +6,7 @@ class AgentState(TypedDict):
     literature_context: list[str]
     hypotheses: list[str]
     experiment_specs: list[dict[str, Any]]
+    selected_hypothesis: int
     approval_status: str
     current_experiment_code: str
     experiment_error: str

@@ -4,6 +4,7 @@ from pathlib import Path
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
+from app.graph.selection import primary_hypothesis
 from app.graph.state import AgentState
 
 MODEL = "gpt-4o"
@@ -89,9 +90,8 @@ def write_workshop_paper(state: AgentState, past_experiments: list[dict], run_id
 
 
 def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
-    hypotheses = state.get("hypotheses") or []
-    specs = state.get("experiment_specs") or []
-    experiment_spec = specs[0] if specs else {}
+    hypotheses = [primary_hypothesis(state)[0]] if state.get("hypotheses") else []
+    experiment_spec = primary_hypothesis(state)[1] or {}
     literature = state.get("literature_context") or []
     metrics = state.get("experiment_metrics") or {}
     model_results = state.get("model_results") or []
