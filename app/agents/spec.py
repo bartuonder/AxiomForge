@@ -1,5 +1,6 @@
 import ast
 import json
+import re
 from typing import Any
 
 DATASETS = {
@@ -28,8 +29,40 @@ MODEL_PARAMS: dict[str, tuple[str, ...]] = {
 }
 
 
+CLAIM_KINDS = ("performance", "stability")
+CLAIM_METRICS = ("roc_auc", "pr_auc", "f1")
+
+
 class SpecError(ValueError):
     pass
+
+
+def _squash(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def _validate_claim(raw: Any, model_keys: list[str], statement: str) -> dict[str, str] | None:
+    if len(model_keys) < 2:
+        return None
+    if not isinstance(raw, dict):
+        raise SpecError("claim is missing: a hypothesis must compare two of the models the query named")
+    kind = raw.get("kind")
+    if kind not in CLAIM_KINDS:
+        raise SpecError("claim.kind must be one of " + ", ".join(CLAIM_KINDS))
+    metrics = ("roc_auc",) if kind == "stability" else CLAIM_METRICS
+    metric = raw.get("metric")
+    if metric not in metrics:
+        raise SpecError(f"claim.metric must be one of {', '.join(metrics)} for a {kind} claim")
+    subject = raw.get("subject")
+    other = raw.get("other")
+    if subject not in model_keys or other not in model_keys:
+        raise SpecError("claim.subject and claim.other must be models the query named")
+    if subject == other:
+        raise SpecError("claim.subject and claim.other must be two different models")
+    squashed = _squash(statement)
+    if _squash(subject) not in squashed or _squash(other) not in squashed:
+        raise SpecError("the statement must name both models of the claim")
+    return {"kind": kind, "metric": metric, "subject": subject, "other": other}
 
 
 def validate_spec(raw: Any, model_keys: list[str]) -> dict[str, Any]:
@@ -64,6 +97,7 @@ def validate_spec(raw: Any, model_keys: list[str]) -> dict[str, Any]:
     return {
         "statement": statement.strip(),
         "models": list(model_keys),
+        "claim": _validate_claim(raw.get("claim"), model_keys, statement),
         "dataset": dataset,
         "params": params,
     }

@@ -12,19 +12,30 @@ SYSTEM_PROMPT = (
     "You are a research planner. Read the user query, the literature context, "
     "and the failed past experiments. "
     "Write exactly 3 specific, testable hypotheses that do not repeat failed approaches. "
-    "The experiment agent can only do this: train exactly the Allowed models together on one dataset "
-    "and compare them, optionally with constructor parameters from the allowed parameter list. "
-    "Every hypothesis must be an experiment of that kind. "
-    "Its statement must not name a model, a method, a feature transformation or a dataset outside its own fields. "
+    "The experiment agent can only do this: train exactly the Allowed models together on one dataset, "
+    "on the same ten stratified splits, and compare them. "
+    "So every hypothesis is a comparison claim between two of the Allowed models: "
+    "one model has a higher ROC-AUC, PR-AUC or F1 than the other, "
+    "or one model is more stable than the other in ROC-AUC variance. "
+    "The parameters only decide how each model is configured for that comparison. "
+    "A hypothesis must never claim that a parameter, a dataset or a method improves something, "
+    "because the experiment has no baseline to test that. "
+    "Its statement names both models and may mention their configuration only as context. "
     "Each hypothesis is a JSON object with these fields: "
-    "statement (one testable sentence), "
+    "statement (one testable sentence that names both models), "
+    "claim (an object: kind is 'performance' or 'stability'; "
+    "metric is roc_auc, pr_auc or f1 for a performance claim and roc_auc for a stability claim; "
+    "subject is the model claimed to be higher or more stable; other is the model it is compared with), "
     f"dataset (one of: {', '.join(DATASETS)}), "
     "params (an object keyed by model name, each value an object of allowed parameter names to numbers or strings; "
-    "use an empty object when the hypothesis changes no parameter). "
+    "use an empty object when you set no parameter). "
+    "If only one model is allowed, set claim to null and write one sentence about that model's result. "
     "If failed past experiments exist, memory_note must start with "
     "'Bu daha önce denenmiş ve şu hatayı almış, farklı bir yaklaşım öneriyorum' "
     "and mention the past error. "
-    'Return only JSON: {"memory_note": "...", "hypotheses": [{"statement": "...", "dataset": "...", "params": {}}]}.'
+    'Return only JSON: {"memory_note": "...", "hypotheses": [{"statement": "...", '
+    '"claim": {"kind": "performance", "metric": "roc_auc", "subject": "ModelA", "other": "ModelB"}, '
+    '"dataset": "...", "params": {}}]}.'
 )
 
 

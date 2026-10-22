@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -17,20 +18,25 @@ KEYS = ["RandomForest", "XGBoost"]
 MODELS = requested_models("Compare Random Forest and XGBoost")
 
 
+CLAIM = {"kind": "performance", "metric": "roc_auc", "subject": "RandomForest", "other": "XGBoost"}
+STATEMENT = "RandomForest has a higher ROC-AUC than XGBoost"
+
+
 def raw(**overrides):
-    base = {"statement": "RandomForest is more stable", "dataset": "imbalanced", "params": {}}
+    base = {"statement": STATEMENT, "claim": dict(CLAIM), "dataset": "imbalanced", "params": {}}
     base.update(overrides)
     return base
 
 
 def test_a_valid_spec_is_normalised():
     spec = validate_spec(
-        raw(statement="  s  ", params={"RandomForest": {"n_estimators": 300, "class_weight": "balanced"}}),
+        raw(statement="  " + STATEMENT + "  ", params={"RandomForest": {"n_estimators": 300, "class_weight": "balanced"}}),
         KEYS,
     )
     assert spec == {
-        "statement": "s",
+        "statement": STATEMENT,
         "models": KEYS,
+        "claim": CLAIM,
         "dataset": "imbalanced",
         "params": {"RandomForest": {"n_estimators": 300, "class_weight": "balanced"}},
     }
@@ -42,7 +48,7 @@ def test_models_always_come_from_the_query_not_the_planner():
 
 
 def test_missing_params_become_empty():
-    assert validate_spec({"statement": "s", "dataset": "breast_cancer"}, KEYS)["params"] == {}
+    assert validate_spec({"statement": STATEMENT, "claim": CLAIM, "dataset": "breast_cancer"}, KEYS)["params"] == {}
 
 
 def test_empty_parameter_objects_are_dropped():
@@ -157,13 +163,14 @@ def plan(hypotheses, note=""):
     return json.dumps({"memory_note": note, "hypotheses": hypotheses})
 
 
-def item(statement="s", dataset="breast_cancer", params=None):
-    return {"statement": statement, "dataset": dataset, "params": params or {}}
+def item(statement=STATEMENT, dataset="breast_cancer", params=None):
+    return {"statement": statement, "claim": dict(CLAIM), "dataset": dataset, "params": params or {}}
 
 
 def test_planner_returns_three_validated_specs_and_the_note():
-    specs, note = _plan(plan([item("a"), item("b"), item("c"), item("extra")], " note "), KEYS)
-    assert [spec["statement"] for spec in specs] == ["a", "b", "c"]
+    statements = [STATEMENT + f" ({tag})" for tag in ("a", "b", "c", "extra")]
+    specs, note = _plan(plan([item(text) for text in statements], " note "), KEYS)
+    assert [spec["statement"] for spec in specs] == statements[:3]
     assert all(spec["models"] == KEYS for spec in specs)
     assert note == "note"
 
@@ -191,3 +198,162 @@ def test_planner_rejects_missing_hypotheses_key():
 def test_planner_ignores_a_non_string_note():
     _, note = _plan(json.dumps({"memory_note": 5, "hypotheses": [item(), item(), item()]}), KEYS)
     assert note == ""
+
+
+def claim_spec(claim, statement=STATEMENT, keys=KEYS):
+    return validate_spec(raw(claim=claim, statement=statement), keys)
+
+
+def test_a_valid_claim_is_kept_as_given():
+    assert claim_spec(dict(CLAIM))["claim"] == CLAIM
+
+
+def test_extra_claim_fields_are_dropped():
+    assert claim_spec({**CLAIM, "confidence": "high"})["claim"] == CLAIM
+
+
+@pytest.mark.parametrize("metric", ["roc_auc", "pr_auc", "f1"])
+def test_a_performance_claim_may_use_each_tested_metric(metric):
+    assert claim_spec({**CLAIM, "metric": metric})["claim"]["metric"] == metric
+
+
+def test_a_stability_claim_is_about_roc_auc_only():
+    stability = {**CLAIM, "kind": "stability"}
+    assert claim_spec(stability)["claim"]["kind"] == "stability"
+    with pytest.raises(SpecError, match="claim.metric must be one of roc_auc for a stability claim"):
+        claim_spec({**stability, "metric": "f1"})
+
+
+@pytest.mark.parametrize(
+    ("claim", "message"),
+    [
+        (None, "claim is missing"),
+        ("RandomForest is better", "claim is missing"),
+        ({**CLAIM, "kind": "improvement"}, "claim.kind"),
+        ({**CLAIM, "metric": "accuracy"}, "claim.metric"),
+        ({**CLAIM, "subject": "SVM"}, "models the query named"),
+        ({**CLAIM, "other": "SVM"}, "models the query named"),
+        ({**CLAIM, "other": "RandomForest"}, "two different models"),
+    ],
+)
+def test_an_invalid_claim_is_rejected(claim, message):
+    with pytest.raises(SpecError, match=message):
+        claim_spec(claim)
+
+
+def test_a_claim_is_required_for_every_hypothesis_of_a_two_model_query():
+    without = raw()
+    del without["claim"]
+    with pytest.raises(SpecError, match="claim is missing"):
+        validate_spec(without, KEYS)
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "RandomForest has a higher ROC-AUC",
+        "XGBoost has a lower ROC-AUC",
+        "Class weights improve the ROC-AUC",
+    ],
+)
+def test_the_statement_must_name_both_models_of_the_claim(statement):
+    with pytest.raises(SpecError, match="must name both models"):
+        claim_spec(dict(CLAIM), statement=statement)
+
+
+def test_model_names_in_the_statement_may_use_spaces_and_case():
+    spec = claim_spec(
+        {**CLAIM, "subject": "RandomForest", "other": "XGBoost"},
+        statement="Random forest is more stable than xgboost across splits",
+    )
+    assert spec["claim"]["subject"] == "RandomForest"
+
+
+def test_a_single_model_query_has_no_claim():
+    spec = validate_spec({"statement": "RandomForest reaches a high F1", "dataset": "breast_cancer"}, ["RandomForest"])
+    assert spec["claim"] is None
+
+
+def test_a_single_model_query_ignores_a_claim_the_planner_added():
+    spec = validate_spec(raw(), ["RandomForest"])
+    assert spec["claim"] is None
+
+
+def test_three_models_allow_any_pair():
+    keys = ["SVM", "KNN", "RandomForest"]
+    claim = {"kind": "stability", "metric": "roc_auc", "subject": "KNN", "other": "SVM"}
+    spec = validate_spec(raw(claim=claim, statement="KNN is more stable than SVM"), keys)
+    assert spec["claim"] == claim
+
+
+def test_the_planner_prompt_limits_hypotheses_to_model_comparisons():
+    from app.agents.planner import SYSTEM_PROMPT
+
+    assert "comparison claim between two of the Allowed models" in SYSTEM_PROMPT
+    assert "must never claim that a parameter, a dataset or a method improves" in SYSTEM_PROMPT
+    assert "only decide how each model is configured" in SYSTEM_PROMPT
+    assert "claim" in SYSTEM_PROMPT
+
+
+class FakeCompletions:
+    def __init__(self, contents):
+        self.contents = list(contents)
+        self.prompts = []
+
+    def create(self, **kwargs):
+        self.prompts.append(kwargs["messages"][-1]["content"])
+        content = self.contents.pop(0)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+
+@pytest.fixture
+def planner_client(monkeypatch):
+    import app.agents.planner as planner
+
+    holder = SimpleNamespace(completions=None)
+
+    def install(contents):
+        holder.completions = FakeCompletions(contents)
+        fake = SimpleNamespace(chat=SimpleNamespace(completions=holder.completions))
+        monkeypatch.setattr(planner, "OpenAI", lambda api_key: fake)
+        monkeypatch.setattr(planner, "OPENAI_API_KEY", "key")
+        return holder.completions
+
+    return SimpleNamespace(install=install, run=lambda: planner.run_planner_agent("q", [], [], MODELS))
+
+
+def three(claim_free=False):
+    items = [item(STATEMENT + f" ({tag})") for tag in "abc"]
+    if claim_free:
+        for entry in items:
+            del entry["claim"]
+    return plan(items)
+
+
+def test_the_planner_is_asked_again_once_when_a_claim_is_missing(planner_client):
+    completions = planner_client.install([three(claim_free=True), three()])
+    specs, _ = planner_client.run()
+    assert len(specs) == 3
+    assert all(spec["claim"] == CLAIM for spec in specs)
+    assert len(completions.prompts) == 2
+    assert "Your previous plan was rejected: claim is missing" in completions.prompts[1]
+    assert "previous plan was rejected" not in completions.prompts[0]
+
+
+def test_the_run_stops_when_the_second_plan_is_still_invalid(planner_client):
+    completions = planner_client.install([three(claim_free=True), three(claim_free=True)])
+    with pytest.raises(RuntimeError, match="invalid experiment spec: claim is missing"):
+        planner_client.run()
+    assert len(completions.prompts) == 2
+
+
+def test_a_valid_first_plan_is_used_without_a_second_call(planner_client):
+    completions = planner_client.install([three()])
+    planner_client.run()
+    assert len(completions.prompts) == 1
+
+
+def test_the_prompt_lists_the_models_the_claim_may_use(planner_client):
+    completions = planner_client.install([three()])
+    planner_client.run()
+    assert "Allowed models: RandomForest, XGBoost" in completions.prompts[0]
