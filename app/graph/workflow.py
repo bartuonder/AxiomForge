@@ -8,6 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.config import DATABASE_URL
+from app.graph.errors import describe_error, read_error, record_error
 from app.graph.nodes import (
     approval_gate,
     consistency_checker_node,
@@ -23,7 +24,6 @@ from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
 
-_research_errors: dict[str, str] = {}
 _STEP_ORDER = [
     "literature_node",
     "planner_node",
@@ -126,7 +126,7 @@ def _run_until_pause(thread_id: str, query: str) -> None:
             logger.info("paused hypothesis %s=%s", index, item)
     except Exception as exc:
         logger.exception("research failed thread_id=%s", thread_id)
-        _research_errors[thread_id] = str(exc)
+        record_error(thread_id, describe_error(exc))
 
 
 def start_research(query: str) -> dict:
@@ -142,7 +142,7 @@ def start_research(query: str) -> dict:
 
 def get_research(thread_id: str) -> dict:
     config = {"configurable": {"thread_id": thread_id}}
-    error = _research_errors.get(thread_id, "")
+    error = read_error(thread_id)
     with _open_graph() as checkpointer:
         compiled = _compile(checkpointer)
         snapshot = compiled.get_state(config)
@@ -164,10 +164,10 @@ def get_research(thread_id: str) -> dict:
 
 
 def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
-    if error and not values:
-        return "failed"
     if values.get("research_status") == "Completed":
         return "completed"
+    if error:
+        return "failed"
     if values.get("approval_status") == "rejected":
         return "rejected"
     if "approval_gate" in next_nodes and values.get("hypotheses"):
@@ -257,7 +257,12 @@ def approve_plan(thread_id: str, decision: str) -> dict:
                 "state": state,
             }
         compiled.update_state(config, {"approval_status": "approved"})
-        state = compiled.invoke(None, config)
+        try:
+            state = compiled.invoke(None, config)
+        except Exception as exc:
+            logger.exception("research failed thread_id=%s", thread_id)
+            record_error(thread_id, describe_error(exc))
+            raise
     return {
         "thread_id": thread_id,
         "status": "finished",
