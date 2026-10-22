@@ -9,12 +9,18 @@ from app.seeds import SPLIT_SEEDS
 
 MODEL = "gpt-4o"
 PROMPT_VERSION = "experiment-v7"
-QUERY_NAMES_NO_MODEL = "query names no model"
+MIN_MODELS = 2
+QUERY_NAMES_TOO_FEW_MODELS = "query names fewer than two models"
 
 
-class QueryNamesNoModel(RuntimeError):
+class QueryNamesTooFewModels(RuntimeError):
     def __init__(self) -> None:
-        super().__init__(QUERY_NAMES_NO_MODEL)
+        super().__init__(QUERY_NAMES_TOO_FEW_MODELS)
+
+
+def require_models(models: list[dict]) -> None:
+    if len(models) < MIN_MODELS:
+        raise QueryNamesTooFewModels()
 
 
 SYSTEM_PROMPT = (
@@ -277,8 +283,7 @@ def generate_classification_code(
 ) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
-    if not models:
-        raise QueryNamesNoModel()
+    require_models(models)
     client = OpenAI(api_key=OPENAI_API_KEY)
     response = client.chat.completions.create(
         model=MODEL,
@@ -302,8 +307,7 @@ def correct_classification_code(
 ) -> str:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
-    if not models:
-        raise QueryNamesNoModel()
+    require_models(models)
     client = OpenAI(api_key=OPENAI_API_KEY)
     response = client.chat.completions.create(
         model=MODEL,

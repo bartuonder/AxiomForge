@@ -6,7 +6,7 @@ from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from app.agents.experiment import QueryNamesNoModel, requested_models
+from app.agents.experiment import require_models, requested_models
 from app.config import DATABASE_URL
 from app.graph.errors import describe_error, read_error, record_error
 from app.graph.nodes import (
@@ -137,8 +137,7 @@ def run_until_pause(thread_id: str, query: str) -> None:
 
 
 def new_thread_id(query: str) -> str:
-    if not requested_models(query):
-        raise QueryNamesNoModel()
+    require_models(requested_models(query))
     return str(uuid.uuid4())
 
 

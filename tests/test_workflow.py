@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from app.agents.experiment import QueryNamesNoModel
+from app.agents.experiment import QueryNamesTooFewModels
 from app.graph.workflow import (
     _active_step,
     _instability,
@@ -180,7 +180,7 @@ def test_fresh_states_do_not_share_mutable_values():
 
 
 def test_a_query_without_a_model_gets_no_thread():
-    with pytest.raises(QueryNamesNoModel):
+    with pytest.raises(QueryNamesTooFewModels):
         new_thread_id("How does churn behave?")
 
 

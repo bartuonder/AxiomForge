@@ -9,7 +9,7 @@ from kombu.exceptions import OperationalError
 from openai import OpenAIError
 from pydantic import BaseModel, Field
 
-from app.agents.experiment import QueryNamesNoModel
+from app.agents.experiment import QueryNamesTooFewModels
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
@@ -43,8 +43,8 @@ class ApprovePlanRequest(BaseModel):
     selected: int | None = None
 
 
-def _no_model_detail(exc: QueryNamesNoModel) -> str:
-    return f"{exc}: name at least one model in the query, for example SVM or Random Forest."
+def _too_few_models_detail(exc: QueryNamesTooFewModels) -> str:
+    return f"{exc}: name at least two models in the query so that they can be compared, for example SVM and Random Forest."
 
 
 def redis_status() -> str:
@@ -86,8 +86,8 @@ def health():
 def create_experiment(body: ExperimentRequest):
     try:
         return execute_experiment(body.prompt, body.csv_schema)
-    except QueryNamesNoModel as exc:
-        raise HTTPException(status_code=422, detail=_no_model_detail(exc)) from exc
+    except QueryNamesTooFewModels as exc:
+        raise HTTPException(status_code=422, detail=_too_few_models_detail(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
@@ -107,8 +107,8 @@ def start_research_endpoint(body: StartResearchRequest):
         thread_id = new_thread_id(body.query)
         _enqueue(run_research_task, thread_id, body.query)
         return {"thread_id": thread_id, "status": "running"}
-    except QueryNamesNoModel as exc:
-        raise HTTPException(status_code=422, detail=_no_model_detail(exc)) from exc
+    except QueryNamesTooFewModels as exc:
+        raise HTTPException(status_code=422, detail=_too_few_models_detail(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:

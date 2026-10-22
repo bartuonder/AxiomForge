@@ -3,10 +3,10 @@ import logging
 from app.agents.experiment import (
     MODEL,
     PROMPT_VERSION,
-    QueryNamesNoModel,
     correct_classification_code,
     generate_classification_code,
     models_dict_error,
+    require_models,
     requested_models,
     split_contract_error,
 )
@@ -37,8 +37,7 @@ def execute_experiment(
     spec: dict | None = None,
 ) -> dict:
     allowed = list(models) if models is not None else requested_models(prompt)
-    if not allowed:
-        raise QueryNamesNoModel()
+    require_models(allowed)
     logger.info("allowed_models=%s", [item["key"] for item in allowed])
     logger.info("experiment spec=%s", spec)
     if existing_code and criticism:
