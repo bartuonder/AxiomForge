@@ -24,7 +24,7 @@ Sonra literatür ajanı ve Celery düzeldi: literatür artık LLM anahtar kelime
 
 Sonra MLflow kaydı doğrulayıcıya taşındı: grafta tek bir `Verified` (veya `Failed`) üst run açılır, doğrulanmış ortalama, std ve varyans üst run'a, tohum iç içe run'lara yazılır (`log_verified_comparison`, `seeded_rows`). `execute_experiment` grafta `track_run=False` ile çağrılır, `POST /experiments` eskisi gibi kendisi loglar. Ayrıştırma regex'i bilimsel gösterimi okur (`_NUMBER`); önceden `train_seconds=4.5e-05` satırı sessizce düşüyordu. Beraberlik kapısı artık yalnız karşılaştırma kalıplarını sayar (`to better understand` geçer, `outperforms` ve `superiority` yakalanır).
 
-Sonra `tests/` altında pytest testleri yazıldı (205 test, yaklaşık 6 saniye, hiçbir dış servis çağrılmaz). Ayrıştırma, model adı çıkarma ve `models` sözlüğü sözleşmesi, spesifikasyon doğrulaması ve kod denetimi, planlayıcı planı, istatistik fonksiyonları, doğrulayıcı özeti ve kararı, beraberlik kapısı, araştırma durumu ve düğümler kapsanır. Düğüm testleri `app.graph.nodes` içindeki dış çağrıları `monkeypatch` ile taklit eder. Çalıştırma: `.\.venv\Scripts\python.exe -m pytest`. Bağımlılık `requirements-dev.txt` içindedir. Testlerin hata yakaladığı dört kasıtlı bozmayla doğrulandı. Dockerfile ve compose işçi servisi ile `requirements.txt` tamamlaması 12. maddenin kalan işidir.
+Sonra `tests/` altında pytest testleri yazıldı (205 test, yaklaşık 6 saniye, hiçbir dış servis çağrılmaz). Ayrıştırma, model adı çıkarma ve `models` sözlüğü sözleşmesi, spesifikasyon doğrulaması ve kod denetimi, planlayıcı planı, istatistik fonksiyonları, doğrulayıcı özeti ve kararı, beraberlik kapısı, araştırma durumu ve düğümler kapsanır. Düğüm testleri `app.graph.nodes` içindeki dış çağrıları `monkeypatch` ile taklit eder. Çalıştırma: `.\.venv\Scripts\python.exe -m pytest`. Bağımlılık `requirements-dev.txt` içindedir. Testlerin hata yakaladığı dört kasıtlı bozmayla doğrulandı. 12. maddenin kalan işleri de bitti: `requirements.txt` kodun doğrudan import ettiği `httpx`, `kombu`, `langchain-core` ve `pydantic` ile tamamlandı (temiz imaj kurulumunda `import app.main, app.tasks` ile doğrulandı). `Dockerfile` tek imajdır ve API, Celery işçisi ve MLflow sunucusu aynı imajdan farklı komutla çalışır (`docker compose up -d --build`). `REDIS_URL` ve `MLFLOW_TRACKING_URI` ortam değişkeniyle okunur. API ve işçi `reports` hacmini paylaşır. Konsol konteynerde değildir. Yerel geliştirmede yalnız `docker compose up -d redis postgres` çalıştırılır, yoksa konteynerlerle 5000 ve 8000 portları çakışır.
 
 Denetimden kalan açık işler: bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
@@ -45,7 +45,7 @@ DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-docker compose up -d
+docker compose up -d redis postgres
 .\.venv\Scripts\mlflow.exe server --host 127.0.0.1 --port 5000
 .\.venv\Scripts\celery.exe -A app.celery_app worker --pool=threads --concurrency=4 --loglevel=info
 .\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
