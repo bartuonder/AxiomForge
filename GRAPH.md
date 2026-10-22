@@ -39,7 +39,7 @@ START
 
 İkisi de temizse `verification_status` `Passed` olur. Metrik üretilmemesi, sandbox çökmesi veya sızıntı varsa `Failed` olur ve sebep `verifier_feedback` alanına yazılır. Yüksek varyans `Failed` yapmaz.
 
-`critic_continue` doğruysa ve `critic_rounds` 2'den küçükse akış `experiment_node`'a döner. İkinci düzeltmeden sonra doğrulayıcı hâlâ reddederse deney `is_success=False` ile hafızaya yazılır ve rapor düğümüne geçilir.
+`critic_continue` doğruysa ve `critic_rounds` 2'den küçükse akış `experiment_node`'a döner. İkinci düzeltmeden sonra doğrulayıcı hâlâ reddederse deney `is_success=False` ve `outcome=failure` ile hafızaya yazılır ve rapor düğümüne geçilir. Hafıza kaydı grafta yalnız burada ve doğrulama `Passed` olduğunda yazılır; deney düğümü yazmaz. Kayıt, onaylanan spesifikasyonun `statement` metnini, `spec` alanını ve doğrulayıcının ortalama ± standart sapma özetini taşır. `Passed` olan koşu `outcome=success` ile, `instability.unstable` doğruysa `outcome=finding` ve `finding` metniyle yazılır, ikisinde de `is_success` doğrudur. Deney üç denemede de çalışmadıysa son hata `experiment_error` alanında taşınır ve doğrulayıcının mesajına girer.
 
 `report_node` literatür, hipotez, son kod, metrik, doğrulayıcı durumu ve hafızadaki hata metinlerinden bir atölye makalesi yazar. RAG kaydının kodu ve metriği prompta girmez. Başlıklar Abstract, Introduction, Methodology, Results, Conclusion şeklindedir. Results tablosu `statistical_results` içindeki ortalama ve standart sapmadır. `instability.unstable` doğruysa işaretli modeller std değeriyle Results'a girer ve Conclusion'da limitasyon olarak yazılır. Raporun veriyi yorumlama veya kazanan seçme yetkisi yoktur. Makale İngilizce yazılır. Results ve Conclusion `statistical_decision` yönünde yazılır; cümle aynen kopyalanmak zorunda değildir ama yönü değişmez ve karar dışında yorum eklenmez. `statistical_conclusion` tablo satırı değildir. Dosya `reports/{thread_id}_paper.md` olur. Metin `paper_markdown` alanına da yazılır. Graf burada bitmez.
 
@@ -57,6 +57,7 @@ START
 | `experiment_specs` | Aynı hipotezlerin doğrulanmış spesifikasyonları: `statement`, `models`, `dataset`, `params` |
 | `approval_status` | `approved` veya `rejected` |
 | `current_experiment_code` | Son çalışan Python kodu |
+| `experiment_error` | Deney üç denemede de çalışmadıysa son hata metni |
 | `experiment_metrics` | İlk modelin Accuracy ve F1 değeri |
 | `model_results` | Bu koşunun model satırları. Bölme döngüsü varsa model başına beş satır |
 | `tested_models` | Yalnız bu koşuda adı geçen modeller |
