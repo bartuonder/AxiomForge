@@ -4,7 +4,7 @@ from pathlib import Path
 from langchain_core.runnables import RunnableConfig
 
 from app.agents.consistency import conclusion_issues, direction_conflict, judge_consistency
-from app.agents.experiment import requested_models
+from app.agents.experiment import MODEL, PROMPT_VERSION, requested_models
 from app.agents.literature import run_literature_agent
 from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
@@ -20,12 +20,18 @@ from app.graph.verifier import (
     metric_summary,
     performance_comparisons,
     rewrite_seeds,
+    seeded_rows,
     stability_decision,
     summarize_seed_runs,
 )
 from app.memory.rag_memory import save_experiment, search_past_experiments
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
-from app.tracking.mlflow_logger import parse_model_results
+from app.tracking.mlflow_logger import (
+    detect_algorithm,
+    log_failed_run,
+    log_verified_comparison,
+    parse_model_results,
+)
 
 logger = logging.getLogger("axiomforge")
 
@@ -120,6 +126,48 @@ def _remember(
     logger.info("saved %s memory_id=%s", outcome, memory_id)
 
 
+def _track_verified(
+    state: AgentState,
+    collected: list[list[dict[str, str | float]]],
+    summary: dict[str, dict[str, float] | str],
+    decision: dict,
+) -> str:
+    hypothesis, spec = _primary_hypothesis(state)
+    try:
+        run_id = log_verified_comparison(
+            seeded_rows(collected),
+            summary,
+            decision,
+            prompt_version=PROMPT_VERSION,
+            model=MODEL,
+            critic_rounds=int(state.get("critic_rounds", 0)),
+            hypothesis=hypothesis,
+            dataset=state.get("dataset_profile") or None,
+            spec=spec,
+        )
+    except Exception:
+        logger.exception("mlflow logging failed")
+        return ""
+    logger.info("mlflow verified run_id=%s", run_id)
+    return run_id
+
+
+def _track_failure(state: AgentState, code: str, error: str) -> str:
+    try:
+        run_id = log_failed_run(
+            prompt_version=PROMPT_VERSION,
+            algorithm=detect_algorithm(code),
+            model=MODEL,
+            attempts=int(state.get("critic_rounds", 0)) + 1,
+            error=error,
+        )
+    except Exception:
+        logger.exception("mlflow logging failed")
+        return ""
+    logger.info("mlflow failed run_id=%s", run_id)
+    return run_id
+
+
 def experiment_node(state: AgentState) -> dict:
     logger.info("Onaylandı, deneylere başlanıyor")
     query = state.get("query", "")
@@ -137,6 +185,7 @@ def experiment_node(state: AgentState) -> dict:
             existing_code=state.get("current_experiment_code", ""),
             criticism=criticism,
             record_memory=False,
+            track_run=False,
             models=allowed,
             spec=spec,
         )
@@ -145,6 +194,7 @@ def experiment_node(state: AgentState) -> dict:
             prompt,
             EXPERIMENT_CSV_SCHEMA,
             record_memory=False,
+            track_run=False,
             models=allowed,
             spec=spec,
         )
@@ -287,6 +337,7 @@ def verifier_node(state: AgentState) -> dict:
             finding=finding,
         )
         return {
+            "mlflow_run_id": _track_verified(state, collected, statistical_results, decision),
             "verification_status": "Passed",
             "verifier_feedback": "",
             "critic_continue": False,
@@ -301,6 +352,7 @@ def verifier_node(state: AgentState) -> dict:
         )
         _remember(state, code, metric, False, "failure", error_log=feedback)
         return {
+            "mlflow_run_id": _track_failure(state, code, feedback),
             "verification_status": "Failed",
             "verifier_feedback": feedback,
             "critic_continue": False,

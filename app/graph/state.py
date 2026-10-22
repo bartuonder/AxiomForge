@@ -15,6 +15,7 @@ class AgentState(TypedDict):
     dataset_profile: dict[str, str | float]
     statistical_results: dict[str, dict[str, float] | str]
     statistical_decision: dict[str, Any]
+    mlflow_run_id: str
     verification_status: str
     verifier_feedback: str
     critic_rounds: int

@@ -91,6 +91,7 @@ def empty_research_state(query: str) -> AgentState:
         "dataset_profile": {},
         "statistical_results": {},
         "statistical_decision": {},
+        "mlflow_run_id": "",
         "verification_status": "",
         "verifier_feedback": "",
         "critic_rounds": 0,
