@@ -11,6 +11,8 @@ class SandboxCodeError(RuntimeError):
     pass
 
 DATA_PATH = "/home/user/data.csv"
+RUN_TIMEOUT_SECONDS = 240
+SANDBOX_LIFETIME_SECONDS = 300
 
 
 def build_csv(csv_schema: str) -> str:
@@ -49,10 +51,10 @@ def run_classification(code: str, csv_schema: str) -> str:
     if not E2B_API_KEY:
         raise RuntimeError("E2B_API_KEY is missing")
     csv_text = build_csv(csv_schema)
-    sandbox = Sandbox.create(api_key=E2B_API_KEY, timeout=180)
+    sandbox = Sandbox.create(api_key=E2B_API_KEY, timeout=SANDBOX_LIFETIME_SECONDS)
     try:
         sandbox.files.write(DATA_PATH, csv_text)
-        execution = sandbox.run_code(code, timeout=120)
+        execution = sandbox.run_code(code, timeout=RUN_TIMEOUT_SECONDS)
     finally:
         sandbox.kill()
     if execution.error is not None:
