@@ -26,11 +26,11 @@ START
 
 `planner_node` literatürü ve RAG hafızasındaki başarısız deneyleri okur. Aynı hatayı tekrar etmeyen 3 hipotezi `hypotheses` listesine yazar. Her hipotez deney ajanının yapabildiği bir spesifikasyondur ve `experiment_specs` listesine yazılır: `statement`, `models` (sorgudaki modellerin tamamı), `dataset` (`breast_cancer` veya `imbalanced`) ve `params` (model başına izinli kurucu parametreleri). Model adı, parametre adı ve veri seti Python'da doğrulanır. Geçersizse planlayıcıya bir kez hata gösterilir ve yeniden denenir.
 
-`approval_gate` boş bir kapıdır. Graf burada bekler. `POST /approve_plan` kararı yazar; `Y` ise devamı Celery'ye atar. Karar bir kez verilir.
+`approval_gate` boş bir kapıdır. Graf burada bekler. `POST /approve_plan` kararı yazar; `Y` ise `selected` ile çalıştırılacak hipotezi `selected_hypothesis` alanına yazar ve devamı Celery'ye atar. Seçim olmadan `Y` kabul edilmez. Karar bir kez verilir.
 
 `Y` ise `approval_status` `approved` olur ve akış devam eder. `N` ise `approval_status` `rejected` olur; deney, doğrulayıcı ve rapor çalışmaz.
 
-`experiment_node` ilk hipotezi ve `experiment_specs` içindeki spesifikasyonunu Faz 1 döngüsüne verir. Ajan `experiment-v6` ile kod yazar. Üretilen kod AST ile denetlenir: spesifikasyondaki veri seti çağrısı bulunmalı, öteki veri seti çağrısı bulunmamalı ve `params` değerleri ilgili kurucuda sabit olarak yazılmış olmalıdır. Aksi halde hata deneme mekanizmasıyla düzeltilir. Betikte yalnız `query` içinde açıkça adı geçen modeller vardır. Promptta varsayılan model yoktur. `models` sözlüğünün anahtarları bu listeyle aynıdır. Hipotez yeni model ekleyemez. Sorguda model adı yoksa deney başlamaz. Veri döngünün dışında bir kez ve sabit tohumla gelir. `make_classification` için `class_sep` en fazla 0.5'tir ve `weights` dengesizdir. Beşli döngü yalnız `train_test_split` `random_state` değerini 42, 100, 200, 300 ve 400 yapar. CSV şeması `age`, `monthly_spend`, `tenure_months`, `churn` kolonlarıdır. Çalışan kod `current_experiment_code` alanına, ilk modelin Accuracy ve F1 değerleri `experiment_metrics` alanına, satırlar `model_results` alanına, bu koşunun model adları `tested_models` alanına, veri profili `dataset_profile` alanına yazılır. Doğrulayıcıdan eleştiri gelmişse yeni kod üretmek yerine mevcut kodu o eleştiriyle düzeltir.
+`experiment_node` onayda seçilen hipotezi (`selected_hypothesis`) ve `experiment_specs` içindeki spesifikasyonunu Faz 1 döngüsüne verir. Ajan `experiment-v6` ile kod yazar. Üretilen kod AST ile denetlenir: spesifikasyondaki veri seti çağrısı bulunmalı, öteki veri seti çağrısı bulunmamalı ve `params` değerleri ilgili kurucuda sabit olarak yazılmış olmalıdır. Aksi halde hata deneme mekanizmasıyla düzeltilir. Betikte yalnız `query` içinde açıkça adı geçen modeller vardır. Promptta varsayılan model yoktur. `models` sözlüğünün anahtarları bu listeyle aynıdır. Hipotez yeni model ekleyemez. Sorguda model adı yoksa deney başlamaz. Veri döngünün dışında bir kez ve sabit tohumla gelir. `make_classification` için `class_sep` en fazla 0.5'tir ve `weights` dengesizdir. Beşli döngü yalnız `train_test_split` `random_state` değerini 42, 100, 200, 300 ve 400 yapar. CSV şeması `age`, `monthly_spend`, `tenure_months`, `churn` kolonlarıdır. Çalışan kod `current_experiment_code` alanına, ilk modelin Accuracy ve F1 değerleri `experiment_metrics` alanına, satırlar `model_results` alanına, bu koşunun model adları `tested_models` alanına, veri profili `dataset_profile` alanına yazılır. Doğrulayıcıdan eleştiri gelmişse yeni kod üretmek yerine mevcut kodu o eleştiriyle düzeltir.
 
 `verifier_node` iki kontrol yapar.
 
@@ -56,6 +56,7 @@ MLflow kaydı doğrulayıcıda bir kez açılır. `Passed` ise `Verified` üst r
 | `query` | Araştırma konusu |
 | `literature_context` | Makale başlığı ve özeti |
 | `hypotheses` | Üç test edilebilir hipotezin `statement` metni |
+| `selected_hypothesis` | Onayda seçilen hipotezin sırası (0'dan). Deney, hafıza kaydı, MLflow ve rapor yalnız bunu kullanır |
 | `experiment_specs` | Aynı hipotezlerin doğrulanmış spesifikasyonları: `statement`, `models`, `dataset`, `params` |
 | `approval_status` | `approved` veya `rejected` |
 | `current_experiment_code` | Son çalışan Python kodu |
