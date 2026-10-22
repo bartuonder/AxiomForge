@@ -9,6 +9,8 @@ WORKDIR /srv
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+ENV GIT_PYTHON_REFRESH=quiet
+
 COPY app ./app
 RUN mkdir -p reports
 
