@@ -45,6 +45,21 @@ INSTABILITY_MODEL_NOTICE = (
     "Kararsızlık bulgusunda {model} işaretlendi ama makale bu modelin bölmeye duyarlılığını "
     "tablo dışında bir cümlede açıklamıyor."
 )
+_VERIFICATION_WORD = re.compile(r"\bverif\w*", re.IGNORECASE)
+_RELIABILITY_TERMS = re.compile(
+    r"\breliab\w*|\btrustworth\w*|\bcredib\w*|\brobust\w*|\bguarantee\w*",
+    re.IGNORECASE,
+)
+_NEGATED_RELIABILITY = re.compile(
+    r"(?:\b(?:no|not|never|cannot|without|neither|nor)\b|n't)"
+    r"(?:\W+\w+){0,4}?\W+(?:reliab\w*|trustworth\w*|credib\w*|robust\w*|guarantee\w*)",
+    re.IGNORECASE,
+)
+RELIABILITY_NOTICE = (
+    "Doğrulama Passed ama makale bunu sonuçların güvenilir olduğunun kanıtı gibi anlatıyor "
+    "('reliability', 'robust' gibi sözcüklerle). Passed yalnız deneyin hatasız çalıştığını "
+    "ve veri sızıntısı bulunmadığını söyler."
+)
 VERIFICATION_NOTICE = (
     "Doğrulama Failed olduğu halde makalenin özeti (Abstract) bunu açıkça yazmıyor. "
     "Özet 'failed verification' ifadesini ve nedenini içermeli."
@@ -145,18 +160,36 @@ def _squash(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
+def _prose_sentences(paper: str) -> list[str]:
+    return [
+        sentence
+        for line in paper.splitlines()
+        if not line.lstrip().startswith("|")
+        for sentence in _SENTENCE_BREAK.split(line)
+        if sentence.strip()
+    ]
+
+
+def reliability_issue(paper: str, verification_status: str) -> str:
+    if verification_status != "Passed":
+        return ""
+    for sentence in _prose_sentences(paper):
+        if (
+            _VERIFICATION_WORD.search(sentence)
+            and _RELIABILITY_TERMS.search(sentence)
+            and not _NEGATED_RELIABILITY.search(sentence)
+        ):
+            return RELIABILITY_NOTICE
+    return ""
+
+
 def instability_issues(paper: str, instability: dict | None) -> list[str]:
     if not instability or not instability.get("unstable"):
         return []
     issues: list[str] = []
     if not _INSTABILITY_TERMS.search(abstract_of(paper)):
         issues.append(INSTABILITY_ABSTRACT_NOTICE)
-    prose = [
-        sentence
-        for line in paper.splitlines()
-        if not line.lstrip().startswith("|")
-        for sentence in _SENTENCE_BREAK.split(line)
-    ]
+    prose = _prose_sentences(paper)
     for model in dict.fromkeys(str(item["model"]) for item in instability.get("flagged", [])):
         squashed = _squash(model)
         if not any(squashed in _squash(sentence) and _INSTABILITY_TERMS.search(sentence) for sentence in prose):

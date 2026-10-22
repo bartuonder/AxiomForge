@@ -8,6 +8,7 @@ from app.agents.consistency import (
     direction_conflict,
     instability_issues,
     judge_consistency,
+    reliability_issue,
     verification_issue,
 )
 from app.agents.experiment import MODEL, PROMPT_VERSION, requested_models
@@ -253,6 +254,9 @@ def consistency_checker_node(state: AgentState) -> dict:
     if unverified:
         issues.append(unverified)
     issues.extend(instability_issues(paper, decision.get("instability")))
+    reliability = reliability_issue(paper, state.get("verification_status", ""))
+    if reliability:
+        issues.append(reliability)
     consistent = not issues
     for issue in issues:
         logger.info("consistency issue=%s", issue)
