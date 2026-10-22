@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { ResearchStatus } from "@/components/ResearchStatus";
 import { fetchReport, fetchResearch } from "@/lib/api";
 import type { ResearchSnapshot } from "@/lib/types";
 
@@ -55,11 +56,7 @@ export function PaperView({ threadId }: PaperViewProps) {
       </Link>
       <p className="mt-8 text-xs font-semibold tracking-[0.18em] text-[#8a8175] uppercase">Workshop paper</p>
       <h1 className="mt-2 text-4xl text-[#1c1915]">Research report</h1>
-      {snapshot?.status === "needs_review" ? (
-        <p className="mt-6 rounded border border-[#c9a227] bg-[#fbf3d6] px-4 py-3 text-sm text-[#5c4a0c]">
-          Needs review: the claim check still found problems after two rewrites. {snapshot.consistency_feedback}
-        </p>
-      ) : null}
+      {snapshot ? <ResearchStatus snapshot={snapshot} /> : null}
       {error && !markdown ?<p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
       {markdown ? (
         <article className="paper mt-10 space-y-4 text-[17px] leading-8 text-[#1c1915]">

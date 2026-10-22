@@ -5,6 +5,18 @@ export type ResearchStep = {
   phase: StepPhase;
 };
 
+export type FlaggedMetric = {
+  model: string;
+  metric: string;
+  std: number;
+};
+
+export type Instability = {
+  unstable: boolean;
+  std_threshold: number;
+  flagged: FlaggedMetric[];
+};
+
 export type ResearchSnapshot = {
   thread_id: string;
   status: "starting" | "running" | "paused" | "rejected" | "completed" | "needs_review" | "failed";
@@ -13,6 +25,8 @@ export type ResearchSnapshot = {
   hypotheses: string[];
   approval_status: string;
   verification_status: string;
+  verifier_feedback: string;
+  instability: Instability;
   research_status: string;
   consistency_feedback: string;
   error: string;
