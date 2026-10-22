@@ -139,10 +139,10 @@ def test_a_passed_run_is_not_asked_for_a_notice(referee):
     assert result["research_status"] == "Completed"
 
 
-def test_the_notice_is_added_to_the_other_issues(monkeypatch):
+def test_a_referee_note_never_reaches_the_writer_but_the_notice_does(monkeypatch):
     monkeypatch.setattr(nodes, "judge_consistency", lambda *args: (False, ["number mismatch"]))
     result = nodes.consistency_checker_node(paper_state())
-    assert "number mismatch" in result["consistency_feedback"]
+    assert "number mismatch" not in result["consistency_feedback"]
     assert VERIFICATION_NOTICE in result["consistency_feedback"]
 
 

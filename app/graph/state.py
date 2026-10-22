@@ -23,6 +23,7 @@ class AgentState(TypedDict):
     critic_continue: bool
     paper_markdown: str
     consistency_feedback: str
+    referee_notes: list[str]
     consistency_rounds: int
     consistency_continue: bool
     research_status: str

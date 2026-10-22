@@ -364,20 +364,23 @@ def test_a_consistent_paper_completes_the_research(monkeypatch):
     assert result["consistency_feedback"] == ""
 
 
-def test_the_referee_issues_trigger_a_rewrite(monkeypatch):
+def test_the_referee_issues_do_not_trigger_a_rewrite(monkeypatch):
     monkeypatch.setattr(nodes, "judge_consistency", lambda *args: (False, ["number mismatch"]))
     result = nodes.consistency_checker_node(paper_state())
-    assert result["consistency_continue"] is True
-    assert result["consistency_rounds"] == 1
-    assert result["consistency_feedback"] == "number mismatch"
+    assert result["consistency_continue"] is False
+    assert result["research_status"] == "Completed"
+    assert result["consistency_feedback"] == ""
+    assert result["referee_notes"] == ["number mismatch"]
 
 
 def test_after_two_rewrites_the_paper_needs_review(monkeypatch):
-    monkeypatch.setattr(nodes, "judge_consistency", lambda *args: (False, ["still wrong"]))
-    result = nodes.consistency_checker_node(paper_state(consistency_rounds=2))
+    monkeypatch.setattr(nodes, "judge_consistency", lambda *args: (False, ["a note"]))
+    state = paper_state(paper_markdown="XGBoost is better than RandomForest.", consistency_rounds=2)
+    result = nodes.consistency_checker_node(state)
     assert result["research_status"] == "NeedsReview"
     assert result["consistency_continue"] is False
-    assert result["consistency_feedback"] == "still wrong"
+    assert "Yön Çelişkisi" in result["consistency_feedback"]
+    assert result["referee_notes"] == ["a note"]
 
 
 def test_a_winner_paper_that_omits_the_winner_is_sent_back(monkeypatch):

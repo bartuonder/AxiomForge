@@ -241,53 +241,77 @@ def report_node(state: AgentState, config: RunnableConfig) -> dict:
     }
 
 
-def consistency_checker_node(state: AgentState) -> dict:
-    rounds = int(state.get("consistency_rounds", 0))
+MAX_REFEREE_NOTES = 8
+MAX_REFEREE_NOTE_LENGTH = 400
+
+
+def _gate_issues(state: AgentState) -> list[str]:
     paper = state.get("paper_markdown", "")
     statistical_results = state.get("statistical_results") or {}
     decision = state.get("statistical_decision") or {}
-    logger.info("consistency_checker_node round=%s", rounds)
+    status = state.get("verification_status", "")
+    issues: list[str] = []
     conflict = direction_conflict(paper, decision)
     if conflict:
         logger.info("consistency direction_conflict=%s", conflict)
-        issues = [conflict]
-    else:
-        _, issues = judge_consistency(paper, statistical_results, decision)
-        issues.extend(conclusion_issues(paper, decision))
-    unverified = verification_issue(paper, state.get("verification_status", ""))
+        issues.append(conflict)
+    issues.extend(conclusion_issues(paper, decision))
+    unverified = verification_issue(paper, status)
     if unverified:
         issues.append(unverified)
     issues.extend(instability_issues(paper, decision.get("instability")))
-    reliability = reliability_issue(paper, state.get("verification_status", ""))
+    reliability = reliability_issue(paper, status)
     if reliability:
         issues.append(reliability)
     issues.extend(performance_issues(paper, decision.get("performance")))
     issues.extend(hypothesis_issues(paper, decision.get("hypothesis")))
     issues.extend(table_issues(paper, statistical_results))
-    consistent = not issues
+    return issues
+
+
+def _referee_notes(state: AgentState) -> list[str]:
+    try:
+        _, notes = judge_consistency(
+            state.get("paper_markdown", ""),
+            state.get("statistical_results") or {},
+            state.get("statistical_decision") or {},
+        )
+    except Exception:
+        logger.exception("referee failed, the paper is judged by the deterministic checks only")
+        return []
+    return [note[:MAX_REFEREE_NOTE_LENGTH] for note in notes[:MAX_REFEREE_NOTES]]
+
+
+def consistency_checker_node(state: AgentState) -> dict:
+    rounds = int(state.get("consistency_rounds", 0))
+    logger.info("consistency_checker_node round=%s", rounds)
+    issues = _gate_issues(state)
     for issue in issues:
         logger.info("consistency issue=%s", issue)
-    if consistent:
-        logger.info("consistency_checker_node passed")
+    if issues and rounds < MAX_CONSISTENCY_ROUNDS:
+        logger.info("consistency_checker_node failed issue_count=%s, returning to report_node", len(issues))
         return {
-            "consistency_feedback": "",
-            "consistency_continue": False,
-            "research_status": "Completed",
+            "consistency_feedback": " ".join(issues),
+            "consistency_rounds": rounds + 1,
+            "consistency_continue": True,
         }
-    feedback = " ".join(issues)
-    logger.info("consistency_checker_node failed issue_count=%s", len(issues))
-    if rounds >= MAX_CONSISTENCY_ROUNDS:
+    notes = _referee_notes(state)
+    for note in notes:
+        logger.info("referee note=%s", note)
+    if issues:
         logger.info("consistency_checker_node stopped after %s rewrites", rounds)
         return {
-            "consistency_feedback": feedback,
+            "consistency_feedback": " ".join(issues),
             "consistency_continue": False,
             "research_status": "NeedsReview",
+            "referee_notes": notes,
         }
-    logger.info("consistency_checker_node returning to report_node")
+    logger.info("consistency_checker_node passed")
     return {
-        "consistency_feedback": feedback,
-        "consistency_rounds": rounds + 1,
-        "consistency_continue": True,
+        "consistency_feedback": "",
+        "consistency_continue": False,
+        "research_status": "Completed",
+        "referee_notes": notes,
     }
 
 

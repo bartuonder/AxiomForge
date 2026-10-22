@@ -100,6 +100,7 @@ def empty_research_state(query: str) -> AgentState:
         "critic_continue": False,
         "paper_markdown": "",
         "consistency_feedback": "",
+        "referee_notes": [],
         "consistency_rounds": 0,
         "consistency_continue": False,
         "research_status": "",
@@ -164,6 +165,7 @@ def get_research(thread_id: str) -> dict:
         "instability": _instability(values),
         "research_status": values.get("research_status") or "",
         "consistency_feedback": values.get("consistency_feedback") or "",
+        "referee_notes": list(values.get("referee_notes") or []),
         "error": error,
         "steps": _steps(values, next_nodes, status),
     }
