@@ -11,6 +11,7 @@ from app.agents.consistency import (
     judge_consistency,
     performance_issues,
     reliability_issue,
+    table_issues,
     verification_issue,
 )
 from app.agents.experiment import MODEL, PROMPT_VERSION, requested_models
@@ -262,6 +263,7 @@ def consistency_checker_node(state: AgentState) -> dict:
         issues.append(reliability)
     issues.extend(performance_issues(paper, decision.get("performance")))
     issues.extend(hypothesis_issues(paper, decision.get("hypothesis")))
+    issues.extend(table_issues(paper, statistical_results))
     consistent = not issues
     for issue in issues:
         logger.info("consistency issue=%s", issue)

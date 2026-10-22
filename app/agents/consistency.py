@@ -93,6 +93,36 @@ HYPOTHESIS_MISSING_NOTICE = (
 HYPOTHESIS_REVERSED_NOTICE = (
     "Hipotezin kararı {verdict} ama makalenin {section} bölümü hipotezin desteklendiğini yazıyor."
 )
+_TABLE_COLUMNS = {
+    "accuracy": "accuracy",
+    "f1": "f1",
+    "f1score": "f1",
+    "rocauc": "roc_auc",
+    "prauc": "pr_auc",
+    "trainseconds": "train_seconds",
+    "trainingseconds": "train_seconds",
+    "traintime": "train_seconds",
+    "trainingtime": "train_seconds",
+}
+_TABLE_LABELS = {
+    "accuracy": "Accuracy",
+    "f1": "F1",
+    "roc_auc": "ROC-AUC",
+    "pr_auc": "PR-AUC",
+    "train_seconds": "Train seconds",
+}
+_NUMBER_TEXT = r"\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+_CELL = re.compile(rf"(-?{_NUMBER_TEXT})\s*(?:±|\+/-|\+-)\s*({_NUMBER_TEXT})")
+_SEPARATOR_CELL = re.compile(r":?-{2,}:?")
+TABLE_MISSING_NOTICE = (
+    "Makalede sonuç tablosu yok. Results içine Model, Accuracy, F1, ROC-AUC, PR-AUC ve Train seconds "
+    "sütunlu bir Markdown tablosu koy ve her modelin ortalama ± standart sapmasını statistical_results'tan kopyala."
+)
+TABLE_COLUMN_NOTICE = "Sonuç tablosunda {metric} sütunu yok."
+TABLE_ROW_NOTICE = "Sonuç tablosunda {model} satırı yok."
+TABLE_CELL_NOTICE = (
+    "Sonuç tablosunda {model} için {metric} hücresi '{found}' ama doğrulanmış değer {expected}."
+)
 RELIABILITY_NOTICE = (
     "Doğrulama Passed ama makale bunu sonuçların güvenilir olduğunun kanıtı gibi anlatıyor "
     "('reliability', 'robust' gibi sözcüklerle). Passed yalnız deneyin hatasız çalıştığını "
@@ -294,6 +324,83 @@ def hypothesis_issues(paper: str, hypothesis: dict | None) -> list[str]:
             issues.append(HYPOTHESIS_MISSING_NOTICE.format(verdict=verdict, section=title))
         elif verdict != "supported" and _VERDICT_WORDS["supported"].search(section):
             issues.append(HYPOTHESIS_REVERSED_NOTICE.format(verdict=verdict, section=title))
+    return issues
+
+
+def _markdown_tables(paper: str) -> list[list[list[str]]]:
+    blocks: list[list[str]] = []
+    block: list[str] = []
+    for line in paper.splitlines() + [""]:
+        if line.lstrip().startswith("|"):
+            block.append(line)
+        elif block:
+            blocks.append(block)
+            block = []
+    tables: list[list[list[str]]] = []
+    for lines in blocks:
+        rows = [[cell.strip() for cell in line.strip().strip("|").split("|")] for line in lines]
+        rows = [row for row in rows if not all(_SEPARATOR_CELL.fullmatch(cell) or not cell for cell in row)]
+        if rows:
+            tables.append(rows)
+    return tables
+
+
+def _written_value_matches(text: str, expected: float) -> bool:
+    try:
+        value = float(text)
+    except ValueError:
+        return False
+    if "e" in text.lower():
+        return abs(value - expected) <= 1e-9 + 0.005 * abs(expected)
+    decimals = len(text.split(".")[1]) if "." in text else 0
+    return abs(value - expected) <= 0.5 * 10 ** -decimals + 1e-9
+
+
+def table_issues(paper: str, statistical_results: dict | None) -> list[str]:
+    records = {
+        name: record
+        for name, record in (statistical_results or {}).items()
+        if isinstance(record, dict)
+    }
+    if not records:
+        return []
+    chosen = None
+    for rows in _markdown_tables(paper):
+        columns = {
+            index: _TABLE_COLUMNS[_squash(cell)]
+            for index, cell in enumerate(rows[0])
+            if _squash(cell) in _TABLE_COLUMNS
+        }
+        if columns:
+            chosen = (rows, columns)
+            break
+    if chosen is None:
+        return [TABLE_MISSING_NOTICE]
+    rows, columns = chosen
+    issues = [
+        TABLE_COLUMN_NOTICE.format(metric=label)
+        for key, label in _TABLE_LABELS.items()
+        if key not in columns.values()
+    ]
+    for model, record in records.items():
+        row = next((item for item in rows[1:] if item and _squash(item[0]) == _squash(model)), None)
+        if row is None:
+            issues.append(TABLE_ROW_NOTICE.format(model=model))
+            continue
+        for index, metric in columns.items():
+            mean, std = float(record[f"{metric}_mean"]), float(record[f"{metric}_std"])
+            cell = row[index] if index < len(row) else ""
+            found = _CELL.search(cell)
+            if found and _written_value_matches(found.group(1), mean) and _written_value_matches(found.group(2), std):
+                continue
+            issues.append(
+                TABLE_CELL_NOTICE.format(
+                    model=model,
+                    metric=_TABLE_LABELS[metric],
+                    found=cell or "boş",
+                    expected=f"{mean:.4f} ± {std:.4f}",
+                )
+            )
     return issues
 
 

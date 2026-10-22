@@ -39,6 +39,7 @@ SYSTEM_PROMPT = (
     "If statistical_results has more than one model, the Results section must include a Markdown comparison table "
     "with columns Model, Accuracy, F1, ROC-AUC, PR-AUC, and Train seconds. "
     "Every metric cell must be that model's mean ± std from statistical_results. "
+    "Tablodaki her hücreyi statistical_results içindeki ortalama ve standart sapmadan dört ondalıkla kopyala, örneğin 0.9346 ± 0.0296; yuvarlama veya değiştirme. "
     "Terminoloji Kesinliği: Standart sapma (standard deviation) ile varyansı (variance) karıştırma. "
     "Varyans, standart sapmanın karesidir. "
     "statistical_results içindeki std alanları standart sapmadır; onlara varyans deme. "
