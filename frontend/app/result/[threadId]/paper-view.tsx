@@ -5,11 +5,15 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { ResearchStatus } from "@/components/ResearchStatus";
 import { fetchReport, fetchResearch } from "@/lib/api";
-import type { ResearchSnapshot } from "@/lib/types";
+import { STEP_LABELS, type ResearchSnapshot } from "@/lib/types";
 
 type PaperViewProps = {
   threadId: string;
 };
+
+const POLL_MS = 2000;
+const FINISHED = new Set(["completed", "needs_review"]);
+const STOPPED = new Set(["failed", "rejected"]);
 
 export function PaperView({ threadId }: PaperViewProps) {
   const [markdown, setMarkdown] = useState("");
@@ -21,33 +25,44 @@ export function PaperView({ threadId }: PaperViewProps) {
       return;
     }
     let cancelled = false;
-    fetchResearch(threadId)
-      .then((next) => {
-        if (!cancelled) {
-          setSnapshot(next);
-        }
-      })
-      .catch(() => undefined);
-    const load = async () => {
+    let timer: number | undefined;
+    const tick = async () => {
+      let settled = false;
       try {
-        const next = await fetchReport(threadId);
-        if (!cancelled) {
-          setMarkdown(next);
+        const next = await fetchResearch(threadId);
+        if (cancelled) {
+          return;
+        }
+        setSnapshot(next);
+        if (FINISHED.has(next.status)) {
+          const report = await fetchReport(threadId);
+          if (cancelled) {
+            return;
+          }
+          setMarkdown(report);
           setError("");
+          settled = true;
+        } else if (STOPPED.has(next.status)) {
+          setError(next.error || `Research ${next.status}`);
+          settled = true;
         }
       } catch (caught) {
         if (!cancelled) {
           setError(caught instanceof Error ? caught.message : "Report is not ready");
         }
       }
+      if (!cancelled && !settled) {
+        timer = window.setTimeout(() => void tick(), POLL_MS);
+      }
     };
-    void load();
-    const timer = window.setInterval(() => void load(), 2000);
+    void tick();
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
     };
   }, [threadId]);
+
+  const running = snapshot !== null && !FINISHED.has(snapshot.status) && !STOPPED.has(snapshot.status);
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-16">
@@ -56,8 +71,13 @@ export function PaperView({ threadId }: PaperViewProps) {
       </Link>
       <p className="mt-8 text-xs font-semibold tracking-[0.18em] text-[#8a8175] uppercase">Workshop paper</p>
       <h1 className="mt-2 text-4xl text-[#1c1915]">Research report</h1>
-      {snapshot ? <ResearchStatus snapshot={snapshot} /> : null}
-      {error && !markdown ?<p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
+      {snapshot && !STOPPED.has(snapshot.status) ? <ResearchStatus snapshot={snapshot} /> : null}
+      {running ? (
+        <p className="mt-8 text-sm text-[#5c564e]">
+          The research is still running: {STEP_LABELS[snapshot.active_step] ?? snapshot.active_step}.
+        </p>
+      ) : null}
+      {error && !markdown ? <p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
       {markdown ? (
         <article className="paper mt-10 space-y-4 text-[17px] leading-8 text-[#1c1915]">
           <ReactMarkdown>{markdown}</ReactMarkdown>
