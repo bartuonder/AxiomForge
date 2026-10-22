@@ -33,7 +33,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 - LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor → iddia kontrolü
 - Doğrulayıcı: beş tohum, NumPy ortalama, sapma ve varyans, Pitman-Morgan ve düzeltilmiş t-testleri, `statistical_conclusion`, sızıntı analizi ve en fazla 2 eleştiri turu
 - Rapor ajanı: makale İngilizcedir, Results ve Conclusion `statistical_decision` yönünde yazılır
-- İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir, en fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
+- İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir. Doğrulama `Failed` iken özette bunu söylemeyen makale de LLM'siz reddedilir. En fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
 - Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
 - arXiv araması: LLM sorudan anahtar kelime aramaları üretir, adaylar gömü benzerliğiyle süzülür ve en alakalı 3 makalenin başlığı ve özeti alınır
 - Planlayıcı: literatür ve geçmiş başarısız deneylerden, deney ajanının yapabildiği 3 doğrulanmış deney spesifikasyonu
