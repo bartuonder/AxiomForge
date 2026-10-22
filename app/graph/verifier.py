@@ -188,14 +188,16 @@ def conclusion_sentence(decision: dict[str, Any]) -> str:
     )
 
 
-def is_unstable(summary: dict[str, dict[str, float] | str]) -> bool:
-    for record in summary.values():
+def instability_finding(summary: dict[str, dict[str, float] | str]) -> dict[str, Any]:
+    flagged: list[dict[str, Any]] = []
+    for model, record in summary.items():
         if not isinstance(record, dict):
             continue
-        for metric in ("roc_auc_std", "f1_std"):
-            if float(record.get(metric, 0.0)) > UNSTABLE_STD:
-                return True
-    return False
+        for metric in ("roc_auc", "f1"):
+            std = float(record.get(f"{metric}_std", 0.0))
+            if std > UNSTABLE_STD:
+                flagged.append({"model": model, "metric": metric, "std": std})
+    return {"unstable": bool(flagged), "std_threshold": UNSTABLE_STD, "flagged": flagged}
 
 
 def judge_data_leakage(code: str) -> tuple[bool, str]:

@@ -14,7 +14,7 @@ from app.graph.verifier import (
     MAX_CRITIC_ROUNDS,
     VERIFICATION_SEEDS,
     has_split_loop,
-    is_unstable,
+    instability_finding,
     judge_data_leakage,
     performance_comparisons,
     rewrite_seeds,
@@ -199,7 +199,7 @@ def verifier_node(state: AgentState) -> dict:
             first_rows = parse_model_results(first_output)
         except (SandboxCodeError, RuntimeError) as exc:
             logger.error("verifier split loop failed: %s", exc)
-            reasons.append(f"Kararsız (Unstable): split döngüsü çalışmadı. {exc}")
+            reasons.append(f"Çalışma hatası: split döngüsü çalışmadı. {exc}")
             first_rows = []
         if first_rows and has_split_loop(first_rows):
             logger.info("verifier uses the script split loop rows=%s", len(first_rows))
@@ -213,22 +213,18 @@ def verifier_node(state: AgentState) -> dict:
                     collected.append(parse_model_results(output))
                 except (SandboxCodeError, RuntimeError) as exc:
                     logger.error("verifier seed=%s failed: %s", seed, exc)
-                    reasons.append(f"Kararsız (Unstable): seed={seed} çalışması başarısız. {exc}")
+                    reasons.append(f"Çalışma hatası: seed={seed} çalışması başarısız. {exc}")
                     break
         statistical_results = summarize_seed_runs(collected)
         logger.info("verifier statistical_results=%s", statistical_results)
-        if not reasons and is_unstable(statistical_results):
-            logger.info("Kararsız (Unstable) statistical_results=%s", statistical_results)
-            reasons.append(
-                "Kararsız (Unstable): 5 seed üzerinde ROC-AUC veya F1 standart sapması 0.05 değerini aştı. "
-                f"statistical_results={statistical_results}"
-            )
     if code:
         leakage, leakage_reason = judge_data_leakage(code)
         logger.info("verifier leakage=%s reason=%s", leakage, leakage_reason)
         if leakage:
             reasons.append(f"Leakage çözülemedi: {leakage_reason}")
     decision = stability_decision(collected)
+    decision["instability"] = instability_finding(statistical_results)
+    logger.info("verifier instability=%s", decision["instability"])
     decision["performance"] = performance_comparisons(
         collected,
         float((state.get("dataset_profile") or {}).get("samples", 0.0)),
