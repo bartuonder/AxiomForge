@@ -12,6 +12,7 @@ class AgentState(TypedDict):
     tested_models: list[str]
     dataset_profile: dict[str, str | float]
     statistical_results: dict[str, dict[str, float] | str]
+    statistical_decision: dict[str, str | float]
     verification_status: str
     verifier_feedback: str
     critic_rounds: int

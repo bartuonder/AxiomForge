@@ -79,6 +79,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
     model_results = state.get("model_results") or []
     dataset_profile = state.get("dataset_profile") or {}
     statistical_results = state.get("statistical_results") or {}
+    statistical_decision = state.get("statistical_decision") or {}
     failures = [
         {"error_log": item.get("error_log", "")}
         for item in past_experiments
@@ -102,6 +103,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Tested models this run:\n{json.dumps(tested_models, ensure_ascii=False)}\n"
         f"Model results (rows from this run only; do not average and do not add models that are absent here):\n{json.dumps(model_results, ensure_ascii=False)}\n"
         f"Statistical results (exact Python means, standard deviations, variances, and statistical_conclusion; copy these, do not choose a winner):\n{json.dumps(statistical_results, ensure_ascii=False)}\n"
+        f"Statistical decision (structured verdict from Python; the paper must not contradict it):\n{json.dumps(statistical_decision, ensure_ascii=False)}\n"
         f"Final code:\n{state.get('current_experiment_code', '')}\n"
         f"RAG memory failures:\n{json.dumps(failures, ensure_ascii=False)}\n"
         f"Claim review:\n{state.get('consistency_feedback', '')}\n"

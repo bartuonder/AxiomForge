@@ -65,23 +65,43 @@ def summarize_seed_runs(
     return finished
 
 
-def statistical_conclusion(summary: dict[str, dict[str, float]]) -> str:
+def stability_decision(summary: dict[str, dict[str, float] | str]) -> dict[str, str | float]:
     ranked = [
         (name, float(record[CONCLUSION_VARIANCE]))
         for name, record in summary.items()
         if isinstance(record, dict) and CONCLUSION_VARIANCE in record
     ]
+    decision: dict[str, str | float] = {
+        "outcome": "none",
+        "winner": "",
+        "metric": CONCLUSION_VARIANCE,
+        "gap": 0.0,
+        "tie_gap": VARIANCE_TIE_GAP,
+    }
     if len(ranked) < 2:
-        return ""
+        return decision
     ranked.sort(key=lambda item: (item[1], item[0]))
     lowest = ranked[0][1]
-    highest = ranked[-1][1]
-    if abs(highest - lowest) <= VARIANCE_TIE_GAP:
-        return TIE_CONCLUSION
+    decision["gap"] = abs(ranked[-1][1] - lowest)
     winners = [name for name, value in ranked if abs(value - lowest) <= VARIANCE_TIE_GAP]
-    if len(winners) != 1:
+    if decision["gap"] <= VARIANCE_TIE_GAP or len(winners) != 1:
+        decision["outcome"] = "tie"
+        return decision
+    decision["outcome"] = "winner"
+    decision["winner"] = winners[0]
+    return decision
+
+
+def conclusion_sentence(decision: dict[str, str | float]) -> str:
+    if decision.get("outcome") == "tie":
         return TIE_CONCLUSION
-    return f"{winners[0]} modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır"
+    if decision.get("outcome") == "winner":
+        return f"{decision['winner']} modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır"
+    return ""
+
+
+def statistical_conclusion(summary: dict[str, dict[str, float]]) -> str:
+    return conclusion_sentence(stability_decision(summary))
 
 
 def is_unstable(summary: dict[str, dict[str, float] | str]) -> bool:

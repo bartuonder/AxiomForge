@@ -17,6 +17,7 @@ from app.graph.verifier import (
     is_unstable,
     judge_data_leakage,
     rewrite_seeds,
+    stability_decision,
     summarize_seed_runs,
 )
 from app.memory.rag_memory import save_experiment, search_past_experiments
@@ -225,6 +226,8 @@ def verifier_node(state: AgentState) -> dict:
         logger.info("verifier leakage=%s reason=%s", leakage, leakage_reason)
         if leakage:
             reasons.append(f"Leakage çözülemedi: {leakage_reason}")
+    decision = stability_decision(statistical_results)
+    logger.info("verifier statistical_decision=%s", decision)
     if not reasons:
         logger.info("verification_status=Passed")
         return {
@@ -232,6 +235,7 @@ def verifier_node(state: AgentState) -> dict:
             "verifier_feedback": "",
             "critic_continue": False,
             "statistical_results": statistical_results,
+            "statistical_decision": decision,
         }
     feedback = " ".join(reasons)
     logger.info("verification_status=Failed feedback=%s", feedback)
@@ -251,6 +255,7 @@ def verifier_node(state: AgentState) -> dict:
             "verifier_feedback": feedback,
             "critic_continue": False,
             "statistical_results": statistical_results,
+            "statistical_decision": decision,
         }
     return {
         "verification_status": "Failed",
@@ -258,4 +263,5 @@ def verifier_node(state: AgentState) -> dict:
         "critic_rounds": rounds + 1,
         "critic_continue": True,
         "statistical_results": statistical_results,
+        "statistical_decision": decision,
     }
