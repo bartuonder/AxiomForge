@@ -16,11 +16,11 @@ Faz 4 rapor ajanı ve onu süren arayüzdür. Doğrulama `Passed` olunca ya da e
 
 Faz 5, Faz 4'ten sonraki bilimsel sıkılıktır. Deney ajanı `experiment-v3` ile soruda adı geçen modelleri aynı eğitim-test bölünmesinde karşılaştırır. Veri, `sklearn.datasets` içinden gerçekçi bir sınıflandırma seti ya da bilinçli dengesiz bir `make_classification` setidir. Küçük sentetik CSV tek kaynak olmaz. Dengesiz veride Accuracy tek başına yeterli sayılmaz. Betik önce veri seti satırını, sonra her model için Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık matrisini basar. Üst MLflow run'ı veri profilini tutar. Her model iç içe bir run olur. Doğrulayıcı aynı kodu 42, 100, 200, 300 ve 400 tohumlarıyla yeniden çalıştırır. Model başına ROC-AUC ve F1 için ortalama ve örneklem standart sapması hesaplanır. Sapma 0.05'i geçerse sonuç `Kararsız (Unstable)` ve `Failed` olur. Bu özet `statistical_results` alanına yazılır. Raporun teması kullanıcının sorgusudur. Bir modelin daha iyi olduğu yalnız ROC-AUC veya PR-AUC ile yazılır. Düşük F1, modelin kusursuz olduğu iddiasına çevrilmez. Metodoloji örnek sayısını, öznitelik sayısını ve sınıf dengesini içerir. Yöntem atfı yalnız `literature_context` içindeki yazar veya arXiv kaydından gelir. Results metrikleri Mean ± Std Dev biçimindedir. Birden fazla model varsa karşılaştırma tablosu eklenir. Konsolda sorgu kutusu boş açılır. Plan reddedilirse veya çalışma başarısız olursa yeni bir sorgu yazılabilir.
 
-Faz 6 iddia doğrulamadır. Beş tohumun Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresi ortalaması ile standart sapması NumPy ile hesaplanır. Sonuç, model adına göre `statistical_results` sözlüğüne yazılır. Rapor bu sayıları kopyalar; kendi ortalamasını üretmez ve tabloyu tek koşuya göre kurmaz. `report_node` ardından `consistency_checker_node` çalışır. Hakem makaledeki sayıları bu sözlükle karşılaştırır, yüksek sapmaya rağmen kesin üstünlük iddiasını ve yalnız ROC-AUC övgüsünü arar. Tutarsızlık varsa eleştiri `consistency_feedback` olur ve rapor en fazla 2 kez yeniden yazılır. Kontrol temizse ya da iki yeniden yazma da bittiyse `research_status` `Completed` olur. Konsoldaki son adım Claims'tir.
+Faz 6 iddia doğrulamadır. Beş tohumun Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresi ortalaması ile standart sapması NumPy ile hesaplanır. Sonuç, model adına göre `statistical_results` sözlüğüne yazılır. Rapor bu sayıları kopyalar; kendi ortalamasını üretmez ve tabloyu tek koşuya göre kurmaz. `report_node` ardından `consistency_checker_node` çalışır. Hakem makaledeki sayıları bu sözlükle karşılaştırır, yüksek sapmaya rağmen kesin üstünlük iddiasını ve yalnız ROC-AUC övgüsünü arar. Tutarsızlık varsa eleştiri `consistency_feedback` olur ve rapor en fazla 2 kez yeniden yazılır. Kontrol temizse `research_status` `Completed` olur. İki yeniden yazmadan sonra da tutarsızlık sürerse `NeedsReview` olur. Konsoldaki son adım Claims'tir.
 
 Faz 7 deney tasarımı ve bağlam izolasyonudur. Deney ajanı `experiment-v4` kullanır. Veri, döngünün dışında bir kez ve sabit bir tohumla yüklenir veya üretilir. `make_classification` kullanılıyorsa `class_sep` 0.5 veya daha düşüktür ve `weights` ile dengesiz bir dağılım kurulur. Beşli döngü yalnız `train_test_split` içindeki `random_state` değerini 42, 100, 200, 300 ve 400 yapar. Model tohumu ve veri üretim tohumu değişmez. Her model için beş satır basılır. Betik bu döngüyü içeriyorsa doğrulayıcı o satırlardan ortalama ve standart sapma hesaplar. İçermiyorsa doğrulayıcı yalnız bölme tohumunu değiştirerek beş kez çalıştırır. Standart sapma ile varyans ayrıdır. Varyans, standart sapmanın karesidir. `statistical_results` içindeki `std` alanları standart sapmadır. Her `/start_research` yeni bir `thread_id` ve boş `AgentState` açar. Checkpoint doluysa o oturuma yazılmaz. `tested_models` yalnız bu koşunun modelleridir. RAG kaydındaki eski kod ve metrik rapora verilmez. Results ve Conclusion, Methodology bölümünde yazılmayan ve test edilmeyen hiçbir modeli alamaz.
 
-Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experiment-v5` kullanır. Betik yalnız sorguda açıkça adı geçen modelleri eğitir. Promptta varsayılan model yoktur. `models` sözlüğünün anahtarları bu listeyle birebir aynıdır. Hipotez listeye model ekleyemez. Sorguda model adı yoksa deney başlamaz. Doğrulayıcı her metrik için `std ** 2` değerini `{metrik}_variance` alanına yazar. `statistical_conclusion` Python'da kurulur ve karar `roc_auc_variance` üzerindedir. En yüksek ile en düşük varyansın mutlak farkı 0.005 veya daha küçükse, ya da en düşük varyansa bu kadar yakın ikinci bir model varsa, cümle beraberliktir. Fark büyükse ve tek model eşiğin altında kalıyorsa o model daha kararlı ilan edilir. Tek modelde cümle boştur. Results ve Conclusion yalnız bu cümleyi kullanır; rapor kazanan seçmez ve cümlenin dışına yorum yazmaz. `statistical_conclusion` tablo satırı değildir. Cümlede `farksızdır (Tie)` veya `üstünlük kuramamıştır` varken makalede `superior`, `more stable`, `outperformed` veya `better` geçiyorsa hakem LLM çağrısı yapmaz. Geri bildirim `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` olur ve rapor yeniden yazılır.
+Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experiment-v5` kullanır. Betik yalnız sorguda açıkça adı geçen modelleri eğitir. Promptta varsayılan model yoktur. `models` sözlüğünün anahtarları bu listeyle birebir aynıdır. Hipotez listeye model ekleyemez. Sorguda model adı yoksa deney başlamaz. Doğrulayıcı her metrik için `std ** 2` değerini `{metrik}_variance` alanına yazar. `statistical_conclusion` Python'da kurulur ve karar `roc_auc_variance` üzerindedir. En yüksek ile en düşük varyansın mutlak farkı 0.005 veya daha küçükse, ya da en düşük varyansa bu kadar yakın ikinci bir model varsa, cümle beraberliktir. Fark büyükse ve tek model eşiğin altında kalıyorsa o model daha kararlı ilan edilir. Tek modelde cümle boştur. Karar `statistical_decision` alanında yapısal olarak da tutulur: `outcome` (`tie`, `winner` veya `none`), `winner`, `metric`, `gap` ve `tie_gap`. `statistical_conclusion` bu kararın İngilizce cümlesidir ve tablo satırı değildir. Makale İngilizce yazılır. Rapor cümleyi aynen kopyalamak zorunda değildir ama kararın yönünü değiştiremez, kazanan seçmez. `outcome` `tie` iken makalede `superior`, `more stable`, `outperformed` veya `better` geçiyorsa hakem LLM çağrısı yapmaz. Geri bildirim `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` olur ve rapor yeniden yazılır. `outcome` `winner` iken makale kazananı adlandırmalı ve fark olmadığını yazmamalıdır.
 
 ## Ne var
 
@@ -32,8 +32,8 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 - MLflow: veri profili üst run'da, her modelin Accuracy, F1, ROC-AUC, PR-AUC, süre ve karışıklık sayıları iç içe run'da
 - LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor → iddia kontrolü
 - Doğrulayıcı: beş tohum, NumPy ortalama, sapma ve varyans, `statistical_conclusion`, sızıntı analizi ve en fazla 2 eleştiri turu
-- Rapor ajanı: Results ve Conclusion yalnız `statistical_conclusion` cümlesini kopyalar
-- İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir, en fazla 2 yeniden yazma
+- Rapor ajanı: makale İngilizcedir, Results ve Conclusion `statistical_decision` yönünde yazılır
+- İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir, en fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
 - Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
 - arXiv araması: sorguya en yakın 3 makalenin başlığı ve özeti
 - Planlayıcı: literatür ve geçmiş başarısız deneylerden 3 test edilebilir hipotez
@@ -58,7 +58,8 @@ app/
   tools/arxiv.py             arXiv arama aracı
   graph/state.py             AgentState
   graph/nodes.py             literatür, plan, deney, doğrulayıcı, rapor ve iddia düğümleri
-  graph/verifier.py          beş tohum, sapma ve sızıntı kararı
+  graph/verifier.py          beş tohum, sapma, yapısal karar ve sızıntı kararı
+  graph/errors.py            araştırma hatalarının PostgreSQL'e kaydı
   graph/workflow.py          StateGraph, kesinti, onay ve koşullu dönüş
   memory/enable_pgvector.sql pgvector eklentisi
   memory/rag_memory.py       vektör kayıt ve arama
@@ -84,7 +85,7 @@ DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
 
 `E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı ve deney hafızası başlamaz. Redis adresi kodda `redis://localhost:6379/0` olarak sabittir. MLflow adresi `http://127.0.0.1:5000` olarak sabittir. Postgres imajı `pgvector/pgvector:pg16` kullanır.
 
-`AgentState` alanları `GRAPH.md` içindedir. İddia kontrolü bitince `research_status` değeri `Completed` olur.
+`AgentState` alanları `GRAPH.md` içindedir. İddia kontrolü temiz bitince `research_status` değeri `Completed`, tutarsızlık sürerse `NeedsReview` olur.
 
 ## Kurulum
 
@@ -141,7 +142,7 @@ Akış:
 2. Şema yapısına uygun küçük bir CSV sandbox içine yazılır.
 3. Betik E2B içinde çalıştırılır.
 4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
-5. Çıktıdan veri profili ve model satırları okunur. Üst MLflow run'ına profil ve `prompt_version=experiment-v5` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sorgu model adı vermezse istek `query names no model` ile düşer. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
+5. Çıktıdan veri profili ve model satırları okunur. Üst MLflow run'ına profil ve `prompt_version=experiment-v5` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sorgu model adı vermezse istek `422` ve `query names no model` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
 6. Aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
 
 Başarılı yanıt:
@@ -175,8 +176,10 @@ Deneme ayrıntısı FastAPI logundaki `sandbox attempt` satırlarındadır. MLfl
 Faz 2. Gövde:
 
 ```json
-{"query": "tabular data classification"}
+{"query": "Compare SVM and Random Forest on tabular data classification"}
 ```
+
+Sorguda en az bir model adı geçmelidir. Geçmiyorsa literatür çalışmadan `422` ve `query names no model` döner.
 
 Akış `literature_node` ve `planner_node` çalıştıktan sonra, `experiment_node` öncesinde durur.
 
@@ -200,6 +203,8 @@ Duraklayan yanıt:
 
 Hipotezler FastAPI logunda `paused hypothesis` satırları olarak da görünür.
 
+`GET /research/{thread_id}` durumu `starting`, `running`, `paused`, `rejected`, `completed`, `needs_review` veya `failed` olarak döner. Onay öncesi ya da sonrası bir düğüm hata verirse mesaj PostgreSQL'deki `research_errors` tablosuna yazılır, durum `failed` olur ve mesaj `error` alanında görünür. `needs_review` makalenin iddia kontrolünden geçemediğini gösterir; sebep `consistency_feedback` alanındadır.
+
 ### `POST /approve_plan`
 
 Gövde:
@@ -221,7 +226,7 @@ Son çalışan kod `current_experiment_code` alanına, ilk modelin Accuracy ve F
 
 `verification_status` `Passed` ise akış `report_node`'a gider. `Failed` ise eleştiri `verifier_feedback` olarak `experiment_node`'a geri gider ve kod düzeltilir. Bu dönüş en fazla 2 kez olur. İkinci düzeltmeden sonra doğrulayıcı hâlâ onaylamazsa deney `is_success=False` ile hafızaya yazılır ve yine `report_node` çalışır. Sızıntı mesajı `Leakage çözülemedi` ile başlar.
 
-Rapor `reports/{thread_id}_paper.md` dosyasına yazılır. Tema kullanıcının sorgusudur. Metodoloji örnek, öznitelik ve dengesizlik oranını yazar. Atıf yalnız literatür bağlamındaki kaynaktan gelir. Results tablosu `statistical_results` içindeki Mean ± Std Dev değerleridir. Sütunlar Model, Accuracy, F1, ROC-AUC, PR-AUC ve Train seconds olur. Results ve Conclusion, kazanan yorumu kurmaz; yalnız `statistical_conclusion` metnini kullanır. Ardından `consistency_checker_node` makaleyi bu sözlükle okur. Beraberlik cümlesine rağmen makalede üstünlük kelimesi varsa LLM çağrılmaz ve rapor `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` ile yeniden yazılır. Başka tutarsızlık varsa da rapor en fazla 2 kez yeniden yazılır. Kontrol bitince `research_status` `Completed` olur. Aynı metin `GET /reports/{thread_id}` ucundan ve konsoldaki `/result/{thread_id}` sayfasından okunur.
+Rapor `reports/{thread_id}_paper.md` dosyasına yazılır. Tema kullanıcının sorgusudur. Metodoloji örnek, öznitelik ve dengesizlik oranını yazar. Atıf yalnız literatür bağlamındaki kaynaktan gelir. Results tablosu `statistical_results` içindeki Mean ± Std Dev değerleridir. Sütunlar Model, Accuracy, F1, ROC-AUC, PR-AUC ve Train seconds olur. Results ve Conclusion, kazanan seçmez; `statistical_decision` yönünde İngilizce yazılır. Ardından `consistency_checker_node` makaleyi bu sözlük ve karar ile okur. `outcome` `tie` iken makalede üstünlük kelimesi varsa LLM çağrılmaz ve rapor `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` ile yeniden yazılır. Başka tutarsızlık varsa da rapor en fazla 2 kez yeniden yazılır. Kontrol temizse `research_status` `Completed` olur. İki yeniden yazmadan sonra da tutarsızlık sürerse `NeedsReview` olur ve konsol makalenin üstünde uyarı gösterir. Aynı metin `GET /reports/{thread_id}` ucundan ve konsoldaki `/result/{thread_id}` sayfasından okunur.
 
 Konsolda araştırma kutusu boştur. Start Research, kutu doluyken isteği gönderir. Çalışma bitene, plan reddedilene veya doğrulama başarısız olana kadar kutu kilitli kalır. Red veya başarısızlıktan sonra yeni bir sorgu yazılabilir.
 
