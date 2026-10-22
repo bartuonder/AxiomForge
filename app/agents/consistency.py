@@ -14,7 +14,9 @@ _SUPERIORITY = re.compile(
     r"\b(?:superior|more stable|outperformed|better)\b",
     re.IGNORECASE,
 )
-DIRECTION_CONFLICT = "Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi"
+_NEGATION = re.compile(r"\b(?:no|not|neither|nor|none|never|cannot|without)\b|n't", re.IGNORECASE)
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\n")
+DIRECTION_CONFLICT ="Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi"
 CONSISTENCY_PROMPT = (
     "Sen acımasız bir akademik hakemsin. "
     "1) Makaledeki sayılarla JSON'daki sayılar arasında uyuşmazlık var mı? "
@@ -83,8 +85,9 @@ def judge_consistency(
 def direction_conflict(paper: str, statistical_decision: dict) -> str:
     if statistical_decision.get("outcome") != "tie":
         return ""
-    if _SUPERIORITY.search(paper):
-        return DIRECTION_CONFLICT
+    for sentence in _SENTENCE_BREAK.split(paper):
+        if _SUPERIORITY.search(sentence) and not _NEGATION.search(sentence):
+            return DIRECTION_CONFLICT
     return ""
 
 
