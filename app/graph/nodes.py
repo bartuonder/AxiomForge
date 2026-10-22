@@ -23,6 +23,7 @@ from app.graph.verifier import (
     MAX_CRITIC_ROUNDS,
     VERIFICATION_SEEDS,
     has_split_loop,
+    hypothesis_verdict,
     instability_finding,
     instability_text,
     judge_data_leakage,
@@ -332,6 +333,9 @@ def verifier_node(state: AgentState) -> dict:
         collected,
         float((state.get("dataset_profile") or {}).get("samples", 0.0)),
     )
+    claim = (primary_hypothesis(state)[1] or {}).get("claim")
+    decision["hypothesis"] = hypothesis_verdict(claim, decision)
+    logger.info("verifier hypothesis=%s", decision["hypothesis"])
     logger.info("verifier statistical_decision=%s", decision)
     if not reasons:
         logger.info("verification_status=Passed")

@@ -182,6 +182,52 @@ def performance_comparisons(
     return comparisons
 
 
+def _pair(items: list[dict[str, Any]], subject: str, other: str, metric: str | None = None) -> dict[str, Any] | None:
+    for item in items:
+        if {item["a"], item["b"]} == {subject, other} and (metric is None or item["metric"] == metric):
+            return item
+    return None
+
+
+def hypothesis_verdict(claim: dict[str, str] | None, decision: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {"claim": claim, "verdict": "untested", "evidence": {}}
+    if not claim:
+        return result
+    subject, other = claim["subject"], claim["other"]
+    if claim["kind"] == "stability":
+        comparison = _pair(decision.get("comparisons") or [], subject, other)
+        if comparison is None:
+            return result
+        variances = {comparison["a"]: comparison["variance_a"], comparison["b"]: comparison["variance_b"]}
+        result["evidence"] = {
+            "metric": claim["metric"],
+            "variance_subject": variances[subject],
+            "variance_other": variances[other],
+            "adjusted_p_value": comparison["adjusted_p_value"],
+        }
+        if comparison["adjusted_p_value"] >= ALPHA:
+            result["verdict"] = "inconclusive"
+        else:
+            result["verdict"] = "supported" if variances[subject] < variances[other] else "contradicted"
+        return result
+    row = _pair(decision.get("performance") or [], subject, other, claim["metric"])
+    if row is None:
+        return result
+    sign = 1.0 if row["a"] == subject else -1.0
+    difference = sign * row["mean_difference"]
+    result["evidence"] = {
+        "metric": claim["metric"],
+        "mean_difference": difference,
+        "effect_size_dz": sign * row["effect_size_dz"],
+        "adjusted_p_value": row["adjusted_p_value"],
+    }
+    if not row["significant"]:
+        result["verdict"] = "inconclusive"
+    else:
+        result["verdict"] = "supported" if difference > 0 else "contradicted"
+    return result
+
+
 def conclusion_sentence(decision: dict[str, Any]) -> str:
     outcome = decision.get("outcome")
     if outcome not in {"tie", "winner"}:

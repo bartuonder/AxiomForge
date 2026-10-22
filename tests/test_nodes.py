@@ -389,3 +389,38 @@ def test_a_winner_paper_that_omits_the_winner_is_sent_back(monkeypatch):
     result = nodes.consistency_checker_node(state)
     assert result["consistency_continue"] is True
     assert "XGBoost" in result["consistency_feedback"]
+
+
+CLAIM_SPEC = {
+    **SPEC,
+    "claim": {"kind": "stability", "metric": "roc_auc", "subject": "B", "other": "A"},
+}
+
+
+def test_the_verifier_decides_the_claim_of_the_selected_hypothesis(world):
+    result = nodes.verifier_node(base_state(experiment_specs=[CLAIM_SPEC]))
+    hypothesis = result["statistical_decision"]["hypothesis"]
+    assert hypothesis["claim"] == CLAIM_SPEC["claim"]
+    assert hypothesis["verdict"] == "supported"
+    assert hypothesis["evidence"]["variance_subject"] < hypothesis["evidence"]["variance_other"]
+
+
+def test_a_claim_the_data_contradicts_is_reported_as_contradicted(world):
+    reversed_spec = {**CLAIM_SPEC, "claim": {**CLAIM_SPEC["claim"], "subject": "A", "other": "B"}}
+    result = nodes.verifier_node(base_state(experiment_specs=[reversed_spec]))
+    assert result["statistical_decision"]["hypothesis"]["verdict"] == "contradicted"
+
+
+def test_the_claim_of_a_hypothesis_that_was_not_selected_is_ignored(world):
+    other = {**CLAIM_SPEC, "claim": {**CLAIM_SPEC["claim"], "subject": "A", "other": "B"}}
+    state = base_state(
+        hypotheses=["stmt", "other"],
+        experiment_specs=[CLAIM_SPEC, other],
+        selected_hypothesis=0,
+    )
+    assert nodes.verifier_node(state)["statistical_decision"]["hypothesis"]["verdict"] == "supported"
+
+
+def test_a_spec_without_a_claim_leaves_the_hypothesis_untested(world):
+    result = nodes.verifier_node(base_state())
+    assert result["statistical_decision"]["hypothesis"] == {"claim": None, "verdict": "untested", "evidence": {}}
