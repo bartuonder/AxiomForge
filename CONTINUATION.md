@@ -12,7 +12,9 @@ Faz 8 bitti. Son kod işi, raporun ve hakemin `statistical_conclusion` cümlesin
 
 Faz 8'den sonra, yeni faz açmadan, bir denetimde çıkan üç sorun düzeltildi. Hata durumu: düğüm hataları `app/graph/errors.py` ile `research_errors` tablosuna yazılır ve `GET /research/{thread_id}` bunları `failed` olarak döner. Önceden onay sonrası hata thread'i sonsuza dek `running` bırakıyordu. Erken doğrulama: sorguda model adı yoksa `/start_research` ve `/experiments` `422` döner ve literatür çağrılmaz. Karar ve hakem: doğrulayıcı `statistical_decision` (`outcome`, `winner`, `metric`, `gap`, `tie_gap`) yazar, `statistical_conclusion` İngilizcedir, makale İngilizce yazılır ve hakem cümleyi aynen aramaz, kararın yönünü kontrol eder. Türkçe cümleyi İngilizce makaleye aynen koymak imkansız olduğu için eski kontrol her koşuda 2 yeniden yazma harcıyordu. İki yeniden yazmadan sonra tutarsızlık sürerse `research_status` `NeedsReview` olur ve konsol uyarı gösterir.
 
-Denetimden kalan açık işler: kararlılık hükmü gerçek bir istatistik testine dayanmıyor, `Passed` olan koşu eşikler yüzünden her zaman `tie` çıkıyor, kritik döngüsü yüksek varyansı hata sayıyor, planlayıcı hipotezleri deneye bağlanmıyor, bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor. Bunlar için kullanıcının mesajı beklenir.
+Sonra kararlılık hükmü gerçek bir istatistik testine bağlandı. `app/graph/stats.py` Pitman-Morgan varyans testini, Nadeau-Bengio düzeltmeli t-testini ve Holm düzeltmesini taşır. `stability_decision` artık özet değil ham koşuları alır, `performance_comparisons` ayrıca metrik farklarını test eder ve sonuç `statistical_decision["performance"]` içine yazılır. Sabit `VARIANCE_TIE_GAP` kalktı, eşik `ALPHA = 0.05`. Simülasyonda eşit std'de yanlış pozitif oranı yaklaşık %5, 4 kat std farkında güç beş bölmede yaklaşık %74 çıktı. Tie hükmü eşdeğerlik değil, anlamlı fark bulunamadığı demektir. Tie guard'ı olumsuzlama içeren cümleleri (`neither model is superior`) saymaz.
+
+Denetimden kalan açık işler: kritik döngüsü yüksek varyansı hata sayıyor ve aynı kodu boşuna yeniden üretiyor, planlayıcı hipotezleri deneye bağlanmıyor, bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
@@ -84,7 +86,7 @@ Faz 6. Ortalama ve standart sapma NumPy ile hesaplanır (`ddof=1`) ve `statistic
 
 Faz 7. `experiment-v4`. Veri döngünün dışında bir kez ve sabit tohumla gelir. `make_classification` ise `class_sep` en fazla 0.5 olur ve `weights` dengesiz dağılım kurar. Beşli döngü yalnız `train_test_split` `random_state` değerini 42, 100, 200, 300, 400 yapar. Model tohumu değişmez. Her model beş satır basar. Betik döngüyü içeriyorsa doğrulayıcı o satırları kullanır. İçermiyorsa yalnız bölme tohumunu AST ile değiştirip beş kez çalıştırır. `std` standart sapmadır. Her araştırma boş state ile başlar. `tested_models` yalnız bu koşunun modelleridir. RAG'ın kodu ve metriği rapor promptuna girmez. Results ve Conclusion, Methodology'de yazılmayan ve test edilmeyen modeli alamaz.
 
-Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptta ve şablonda varsayılan model yoktur. Üretilen `models` sözlüğü bu anahtarların dışına çıkamaz. Hipotez model ekleyemez. Sorguda model yoksa deney `query names no model` ile düşer. Her metriğin varyansı `std ** 2` olur ve `{metrik}_variance` diye yazılır. `statistical_conclusion` `roc_auc_variance` farkından kurulur. Eşik `VARIANCE_TIE_GAP = 0.005`. Fark bu değere eşit veya küçükse cümle `Modellerin performansı ve varyansı istatistiksel olarak farksızdır (Tie). Biri diğerine üstünlük kuramamıştır.` olur. Büyükse ve tek bir model eşiğin altındaysa `X modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır` yazılır. Cümleler artık İngilizcedir ve karar `statistical_decision` alanında yapısal tutulur. Results ve Conclusion bu karar yönünde yazılır. `outcome` `tie` iken makalede `superior`, `more stable`, `outperformed` veya `better` geçiyorsa LLM çağrılmaz. Hata `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` olur ve rapor yeniden yazılır.
+Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptta ve şablonda varsayılan model yoktur. Üretilen `models` sözlüğü bu anahtarların dışına çıkamaz. Hipotez model ekleyemez. Sorguda model yoksa deney `query names no model` ile düşer. Her metriğin varyansı `std ** 2` olur ve `{metrik}_variance` diye yazılır. `statistical_conclusion` ROC-AUC için Pitman-Morgan testi ve Holm düzeltmesiyle kurulur (ilk sürümde `VARIANCE_TIE_GAP = 0.005` sabit eşiği vardı, kaldırıldı). Tek bir model her rakibine karşı anlamlı biçimde düşük varyanslıysa `winner`, değilse `tie` olur. Cümleler İngilizcedir ve karar `statistical_decision` alanında yapısal tutulur. Results ve Conclusion bu karar yönünde yazılır. `outcome` `tie` iken makalede `superior`, `more stable`, `outperformed` veya `better` geçiyorsa LLM çağrılmaz. Hata `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` olur ve rapor yeniden yazılır.
 
 ## Kodun durduğu yerler
 
@@ -96,6 +98,7 @@ Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptt
 | State alanları | `app/graph/state.py` |
 | Bölme tohumu, NumPy özeti ve `stability_decision` | `app/graph/verifier.py` |
 | Araştırma hatalarının kaydı | `app/graph/errors.py` |
+| Pitman-Morgan, düzeltilmiş t-testi, Holm | `app/graph/stats.py` |
 | Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v5` |
 | Rapor promptu | `app/agents/report.py` |
 | İddia hakemi | `app/agents/consistency.py` |
@@ -109,7 +112,7 @@ Konsol adımları: Literature, Planner, Experiment, Verifier, Report, Claims. Ne
 
 CSV şeması deney düğümünde sabittir: `age:float, monthly_spend:float, tenure_months:int, churn:int`. Betik bu CSV'yi tek veri diye kullanmaz. Şema sandbox'a yüklenir. Asıl veri sklearn'dendir.
 
-Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std` için geçerlidir. Eğitim süresi sapması bu eşiğe sokulmaz. Beraberlik eşiği `VARIANCE_TIE_GAP = 0.005` ve yalnız `roc_auc_variance` içindir.
+Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std` için geçerlidir. Eğitim süresi sapması bu eşiğe sokulmaz. Anlamlılık eşiği `ALPHA = 0.05` ve hem varyans testi hem performans testleri için geçerlidir.
 
 ## Yeni oturumun uyması gereken kurallar
 
