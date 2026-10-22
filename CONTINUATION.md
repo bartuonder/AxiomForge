@@ -20,6 +20,8 @@ Sonra planlayıcı deneye bağlandı: her hipotez `app/agents/spec.py` içinde d
 
 Sonra hafıza kaydı tek yere taşındı: grafta kaydı yalnız `verifier_node` yazar (`_remember`). Doğrulama geçerse `outcome` `success`, yüksek varyans bulgusu varsa `finding` olur ve `is_success` doğru kalır. Eleştiri hakkı bitip `Failed` kalırsa `failure` ve `is_success=False` olur. `hypothesis` onaylanan spesifikasyonun `statement` metnidir, `spec` ve doğrulanmış ortalama ± std özeti kayda girer. Deney düğümü `record_memory=False` ile çağırır ve son hatayı `experiment_error` ile taşır. `POST /experiments` ucu doğrulama olmadığı için eskisi gibi deneyden sonra yazar.
 
+Sonra literatür ajanı ve Celery düzeldi: literatür artık LLM anahtar kelime aramaları, arXiv'de tırnaklı ifadelerin `AND`'i ve `0.35` gömü eşiğiyle çalışır (eşik canlı ölçümle seçildi: alakalı 0.29-0.56, alakasız 0.13-0.21). Araştırma `app/tasks.py` içindeki Celery görevlerinde çalışır, `daemon thread` kalktı. Onay hemen döner. Çift karar `already decided` ile reddedilir.
+
 Denetimden kalan açık işler: bilimsel gösterimli `train_seconds` satırı ayrıştırılmıyor, bölme stratify'sız ve yalnız beş tekrar var (daha çok tekrar güç ve güveni artırır), rapor `verification_status` `Failed` olduğunu makalede söylemiyor. Bunlar için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
@@ -41,14 +43,14 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 docker compose up -d
 .\.venv\Scripts\mlflow.exe server --host 127.0.0.1 --port 5000
-.\.venv\Scripts\celery.exe -A app.celery_app worker --pool=solo --loglevel=info
+.\.venv\Scripts\celery.exe -A app.celery_app worker --pool=threads --concurrency=4 --loglevel=info
 .\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
 cd frontend
 npm install
 npm run dev
 ```
 
-Konsol `http://127.0.0.1:3000`. API `http://127.0.0.1:8000`. MLflow `http://127.0.0.1:5000`. Windows üzerinde Celery yalnız `--pool=solo` ile çalışır. Postgres imajı `pgvector/pgvector:pg16` olur. Redis `redis://localhost:6379/0`.
+Konsol `http://127.0.0.1:3000`. API `http://127.0.0.1:8000`. MLflow `http://127.0.0.1:5000`. Windows üzerinde Celery `--pool=threads` ile çalışır, `--pool=solo` tek görev yürütür. Postgres imajı `pgvector/pgvector:pg16` olur. Redis `redis://localhost:6379/0`.
 
 ## Ürün
 
@@ -72,13 +74,13 @@ START
 
 `interrupt_before` yalnız `approval_gate` üzerindedir. Onay bir kez verilir. Eleştiri ve iddia turları bu kapıya dönmez.
 
-`POST /start_research` hemen `{thread_id, status: running}` döner ve işi bir daemon thread'de `approval_gate` öncesine kadar götürür. Her çağrı `uuid` ile yeni bir `thread_id` üretir, `empty_research_state` ile boş state yazar ve checkpoint doluysa o kimliğe yazmayı reddeder. `GET /research/{thread_id}` iki saniyede bir konsol tarafından okunur. `POST /approve_plan` gövdesi `{thread_id, decision: Y|N}` olur. `Y` deneyden rapora kadar olan kısmı tek istekte sürdürür. `N` `approval_status=rejected` yapar ve deneyi başlatmaz.
+`POST /start_research` hemen `{thread_id, status: running}` döner ve `run_research_task` Celery görevini kuyruğa atar; işçi `approval_gate` öncesine kadar götürür. Her çağrı `uuid` ile yeni bir `thread_id` üretir, `empty_research_state` ile boş state yazar ve checkpoint doluysa o kimliğe yazmayı reddeder. `GET /research/{thread_id}` iki saniyede bir konsol tarafından okunur. `POST /approve_plan` gövdesi `{thread_id, decision: Y|N}` olur. `Y` `resume_research_task` görevini kuyruğa atar ve hemen `running` döner; deney, doğrulama, rapor ve hakem işçide yürür. `N` `approval_status=rejected` yapar ve deneyi başlatmaz.
 
 ## Fazlar
 
 Faz 1. Deney döngüsü. Prompt ve CSV şemasından sklearn kodu üretilir, E2B'de çalışır, hata olursa en fazla 3 deneme (`MAX_RETRIES`) yapılır. Başarı ve son başarısızlık MLflow'dan önce vektör hafızaya yazılır. MLflow düşünce hafıza kaydı kaybolmasın diye sıra budur. Üretilen kod yerel makinede çalıştırılmaz. Deney adı `axiomforge`.
 
-Faz 2. LangGraph. Literatür arXiv'den en ilgili 3 başlık ve özeti `literature_context` alanına yazar. Planlayıcı 3 hipotez yazar. Onay kapısı deneyden öncedir.
+Faz 2. LangGraph. Literatür LLM ile üretilen anahtar kelime aramalarıyla arXiv'den aday toplar, gömü benzerliği `0.35` altını eler ve en alakalı 3 başlık ve özeti `literature_context` alanına yazar. Planlayıcı 3 hipotez yazar. Onay kapısı deneyden öncedir.
 
 Faz 2.5. `pgvector`. Planlayıcı `search_past_experiments` ile başarısız deneyleri okur ve aynı hatayı tekrar ettirmez. Başarı `is_success=True` ve metrik, üç denemenin düşmesi `is_success=False` ve hata logu olur.
 
@@ -99,7 +101,9 @@ Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptt
 | Konu | Dosya |
 | --- | --- |
 | Uçlar | `app/main.py` |
-| Boş state ve yeni thread | `app/graph/workflow.py` içindeki `empty_research_state` ve `start_research` |
+| Boş state ve yeni thread | `app/graph/workflow.py` içindeki `empty_research_state` ve `new_thread_id` |
+| Celery görevleri | `app/tasks.py`; iş mantığı `workflow.py` içindeki `run_until_pause`, `decide_plan`, `resume_research` |
+| Literatür | `app/agents/literature.py` ve `app/tools/arxiv.py` |
 | Düğümler | `app/graph/nodes.py` |
 | State alanları | `app/graph/state.py` |
 | Bölme tohumu, NumPy özeti ve `stability_decision` | `app/graph/verifier.py` |
@@ -138,7 +142,7 @@ Kullanıcı Türkçe yazar. Yanıt Türkçe ve kısa olur. İstemediği faz baş
 
 MLflow kapalıyken urllib uzun süre dener. Hafıza kaydı bundan önce yazılır. MLflow'un emoji logu Windows konsolunda `UnicodeEncodeError` verebilir. Kayıt tarafında stdout utf-8'e çekilmiştir.
 
-Onaydan sonraki iş uzundur: üretim denemeleri, beş bölme, sızıntı hakemi, rapor ve iddia turu. `POST /approve_plan` bu sürenin sonunda döner.
+Onaydan sonraki iş uzundur: üretim denemeleri, beş bölme, sızıntı hakemi, rapor ve iddia turu. `POST /approve_plan` artık hemen döner; bu süre işçide geçer. İşçi görev sürerken ölürse araştırma `running` kalır, otomatik kurtarma yoktur.
 
 `test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı aynı hatayı tekrar etmemek için onu okuyabilir. Bu kayıt yeni koşunun `tested_models` listesine yazılmaz.
 
