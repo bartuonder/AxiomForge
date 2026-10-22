@@ -8,7 +8,7 @@ Faz 1 tek başına bir sınıflandırma deneyi üretir, kodu E2B sandbox içinde
 
 Faz 2 araştırma grafıdır. Literatür taranır, üç hipotez üretilir ve deney düğümüne geçmeden önce onay beklenir. Graf durumu PostgreSQL'de tutulur.
 
-Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, ilk hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir. Grafın içinde bu kayıt deney düğümünden değil, doğrulamadan sonra `verifier_node` içinden bir kez yazılır: `hypothesis` onaylanan spesifikasyonun `statement` metnidir, `spec` alanı spesifikasyonu taşır, `metric` doğrulayıcının ortalama ± standart sapma özetidir. Doğrulama geçtiyse `outcome` `success` olur. Yüksek varyans bulgusu varsa `outcome` `finding` olur, `finding` alanı hangi modelin hangi metriğinin eşiği aştığını yazar ve `is_success` doğru kalır. Planlayıcı yalnız `is_success=False` kayıtları okuyup eler.
+Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, seçilen hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir. Grafın içinde bu kayıt deney düğümünden değil, doğrulamadan sonra `verifier_node` içinden bir kez yazılır: `hypothesis` onaylanan spesifikasyonun `statement` metnidir, `spec` alanı spesifikasyonu taşır, `metric` doğrulayıcının ortalama ± standart sapma özetidir. Doğrulama geçtiyse `outcome` `success` olur. Yüksek varyans bulgusu varsa `outcome` `finding` olur, `finding` alanı hangi modelin hangi metriğinin eşiği aştığını yazar ve `is_success` doğru kalır. Planlayıcı yalnız `is_success=False` kayıtları okuyup eler.
 
 Faz 3 doğrulayıcıdır. `verifier_node` kodu veri sızıntısı için inceler. Kararlılık ölçümü Faz 5'teki beş tohumdur. `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır.
 
@@ -238,10 +238,12 @@ Hipotezler FastAPI logunda `paused hypothesis` satırları olarak da görünür.
 Gövde:
 
 ```json
-{"thread_id": "...", "decision": "Y"}
+{"thread_id": "...", "decision": "Y", "selected": 1}
 ```
 
-`Y` state'i `approval_status="approved"` yapar, devam görevini Celery kuyruğuna atar ve hemen `{"status": "running"}` döner. Graf işçide kaldığı yerden devam eder; ilerleme `GET /research/{thread_id}` ile izlenir. Aynı araştırmaya ikinci karar `research thread was already decided` ile reddedilir. Kuyruk kapalıysa `503` döner ve onay geri alınır. `experiment_node` `Onaylandı, deneylere başlanıyor` logunu basar. Betiğe yalnız sorguda adı geçen modeller girer. Ardından ilk hipotezi ve `experiment_specs` içindeki spesifikasyonunu şu CSV şemasıyla Faz 1 döngüsüne verir. Üretilen kod veri setini ve `params` değerlerini kurucularda aynen kullanmıyorsa AST denetimi reddeder ve kod düzeltilir:
+`selected` çalıştırılacak hipotezin sıfırdan başlayan sırasıdır ve `Y` için zorunludur. Eksik, aralık dışı veya sayı olmayan bir değer `422` döner ve hiçbir şey değişmez. `N` için gerekmez. Yalnız seçilen hipotez çalışır, hafızaya yazılır ve makaleye girer; öbür ikisi atılır. Konsoldaki onay diyalogu üç hipotezi veri seti ve parametreleriyle gösterir, başta hiçbiri seçili değildir ve onay düğmesi seçim yapılana kadar pasiftir. `GET /research/{thread_id}` `experiment_specs` ve `selected_hypothesis` alanlarını da döner.
+
+`Y` state'i `approval_status="approved"` yapar, devam görevini Celery kuyruğuna atar ve hemen `{"status": "running"}` döner. Graf işçide kaldığı yerden devam eder; ilerleme `GET /research/{thread_id}` ile izlenir. Aynı araştırmaya ikinci karar `research thread was already decided` ile reddedilir. Kuyruk kapalıysa `503` döner ve onay geri alınır. `experiment_node` `Onaylandı, deneylere başlanıyor` logunu basar. Betiğe yalnız sorguda adı geçen modeller girer. Ardından seçilen hipotezi ve `experiment_specs` içindeki spesifikasyonunu şu CSV şemasıyla Faz 1 döngüsüne verir. Üretilen kod veri setini ve `params` değerlerini kurucularda aynen kullanmıyorsa AST denetimi reddeder ve kod düzeltilir:
 
 ```text
 age:float, monthly_spend:float, tenure_months:int, churn:int
