@@ -3,6 +3,7 @@ import logging
 from app.agents.experiment import (
     MODEL,
     PROMPT_VERSION,
+    QueryNamesNoModel,
     correct_classification_code,
     generate_classification_code,
     models_dict_error,
@@ -33,7 +34,7 @@ def execute_experiment(
 ) -> dict:
     allowed = list(models) if models is not None else requested_models(prompt)
     if not allowed:
-        raise RuntimeError("query names no model")
+        raise QueryNamesNoModel()
     logger.info("allowed_models=%s", [item["key"] for item in allowed])
     if existing_code and criticism:
         source = correct_classification_code(existing_code, criticism, prompt, csv_schema, allowed)

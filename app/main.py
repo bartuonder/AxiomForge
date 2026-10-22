@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from openai import OpenAIError
 from pydantic import BaseModel, Field
 
+from app.agents.experiment import QueryNamesNoModel
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
@@ -37,6 +38,10 @@ class StartResearchRequest(BaseModel):
 class ApprovePlanRequest(BaseModel):
     thread_id: str = Field(min_length=1)
     decision: str = Field(min_length=1)
+
+
+def _no_model_detail(exc: QueryNamesNoModel) -> str:
+    return f"{exc}: name at least one model in the query, for example SVM or Random Forest."
 
 
 def redis_status() -> str:
@@ -78,6 +83,8 @@ def health():
 def create_experiment(body: ExperimentRequest):
     try:
         return execute_experiment(body.prompt, body.csv_schema)
+    except QueryNamesNoModel as exc:
+        raise HTTPException(status_code=422, detail=_no_model_detail(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
@@ -88,6 +95,8 @@ def create_experiment(body: ExperimentRequest):
 def start_research_endpoint(body: StartResearchRequest):
     try:
         return start_research(body.query)
+    except QueryNamesNoModel as exc:
+        raise HTTPException(status_code=422, detail=_no_model_detail(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
