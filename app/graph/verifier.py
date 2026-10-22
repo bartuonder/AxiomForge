@@ -11,8 +11,8 @@ UNSTABLE_STD = 0.05
 VARIANCE_TIE_GAP = 0.005
 CONCLUSION_VARIANCE = "roc_auc_variance"
 TIE_CONCLUSION = (
-    "Modellerin performansı ve varyansı istatistiksel olarak farksızdır (Tie). "
-    "Biri diğerine üstünlük kuramamıştır."
+    "The models' performance and variance are statistically indistinguishable (Tie). "
+    "Neither model has established superiority over the other."
 )
 DROP_LIMIT = 0.10
 MAX_CRITIC_ROUNDS = 2
@@ -96,7 +96,7 @@ def conclusion_sentence(decision: dict[str, str | float]) -> str:
     if decision.get("outcome") == "tie":
         return TIE_CONCLUSION
     if decision.get("outcome") == "winner":
-        return f"{decision['winner']} modeli istatistiksel olarak anlamlı bir şekilde daha kararlıdır"
+        return f"{decision['winner']} is statistically significantly more stable."
     return ""
 
 

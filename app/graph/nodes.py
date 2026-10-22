@@ -145,15 +145,16 @@ def consistency_checker_node(state: AgentState) -> dict:
     rounds = int(state.get("consistency_rounds", 0))
     paper = state.get("paper_markdown", "")
     statistical_results = state.get("statistical_results") or {}
+    decision = state.get("statistical_decision") or {}
     logger.info("consistency_checker_node round=%s", rounds)
-    conflict = direction_conflict(paper, statistical_results)
+    conflict = direction_conflict(paper, decision)
     if conflict:
         logger.info("consistency direction_conflict=%s", conflict)
         consistent = False
         issues = [conflict]
     else:
-        consistent, issues = judge_consistency(paper, statistical_results)
-        issues.extend(conclusion_issues(paper, statistical_results))
+        consistent, issues = judge_consistency(paper, statistical_results, decision)
+        issues.extend(conclusion_issues(paper, decision))
         consistent = not issues
     for issue in issues:
         logger.info("consistency issue=%s", issue)
