@@ -25,7 +25,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 ## Ne var
 
 - FastAPI uygulaması
-- Celery işçisi, broker olarak Redis
+- Celery işçisi, broker olarak Redis: araştırma onaya kadar ve onaydan sonra rapora kadar işçide çalışır
 - Experiment Agent: GPT-4o (`experiment-v6`) ile sabit veride, sorguda adı geçen modelleri ve yalnız bölme tohumunu değiştiren karşılaştırma üretir
 - E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
 - Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
@@ -35,7 +35,7 @@ Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experimen
 - Rapor ajanı: makale İngilizcedir, Results ve Conclusion `statistical_decision` yönünde yazılır
 - İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir, en fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
 - Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
-- arXiv araması: sorguya en yakın 3 makalenin başlığı ve özeti
+- arXiv araması: LLM sorudan anahtar kelime aramaları üretir, adaylar gömü benzerliğiyle süzülür ve en alakalı 3 makalenin başlığı ve özeti alınır
 - Planlayıcı: literatür ve geçmiş başarısız deneylerden, deney ajanının yapabildiği 3 doğrulanmış deney spesifikasyonu
 - PostgresSaver: her araştırma boş bir `thread_id` ile `DATABASE_URL` üzerine kaydedilir
 - Deney hafızası: `text-embedding-3-small` ile `experiment_memory` koleksiyonu
@@ -51,12 +51,13 @@ app/
   celery_app.py              Celery uygulaması
   experiments.py             3 denemelik düzeltme döngüsü ve hafıza kaydı
   agents/experiment.py       kod üreten ve düzelten ajan
-  agents/literature.py       arXiv araçlı literatür ajanı
+  agents/literature.py       anahtar kelime sorgusu ve alaka süzgeciyle literatür ajanı
   agents/planner.py          geçmiş hataları eleyen hipotez ajanı
   agents/spec.py             deney spesifikasyonu doğrulaması ve kod denetimi
   agents/report.py           atölye makalesi yazan ajan
   agents/consistency.py      makale sayıları ile istatistik sözlüğünü karşılaştıran hakem
   tools/arxiv.py             arXiv arama aracı
+  tasks.py                   Celery görevleri: araştırmayı başlat ve onaydan sonra sürdür
   graph/state.py             AgentState
   graph/nodes.py             literatür, plan, deney, doğrulayıcı, rapor ve iddia düğümleri
   graph/verifier.py          beş tohum, sapma, yapısal karar ve sızıntı kararı
@@ -103,13 +104,13 @@ API, kuyruk, takip ve konsol ayrı ayrı açılır.
 
 ```powershell
 .\.venv\Scripts\mlflow.exe server --host 127.0.0.1 --port 5000
-.\.venv\Scripts\celery.exe -A app.celery_app worker --pool=solo --loglevel=info
+.\.venv\Scripts\celery.exe -A app.celery_app worker --pool=threads --concurrency=4 --loglevel=info
 .\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
 cd frontend
 npm run dev
 ```
 
-Konsol `http://127.0.0.1:3000` adresindedir. Windows üzerinde Celery `--pool=solo` ile çalışır.
+Konsol `http://127.0.0.1:3000` adresindedir. Windows üzerinde Celery `--pool=threads` ile çalışır. `--pool=solo` da çalışır ama tek görev yürüttüğü için uzun bir araştırma başka araştırmaların başlamasını bekletir.
 
 Hafızayı grafın dışında denemek için:
 
@@ -185,7 +186,7 @@ Sorguda en az bir model adı geçmelidir. Geçmiyorsa literatür çalışmadan `
 
 Akış `literature_node` ve `planner_node` çalıştıktan sonra, `experiment_node` öncesinde durur.
 
-1. Literatür ajanı arXiv'den 3 makalenin başlık ve özetini alır, `literature_context` listesine yazar.
+1. Literatür ajanı LLM ile sorudan en fazla 3 anahtar kelime araması üretir. Her arama 2-4 kısa ifadedir ve arXiv'e `all:"ifade" AND all:"ifade"` olarak gider. Aramalar arasında 3 saniye beklenir. Adaylar tekilleştirilir, sorunun gömüsüyle makale gömüsü arasındaki kosinüs benzerliği hesaplanır, `0.35` altındakiler elenir ve en iyi 3 makalenin başlığı ve özeti `literature_context` listesine yazılır. Hiçbiri eşiği geçmezse çalışma `arxiv returned no relevant papers` ile `failed` olur. Her skor logda `literature relevance` satırı olarak görünür.
 2. Planlayıcı `search_past_experiments` ile sorguya en yakın 3 geçmiş deneyi okur. Başarısız kayıtları prompta koyar ve aynı yaklaşımı tekrar etmez.
 3. Üç hipotez `hypotheses` listesine, spesifikasyonları `experiment_specs` listesine yazılır. Her hipotez bir deney spesifikasyonudur: `statement`, `models` (sorgudaki modellerin tamamı, Python doldurur), `dataset` (`breast_cancer` veya `imbalanced`) ve `params` (model başına izinli kurucu parametreleri). Geçersiz bir spesifikasyon bir kez düzeltme istenerek yeniden denenir, yine geçersizse çalışma `failed` olur.
 4. Graf `approval_gate` öncesinde duraklar. Eleştiri turları bu kapıdan tekrar geçmez.
@@ -215,7 +216,7 @@ Gövde:
 {"thread_id": "...", "decision": "Y"}
 ```
 
-`Y` state'i `approval_status="approved"` yapar ve graf kaldığı yerden devam eder. `experiment_node` `Onaylandı, deneylere başlanıyor` logunu basar. Betiğe yalnız sorguda adı geçen modeller girer. Ardından ilk hipotezi ve `experiment_specs` içindeki spesifikasyonunu şu CSV şemasıyla Faz 1 döngüsüne verir. Üretilen kod veri setini ve `params` değerlerini kurucularda aynen kullanmıyorsa AST denetimi reddeder ve kod düzeltilir:
+`Y` state'i `approval_status="approved"` yapar, devam görevini Celery kuyruğuna atar ve hemen `{"status": "running"}` döner. Graf işçide kaldığı yerden devam eder; ilerleme `GET /research/{thread_id}` ile izlenir. Aynı araştırmaya ikinci karar `research thread was already decided` ile reddedilir. Kuyruk kapalıysa `503` döner ve onay geri alınır. `experiment_node` `Onaylandı, deneylere başlanıyor` logunu basar. Betiğe yalnız sorguda adı geçen modeller girer. Ardından ilk hipotezi ve `experiment_specs` içindeki spesifikasyonunu şu CSV şemasıyla Faz 1 döngüsüne verir. Üretilen kod veri setini ve `params` değerlerini kurucularda aynen kullanmıyorsa AST denetimi reddeder ve kod düzeltilir:
 
 ```text
 age:float, monthly_spend:float, tenure_months:int, churn:int
