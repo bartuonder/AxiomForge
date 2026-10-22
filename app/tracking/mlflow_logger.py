@@ -10,23 +10,24 @@ import mlflow
 
 from app.config import MLFLOW_TRACKING_URI
 
-_ACCURACY = re.compile(r"accuracy\s*[:=]\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
-_F1 = re.compile(r"\bf1(?:_score)?\s*[:=]\s*([0-9]*\.?[0-9]+)", re.IGNORECASE)
+_NUMBER = r"(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+_ACCURACY = re.compile(rf"accuracy\s*[:=]\s*({_NUMBER})", re.IGNORECASE)
+_F1 = re.compile(rf"\bf1(?:_score)?\s*[:=]\s*({_NUMBER})", re.IGNORECASE)
 _DATASET_LINE = re.compile(
     r"dataset\s*=\s*(?P<dataset>[A-Za-z0-9_]+)\s+"
     r"samples\s*=\s*(?P<samples>\d+)\s+"
     r"features\s*=\s*(?P<features>\d+)\s+"
-    r"negative_ratio\s*=\s*(?P<negative_ratio>[0-9]*\.?[0-9]+)\s+"
-    r"positive_ratio\s*=\s*(?P<positive_ratio>[0-9]*\.?[0-9]+)",
+    rf"negative_ratio\s*=\s*(?P<negative_ratio>{_NUMBER})\s+"
+    rf"positive_ratio\s*=\s*(?P<positive_ratio>{_NUMBER})",
     re.IGNORECASE,
 )
 _MODEL_LINE = re.compile(
     r"model\s*=\s*(?P<model>[A-Za-z0-9_+\-]+)\s+"
-    r"accuracy\s*=\s*(?P<accuracy>[0-9]*\.?[0-9]+)\s+"
-    r"f1\s*=\s*(?P<f1>[0-9]*\.?[0-9]+)\s+"
-    r"roc_auc\s*=\s*(?P<roc_auc>[0-9]*\.?[0-9]+)\s+"
-    r"pr_auc\s*=\s*(?P<pr_auc>[0-9]*\.?[0-9]+)\s+"
-    r"train_seconds\s*=\s*(?P<train_seconds>[0-9]*\.?[0-9]+)\s+"
+    rf"accuracy\s*=\s*(?P<accuracy>{_NUMBER})\s+"
+    rf"f1\s*=\s*(?P<f1>{_NUMBER})\s+"
+    rf"roc_auc\s*=\s*(?P<roc_auc>{_NUMBER})\s+"
+    rf"pr_auc\s*=\s*(?P<pr_auc>{_NUMBER})\s+"
+    rf"train_seconds\s*=\s*(?P<train_seconds>{_NUMBER})\s+"
     r"tn\s*=\s*(?P<tn>\d+)\s+"
     r"fp\s*=\s*(?P<fp>\d+)\s+"
     r"fn\s*=\s*(?P<fn>\d+)\s+"
