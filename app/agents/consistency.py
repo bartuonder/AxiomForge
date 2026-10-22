@@ -21,7 +21,19 @@ _SUPERIORITY = re.compile(
 )
 _NEGATION = re.compile(r"\b(?:no|not|neither|nor|none|never|cannot|without)\b|n't", re.IGNORECASE)
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\n")
+_HEADING = re.compile(r"^#{1,6}[ \t]*(.+?)[ \t]*$", re.MULTILINE)
+_FAILED_VERIFICATION = re.compile(
+    r"\bfailed\s+(?:the\s+)?(?:\w+\s+)?verification\b"
+    r"|\bverification\s+(?:has\s+|had\s+)?(?:failed|was\s+rejected|did\s+not\s+pass)\b"
+    r"|\bdid\s+not\s+pass\s+(?:the\s+)?(?:\w+\s+)?verification\b"
+    r"|\bunverified\b|\bnot\s+(?:been\s+)?verified\b|\bcould\s+not\s+be\s+verified\b|\bfailed\s+to\s+verify\b",
+    re.IGNORECASE,
+)
 DIRECTION_CONFLICT ="Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi"
+VERIFICATION_NOTICE = (
+    "Doğrulama Failed olduğu halde makalenin özeti (Abstract) bunu açıkça yazmıyor. "
+    "Özet 'failed verification' ifadesini ve nedenini içermeli."
+)
 CONSISTENCY_PROMPT = (
     "Sen acımasız bir akademik hakemsin. "
     "1) Makaledeki sayılarla JSON'daki sayılar arasında uyuşmazlık var mı? "
@@ -97,6 +109,21 @@ def direction_conflict(paper: str, statistical_decision: dict) -> str:
         if _SUPERIORITY.search(sentence) and not _NEGATION.search(sentence):
             return DIRECTION_CONFLICT
     return ""
+
+
+def abstract_of(paper: str) -> str:
+    headings = list(_HEADING.finditer(paper))
+    for position, heading in enumerate(headings):
+        if heading.group(1).strip().rstrip(":").lower() == "abstract":
+            end = headings[position + 1].start() if position + 1 < len(headings) else len(paper)
+            return paper[heading.end():end]
+    return paper
+
+
+def verification_issue(paper: str, verification_status: str) -> str:
+    if verification_status != "Failed":
+        return ""
+    return "" if _FAILED_VERIFICATION.search(abstract_of(paper)) else VERIFICATION_NOTICE
 
 
 def conclusion_issues(paper: str, statistical_decision: dict) -> list[str]:
