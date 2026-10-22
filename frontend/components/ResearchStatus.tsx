@@ -69,20 +69,35 @@ function claimsRow(snapshot: ResearchSnapshot): StatusRow {
 export function ResearchStatus({ snapshot }: ResearchStatusProps) {
   const stability = stabilityRow(snapshot);
   const rows = [verificationRow(snapshot), ...(stability ? [stability] : []), claimsRow(snapshot)];
+  const notes = snapshot.referee_notes ?? [];
   return (
-    <ul aria-label="Research checks" className="mt-6 space-y-2">
-      {rows.map((row) => (
-        <li
-          key={row.key}
-          className={`flex gap-3 rounded border px-4 py-3 text-sm ${TONE_STYLES[row.tone].box}`}
-        >
-          <span aria-hidden className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TONE_STYLES[row.tone].dot}`} />
-          <div>
-            <p className="font-semibold">{row.title}</p>
-            {row.detail ? <p className="mt-1 leading-6">{row.detail}</p> : null}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul aria-label="Research checks" className="mt-6 space-y-2">
+        {rows.map((row) => (
+          <li
+            key={row.key}
+            className={`flex gap-3 rounded border px-4 py-3 text-sm ${TONE_STYLES[row.tone].box}`}
+          >
+            <span aria-hidden className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TONE_STYLES[row.tone].dot}`} />
+            <div>
+              <p className="font-semibold">{row.title}</p>
+              {row.detail ? <p className="mt-1 leading-6">{row.detail}</p> : null}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {notes.length > 0 ? (
+        <details className="mt-3 rounded border border-[#d7d0c4] bg-white px-4 py-3 text-sm text-[#5c564e]">
+          <summary className="cursor-pointer font-semibold">
+            Referee notes ({notes.length}), advisory: they did not decide the status
+          </summary>
+          <ul className="mt-2 list-disc space-y-1 pl-5 leading-6">
+            {notes.map((note, index) => (
+              <li key={`${index}-${note.slice(0, 24)}`}>{note}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </>
   );
 }

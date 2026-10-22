@@ -38,6 +38,7 @@ export type ResearchSnapshot = {
   instability: Instability;
   research_status: string;
   consistency_feedback: string;
+  referee_notes: string[];
   error: string;
   steps: ResearchStep[];
 };
