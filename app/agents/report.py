@@ -20,6 +20,8 @@ SYSTEM_PROMPT = (
     "Metrik Kanıtı (Results Validator): Sayıları statistical_results içinden kopyala. "
     "Hangi modelin daha kararlı veya üstün olduğuna sayılara bakarak sen karar verme. "
     "Eğer bir modelin F1'i düşükse genel bir bu model mükemmeldir iddiasında BULUNMA, limitasyonları dürüstçe belirt. "
+    "Experiment spec bu koşunun onaylanmış tasarımıdır. Methodology içinde onun dataset alanını ve params alanındaki "
+    "her model parametresini olduğu gibi yaz; spec'te olmayan bir veri seti veya parametre uydurma. "
     "Veri Seti Şeffaflığı: Methodology kısmına veri setinin özelliklerini "
     "(örnek sayısı, feature sayısı, imbalanced oranı) kesinlikle yaz. "
     "Zorunlu Atıf (Citation): Literatür taramasından (literature_context) gelen veya Planner'ın önerdiği yöntemleri "
@@ -88,6 +90,8 @@ def write_workshop_paper(state: AgentState, past_experiments: list[dict], run_id
 
 def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
     hypotheses = state.get("hypotheses") or []
+    specs = state.get("experiment_specs") or []
+    experiment_spec = specs[0] if specs else {}
     literature = state.get("literature_context") or []
     metrics = state.get("experiment_metrics") or {}
     model_results = state.get("model_results") or []
@@ -111,6 +115,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Verification status: {state.get('verification_status', '')}\n"
         f"Verifier feedback: {state.get('verifier_feedback', '')}\n"
         f"Hypotheses:\n{json.dumps(hypotheses, ensure_ascii=False)}\n"
+        f"Experiment spec (the approved design that was run):\n{json.dumps(experiment_spec, ensure_ascii=False)}\n"
         f"Literature:\n{json.dumps(literature, ensure_ascii=False)}\n"
         f"Metrics: {json.dumps(metrics, ensure_ascii=False)}\n"
         f"Dataset profile:\n{json.dumps(dataset_profile, ensure_ascii=False)}\n"
