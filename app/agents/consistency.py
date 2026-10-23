@@ -164,6 +164,24 @@ LEAKAGE_DESCRIPTION_NOTICE = (
     'yapılmış gibi anlatıyor: "{sentence}". Ön işlemenin yalnız eğitim bölümüne uydurulduğunu, test bölümüne '
     'yalnız uygulandığını yaz; sorgudaki talimat sızıntılıydıysa bunun düzeltildiğini belirt.'
 )
+_TUNING_TERMS = re.compile(
+    r"\btun(?:e|ed|es|ing)\b|\bhyper-?parameter\w*|\bparameter\s+(?:tuning|choices?|settings?|adjustments?|configuration)\b"
+    r"|\boptimi[sz](?:e|ed|es|ing|ation)\b",
+    re.IGNORECASE,
+)
+_EFFECT_WORDS = re.compile(
+    r"(?<!\bto )(?<!Gradient )\b(?:impact\w*|affect\w*|influenc\w*|improv\w*|enhanc\w*|boost\w*|increas\w*|benefit\w*|better|gains?)\b",
+    re.IGNORECASE,
+)
+UNTUNED_MODEL_NOTICE = (
+    '{model} için onaylanan spesifikasyonda parametre yok ama makale onun ayarlandığını söylüyor: "{clause}". '
+    "Yalnız spesifikasyondaki parametreleri ayarlanmış olarak yaz; {model} varsayılan ya da koddaki sabit "
+    "parametrelerle çalıştı, sorgudaki ayar talimatı uygulanmadı."
+)
+TUNING_CLAIM_NOTICE = (
+    'Hiçbir parametre etkisi anlamlı değil (significant false) ama makale parametre ayarının sonucu etkilediğini '
+    'söylüyor: "{clause}". Bunun yerine parametrelerin varsayılana göre anlamlı bir etkisi bulunmadığını yaz.'
+)
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
     'iddia ediyor: "{clause}". Bu karşılaştırma için yalnızca "No significant difference" cümlesini kullan.'
@@ -556,6 +574,53 @@ def leakage_description_issues(paper: str, verification_status: str) -> list[str
             and not _NEGATION.search(sentence)
         ):
             return [LEAKAGE_DESCRIPTION_NOTICE.format(sentence=sentence.strip()[:200])]
+    return []
+
+
+def untuned_model_issues(paper: str, spec: dict | None) -> list[str]:
+    if not spec:
+        return []
+    tuned = {model for model, values in (spec.get("params") or {}).items() if values}
+    issues: list[str] = []
+    for model in spec.get("models") or []:
+        if model in tuned:
+            continue
+        squashed = _squash(str(model))
+        offending = None
+        for sentence in _prose_sentences(paper):
+            for clause in _CLAUSE_BREAK.split(sentence):
+                if (
+                    squashed in _squash(clause)
+                    and _TUNING_TERMS.search(clause)
+                    and not _NEGATION.search(clause)
+                    and not _DEFAULT_TERMS.search(clause)
+                ):
+                    offending = clause.strip()
+                    break
+            if offending:
+                break
+        if offending:
+            issues.append(UNTUNED_MODEL_NOTICE.format(model=model, clause=offending[:200]))
+    return issues
+
+
+def tuning_claim_issues(paper: str, effects: list[dict] | None, spec: dict | None = None) -> list[str]:
+    if not effects:
+        return []
+    if any(item.get("significant") for item in effects):
+        return []
+    models = [str(model) for model in (spec or {}).get("models") or []]
+    for sentence in _prose_sentences(paper):
+        if _HYPOTHESIS_WORD.search(sentence) or _INTENT.search(sentence):
+            continue
+        for clause in _CLAUSE_BREAK.split(sentence):
+            if (
+                _TUNING_TERMS.search(clause)
+                and _EFFECT_WORDS.search(clause)
+                and not _NEGATION.search(clause)
+                and not _DEFAULT_TERMS.search(clause)
+            ):
+                return [TUNING_CLAIM_NOTICE.format(clause=clause.strip()[:200])]
     return []
 
 
