@@ -8,9 +8,11 @@ import app.sandbox.e2b_runner as runner
 class FakeSandbox:
     created = []
     runs = []
+    codes = []
 
-    def __init__(self, error=None, stdout=None):
+    def __init__(self, error=None, stdout=None, install_error=None):
         self.error = error
+        self.install_error = install_error
         self.stdout = stdout or ["line one", "line two"]
         self.killed = False
         self.written = {}
@@ -18,6 +20,9 @@ class FakeSandbox:
 
     def run_code(self, code, timeout):
         FakeSandbox.runs.append(timeout)
+        FakeSandbox.codes.append(code)
+        if code == runner.INSTALL_CODE:
+            return SimpleNamespace(error=self.install_error, logs=SimpleNamespace(stdout=[]))
         return SimpleNamespace(error=self.error, logs=SimpleNamespace(stdout=self.stdout))
 
     def kill(self):
@@ -28,11 +33,12 @@ class FakeSandbox:
 def sandbox(monkeypatch):
     FakeSandbox.created = []
     FakeSandbox.runs = []
+    FakeSandbox.codes = []
     instances = []
 
     def create(api_key, timeout):
         FakeSandbox.created.append(timeout)
-        instance = FakeSandbox(error=getattr(create, "error", None))
+        instance = FakeSandbox(error=getattr(create, "error", None), install_error=getattr(create, "install_error", None))
         instances.append(instance)
         return instance
 
@@ -43,7 +49,7 @@ def sandbox(monkeypatch):
 
 def test_the_run_gets_enough_time_for_ten_splits_and_the_box_outlives_it(sandbox):
     runner.run_classification("print(1)", "age:float, churn:int")
-    assert FakeSandbox.runs == [runner.RUN_TIMEOUT_SECONDS]
+    assert FakeSandbox.runs == [runner.INSTALL_TIMEOUT_SECONDS, runner.RUN_TIMEOUT_SECONDS]
     assert FakeSandbox.created == [runner.SANDBOX_LIFETIME_SECONDS]
     assert runner.RUN_TIMEOUT_SECONDS >= 240
     assert runner.SANDBOX_LIFETIME_SECONDS > runner.RUN_TIMEOUT_SECONDS
@@ -88,3 +94,18 @@ def test_a_column_without_a_type_is_a_float():
 def test_a_schema_needs_features_and_a_target():
     with pytest.raises(ValueError, match="features and a target"):
         runner.build_csv("only")
+
+
+def test_the_datasets_package_is_installed_before_the_script_runs(sandbox):
+    runner.run_classification("print(1)", "age:float, churn:int")
+    assert FakeSandbox.codes == [runner.INSTALL_CODE, "print(1)"]
+    assert "pip" in runner.INSTALL_CODE and "datasets" in runner.INSTALL_CODE
+
+
+def test_a_failed_install_stops_the_run_and_still_kills_the_box(sandbox):
+    sandbox.create.install_error = SimpleNamespace(name="CalledProcessError", value="no network", traceback="")
+    with pytest.raises(RuntimeError, match="datasets package could not be installed: no network") as caught:
+        runner.run_classification("print(1)", "age:float, churn:int")
+    assert type(caught.value) is RuntimeError
+    assert FakeSandbox.codes == [runner.INSTALL_CODE]
+    assert sandbox.instances[0].killed is True

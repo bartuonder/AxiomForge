@@ -13,6 +13,12 @@ class SandboxCodeError(RuntimeError):
 DATA_PATH = "/home/user/data.csv"
 RUN_TIMEOUT_SECONDS = 240
 SANDBOX_LIFETIME_SECONDS = 300
+INSTALL_TIMEOUT_SECONDS = 120
+INSTALL_CODE = (
+    "import importlib, subprocess, sys\n"
+    "subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'datasets'], check=True)\n"
+    "importlib.invalidate_caches()"
+)
 
 
 def build_csv(csv_schema: str) -> str:
@@ -54,6 +60,9 @@ def run_classification(code: str, csv_schema: str) -> str:
     sandbox = Sandbox.create(api_key=E2B_API_KEY, timeout=SANDBOX_LIFETIME_SECONDS)
     try:
         sandbox.files.write(DATA_PATH, csv_text)
+        installed = sandbox.run_code(INSTALL_CODE, timeout=INSTALL_TIMEOUT_SECONDS)
+        if installed.error is not None:
+            raise RuntimeError(f"datasets package could not be installed: {installed.error.value}")
         execution = sandbox.run_code(code, timeout=RUN_TIMEOUT_SECONDS)
     finally:
         sandbox.kill()
