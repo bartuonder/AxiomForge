@@ -5,11 +5,12 @@ from openai import OpenAI
 
 from app.agents.spec import call_name, spec_brief
 from app.config import OPENAI_API_KEY
+from app.datasets import data_brief, pick_dataset
 from app.seeds import SPLIT_SEEDS
 from app.variants import baseline_name, configured_models, expected_keys
 
 MODEL = "gpt-4o"
-PROMPT_VERSION = "experiment-v8"
+PROMPT_VERSION = "experiment-v9"
 MIN_MODELS = 2
 QUERY_NAMES_TOO_FEW_MODELS = "query names fewer than two models"
 
@@ -34,12 +35,13 @@ SYSTEM_PROMPT = (
     "Do not construct an estimator outside that dict. "
     "Train every models entry on the same rows and the same train/test split in each loop pass. "
     "When an Experiment specification is given, its dataset and parameters decide the data and the constructor arguments. "
-    "Do not use a tiny synthetic CSV as the only data. "
-    "Load a realistic classification dataset from sklearn.datasets, such as load_breast_cancer, "
-    "or build a clearly imbalanced set with sklearn.datasets.make_classification. "
-    "Veri Üretimi Sabiti: Veriyi herhangi bir döngünün dışında tek bir kere yükle veya üret. "
-    "make_classification kullanıyorsan class_sep 0.5 veya daha düşük olsun ve weights ile net bir imbalanced dağılım kur. "
-    "Veri üretiminin random_state değeri sabit bir tam sayı olsun ve split döngüsünde değişmesin. "
+    "The data is a real dataset from the Hugging Face Hub. The user message gives a data block: "
+    "paste it unchanged at the top level of the script, before the models dict. "
+    "Never generate, simulate or load bundled data with sklearn.datasets, and never use the tiny CSV as the data. "
+    "Build every models value as with_preprocessing(estimator), defined in the data block, "
+    "so that imputation, scaling and encoding are fitted inside each training part only. "
+    "Do not preprocess X or y anywhere else and do not fit a transformer on the whole data. "
+    "Veri Sabiti: Veri bloğu herhangi bir döngünün dışında tek bir kere çalışır ve içindeki örnekleme tohumu sabittir. "
     "Seed Döngüsü Protokolü: Test döngüsü yalnız train_test_split random_state değerini değiştirir. "
     f"Döngü tam olarak şu {len(SPLIT_SEEDS)} tohum olsun, bu sırayla: {', '.join(str(seed) for seed in SPLIT_SEEDS)}. "
     "Every train_test_split call must pass stratify=y, the label array, so that every split keeps the class ratio. "
@@ -48,9 +50,8 @@ SYSTEM_PROMPT = (
     "Dengesiz (imbalanced) veri setlerinde asla sadece Accuracy'ye güvenme; "
     "kodun mutlaka ROC-AUC ve PR-AUC'yi de ölçmelidir. "
     "Terminoloji Kesinliği: Standart sapma ile varyansı karıştırma. Varyans, standart sapmanın karesidir. "
-    "Before any model line, print exactly one dataset line: "
-    "dataset=<name> samples=<int> features=<int> negative_ratio=<float> positive_ratio=<float> "
-    "negative_ratio is the share of the negative class and positive_ratio is the share of the positive class. "
+    "The data block prints the one dataset line (dataset=<name> samples=<int> features=<int> "
+    "negative_ratio=<float> positive_ratio=<float>); print no other dataset line. "
     "Use accuracy_score, f1_score, roc_auc_score, average_precision_score, and confusion_matrix. "
     "Time only model.fit with time.time(). "
     "If an allowed model is not already installed, install its package with subprocess before importing it. "
@@ -349,6 +350,8 @@ def _task(prompt: str, csv_schema: str, models: list[dict], spec: dict | None = 
     )
     if spec:
         task += "\n\n" + spec_brief(spec)
+    else:
+        task += "\n\n" + data_brief(pick_dataset(prompt))
     return task
 
 

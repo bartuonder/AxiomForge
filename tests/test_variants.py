@@ -1,5 +1,6 @@
 from app.agents.experiment import _task, models_dict_error, requested_models
 from app.agents.spec import spec_brief, spec_code_error, validate_spec
+from app.datasets import loader_code
 from app.variants import (
     base_model,
     baseline_name,
@@ -22,19 +23,17 @@ def make_spec(params):
     )
 
 
-CONTROLLED = """
-from sklearn.datasets import load_breast_cancer
+CONTROLLED = loader_code("breast_cancer") + """
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
-X, y = load_breast_cancer(return_X_y=True)
 models = {
-    "RandomForest": RandomForestClassifier(n_estimators=300, random_state=0),
-    "RandomForest__default": RandomForestClassifier(random_state=0),
-    "XGBoost": XGBClassifier(),
+    "RandomForest": with_preprocessing(RandomForestClassifier(n_estimators=300, random_state=0)),
+    "RandomForest__default": with_preprocessing(RandomForestClassifier(random_state=0)),
+    "XGBoost": with_preprocessing(XGBClassifier()),
 }
 """
 
-UNCONTROLLED = CONTROLLED.replace('    "RandomForest__default": RandomForestClassifier(random_state=0),\n', "")
+UNCONTROLLED = CONTROLLED.replace('    "RandomForest__default": with_preprocessing(RandomForestClassifier(random_state=0)),\n', "")
 
 
 def test_names_round_trip():
@@ -74,7 +73,7 @@ def test_the_contract_without_parameters_is_unchanged():
 
 def test_a_baseline_entry_must_build_the_same_estimator_class():
     spec = make_spec({"RandomForest": {"n_estimators": 300}})
-    code = CONTROLLED.replace('"RandomForest__default": RandomForestClassifier(random_state=0)', '"RandomForest__default": XGBClassifier()')
+    code = CONTROLLED.replace('"RandomForest__default": with_preprocessing(RandomForestClassifier(random_state=0))', '"RandomForest__default": with_preprocessing(XGBClassifier())')
     assert "RandomForest__default" in spec_code_error(code, spec, MODELS)
 
 
@@ -103,7 +102,7 @@ def test_the_parameters_must_not_sit_only_on_the_baseline_entry():
     spec = make_spec({"RandomForest": {"n_estimators": 300}})
     moved = (
         CONTROLLED.replace("n_estimators=300, ", "")
-        .replace('"RandomForest__default": RandomForestClassifier(', '"RandomForest__default": RandomForestClassifier(n_estimators=300, ')
+        .replace('"RandomForest__default": with_preprocessing(RandomForestClassifier(', '"RandomForest__default": with_preprocessing(RandomForestClassifier(n_estimators=300, ')
     )
     assert "RandomForest.n_estimators=300" in spec_code_error(moved, spec, MODELS)
 

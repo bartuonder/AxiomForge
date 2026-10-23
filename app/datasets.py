@@ -1,4 +1,5 @@
 import ast
+import re
 from typing import Any
 
 SYNTHETIC_CALLS = frozenset(
@@ -68,7 +69,7 @@ DATASETS: dict[str, dict[str, Any]] = {
     "credit_fraud": {
         "hf_id": "David-Egea/Creditcard-fraud-detection",
         "summary": "European credit card transactions, 30 numeric features, fraud against legitimate; all 492 frauds plus 4000 legitimate rows (about 11% fraud, the full set has 0.17%)",
-        "topics": "fraud, anomaly, transaction, payment, security, rare event",
+        "topics": "fraud, fraudulent, credit card, anomaly, transaction, payment, security, rare event",
         "target": "Class",
         "positive": 1,
         "drop": [],
@@ -185,3 +186,29 @@ def dataset_code_error(code: str, key: str | None) -> str:
         first = ast.unparse(missing[0]).splitlines()[0]
         last_missing = f"The data block for {candidate} must be pasted unchanged at the top level of the script; this statement is missing or changed: {first}"
     return last_missing
+
+
+DEFAULT_DATASET = "customer_churn"
+
+
+def pick_dataset(text: str) -> str:
+    lowered = text.lower()
+    best, best_score = DEFAULT_DATASET, 0
+    for key, entry in DATASETS.items():
+        words = [word.strip() for word in str(entry["topics"]).split(",")]
+        score = sum(1 for word in words if re.search(rf"\b{re.escape(word)}", lowered))
+        if score > best_score:
+            best, best_score = key, score
+    return best
+
+
+def data_brief(key: str) -> str:
+    return (
+        f"Data: {describe(key)}.\n"
+        "Paste this data block unchanged at the top level of the script, before the models dict, "
+        "and do not generate or simulate data with any sklearn.datasets generator or loader. "
+        "The block already prints the dataset line, so print no other dataset line. "
+        "Build every models value as with_preprocessing(<estimator>) so that imputation, scaling and encoding "
+        "are fitted inside each training part only, and do not fit any transformer on the whole data.\n"
+        f"{loader_code(key)}"
+    )

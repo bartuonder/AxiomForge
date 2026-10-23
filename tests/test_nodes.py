@@ -12,7 +12,7 @@ SPLITS = len(VERIFICATION_SEEDS)
 WILD = ([0.95, 0.60, 0.97, 0.70, 0.99] * SPLITS)[:SPLITS]
 STEADY = ([0.90, 0.91, 0.89, 0.92, 0.90] * SPLITS)[:SPLITS]
 QUIET = ([0.91, 0.92, 0.90, 0.93, 0.91] * SPLITS)[:SPLITS]
-SPEC = {"statement": "stmt", "dataset": "imbalanced", "models": ["A", "B"], "params": {}}
+SPEC = {"statement": "stmt", "dataset": "customer_churn", "models": ["A", "B"], "params": {}}
 PROFILE = {"dataset": "d", "samples": 500.0, "features": 20.0, "negative_ratio": 0.9, "positive_ratio": 0.1}
 
 

@@ -1,6 +1,7 @@
 import pytest
 
 from app.agents.experiment import PROMPT_VERSION, SYSTEM_PROMPT, split_contract_error
+from app.datasets import loader_code
 from app.seeds import SPLIT_SEEDS
 
 STRATIFIED = """
@@ -62,7 +63,7 @@ def test_the_prompt_demands_stratification():
 
 
 def test_the_prompt_version_names_the_new_protocol():
-    assert PROMPT_VERSION == "experiment-v8"
+    assert PROMPT_VERSION == "experiment-v9"
 
 
 @pytest.mark.parametrize("seed", SPLIT_SEEDS)
@@ -70,13 +71,11 @@ def test_every_agreed_seed_is_a_plain_int(seed):
     assert isinstance(seed, int)
 
 
-MODELS_HEADER = """
-from sklearn.datasets import make_classification
+MODELS_HEADER = loader_code("customer_churn") + """
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
-X, y = make_classification(n_samples=500, weights=[0.9, 0.1], class_sep=0.5, random_state=1)
-models = {"SVM": SVC(), "KNN": KNeighborsClassifier()}
+models = {"SVM": with_preprocessing(SVC()), "KNN": with_preprocessing(KNeighborsClassifier())}
 """
 UNSTRATIFIED_SCRIPT = MODELS_HEADER + "a = train_test_split(X, y, random_state=42)\n"
 STRATIFIED_SCRIPT = MODELS_HEADER + "a = train_test_split(X, y, random_state=42, stratify=y)\n"

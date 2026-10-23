@@ -128,7 +128,7 @@ LINE = (
     "train_seconds=1.0 tn=50 fp=5 fn=5 tp=40"
 )
 PROFILE = {"dataset": "d", "samples": 500.0, "features": 20.0, "negative_ratio": 0.9, "positive_ratio": 0.1}
-SPEC = {"statement": "stmt", "dataset": "imbalanced", "models": ["A", "B"], "params": {}}
+SPEC = {"statement": "stmt", "dataset": "customer_churn", "models": ["A", "B"], "params": {}}
 CONTROLLED_SPEC = {
     **SPEC,
     "params": {"A": {"n_estimators": 300}},

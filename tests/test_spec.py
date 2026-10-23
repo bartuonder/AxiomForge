@@ -5,6 +5,7 @@ import pytest
 
 from app.agents.experiment import requested_models
 from app.agents.planner import _plan
+from app.datasets import loader_code
 from app.agents.spec import (
     MODEL_PARAMS,
     SpecError,
@@ -23,7 +24,7 @@ STATEMENT = "RandomForest has a higher ROC-AUC than XGBoost"
 
 
 def raw(**overrides):
-    base = {"statement": STATEMENT, "claim": dict(CLAIM), "dataset": "imbalanced", "params": {}}
+    base = {"statement": STATEMENT, "claim": dict(CLAIM), "dataset": "customer_churn", "params": {}}
     base.update(overrides)
     return base
 
@@ -37,7 +38,7 @@ def test_a_valid_spec_is_normalised():
         "statement": STATEMENT,
         "models": KEYS,
         "claim": CLAIM,
-        "dataset": "imbalanced",
+        "dataset": "customer_churn",
         "params": {"RandomForest": {"n_estimators": 300, "class_weight": "balanced"}},
     }
 
@@ -90,17 +91,17 @@ def test_allowed_params_text_lists_each_model():
 def test_spec_brief_states_dataset_and_literal_parameters():
     spec = validate_spec(raw(params={"RandomForest": {"n_estimators": 300}}), KEYS)
     brief = spec_brief(spec)
-    assert "make_classification" in brief
+    assert "scikit-learn/churn-prediction" in brief
+    assert loader_code("customer_churn") in brief
+    assert "with_preprocessing" in brief
     assert "RandomForest" in brief
     assert "n_estimators=300" in brief
 
 
-IMBALANCED_CODE = """
-from sklearn.datasets import make_classification
+DATA_CODE = loader_code("customer_churn") + """
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
-X, y = make_classification(n_samples=2000, weights=[0.9, 0.1], class_sep=0.5, random_state=1)
-models = {"RandomForest": RandomForestClassifier(n_estimators=300, class_weight="balanced"), "XGBoost": XGBClassifier()}
+models = {"RandomForest": with_preprocessing(RandomForestClassifier(n_estimators=300, class_weight="balanced")), "XGBoost": with_preprocessing(XGBClassifier())}
 """
 
 PARAMS = {"RandomForest": {"n_estimators": 300, "class_weight": "balanced"}}
@@ -108,50 +109,50 @@ PARAMS = {"RandomForest": {"n_estimators": 300, "class_weight": "balanced"}}
 
 def test_code_that_follows_the_spec_passes():
     spec = validate_spec(raw(params=PARAMS), KEYS)
-    assert spec_code_error(IMBALANCED_CODE, spec, MODELS) == ""
+    assert spec_code_error(DATA_CODE, spec, MODELS) == ""
 
 
 def test_a_wrong_parameter_value_is_reported():
     spec = validate_spec(raw(params=PARAMS), KEYS)
-    error = spec_code_error(IMBALANCED_CODE.replace("300", "100"), spec, MODELS)
+    error = spec_code_error(DATA_CODE.replace("300", "100"), spec, MODELS)
     assert "RandomForest.n_estimators=300" in error
 
 
 def test_a_missing_parameter_is_reported():
     spec = validate_spec(raw(params={"XGBoost": {"max_depth": 3}}), KEYS)
-    assert "XGBoost.max_depth=3" in spec_code_error(IMBALANCED_CODE, spec, MODELS)
+    assert "XGBoost.max_depth=3" in spec_code_error(DATA_CODE, spec, MODELS)
 
 
 def test_negative_literals_are_matched():
     spec = validate_spec(raw(params={"XGBoost": {"max_depth": -1}}), KEYS)
-    code = IMBALANCED_CODE.replace("XGBClassifier()", "XGBClassifier(max_depth=-1)")
+    code = DATA_CODE.replace("XGBClassifier()", "XGBClassifier(max_depth=-1)")
     assert spec_code_error(code, spec, MODELS) == ""
 
 
-def test_imbalanced_dataset_needs_weights():
+def test_a_changed_data_block_is_reported():
     spec = validate_spec(raw(), KEYS)
-    code = IMBALANCED_CODE.replace("weights=[0.9, 0.1], ", "")
-    assert "weights" in spec_code_error(code, spec, MODELS)
+    code = DATA_CODE.replace('split="train"', 'split="test"')
+    assert "must be pasted unchanged" in spec_code_error(code, spec, MODELS)
 
 
-def test_breast_cancer_spec_rejects_a_generated_dataset():
+def test_the_block_of_another_dataset_is_rejected():
     spec = validate_spec(raw(dataset="breast_cancer"), KEYS)
-    assert "load_breast_cancer" in spec_code_error(IMBALANCED_CODE, spec, MODELS)
+    error = spec_code_error(DATA_CODE, spec, MODELS)
+    assert "breast_cancer" in error
+    assert "must be pasted unchanged" in error
 
 
-def test_breast_cancer_spec_accepts_the_loader():
+def test_a_generated_dataset_is_rejected_even_next_to_the_block():
     spec = validate_spec(raw(dataset="breast_cancer"), KEYS)
-    code = "from sklearn.datasets import load_breast_cancer\nX, y = load_breast_cancer(return_X_y=True)\n"
-    assert spec_code_error(code, spec, MODELS) == ""
+    code = loader_code("breast_cancer") + "\nfrom sklearn.datasets import make_classification\nb = make_classification()\n"
+    error = spec_code_error(code, spec, MODELS)
+    assert "make_classification" in error
+    assert "Hugging Face" in error
 
 
-def test_both_loaders_in_one_script_are_rejected():
+def test_the_block_of_the_chosen_dataset_is_accepted():
     spec = validate_spec(raw(dataset="breast_cancer"), KEYS)
-    code = (
-        "from sklearn.datasets import load_breast_cancer, make_classification\n"
-        "a = load_breast_cancer()\nb = make_classification(weights=[0.5, 0.5])\n"
-    )
-    assert spec_code_error(code, spec, MODELS) != ""
+    assert spec_code_error(loader_code("breast_cancer"), spec, MODELS) == ""
 
 
 def test_a_syntax_error_is_left_to_the_sandbox():
@@ -294,7 +295,7 @@ def test_a_single_model_query_ignores_a_claim_the_planner_added():
 )
 def test_a_single_model_statement_may_not_compare_anything(statement):
     with pytest.raises(SpecError, match="nothing to compare it with"):
-        validate_spec({"statement": statement, "dataset": "imbalanced"}, ["XGBoost"])
+        validate_spec({"statement": statement, "dataset": "customer_churn"}, ["XGBoost"])
 
 
 @pytest.mark.parametrize(
@@ -306,7 +307,7 @@ def test_a_single_model_statement_may_not_compare_anything(statement):
     ],
 )
 def test_an_absolute_single_model_statement_is_accepted(statement):
-    spec = validate_spec({"statement": statement, "dataset": "imbalanced"}, ["XGBoost"])
+    spec = validate_spec({"statement": statement, "dataset": "customer_churn"}, ["XGBoost"])
     assert spec["claim"] is None
     assert spec["statement"] == statement
 
@@ -402,11 +403,11 @@ def test_the_planner_is_asked_again_when_a_one_model_plan_compares_configuration
 
     single = requested_models("Evaluate XGBoost on an imbalanced fraud dataset")
     comparing = [
-        {"statement": f"XGBoost with depth {n} has a higher ROC-AUC than XGBoost with depth 3", "dataset": "imbalanced", "params": {}}
+        {"statement": f"XGBoost with depth {n} has a higher ROC-AUC than XGBoost with depth 3", "dataset": "customer_churn", "params": {}}
         for n in (4, 5, 6)
     ]
     absolute = [
-        {"statement": f"XGBoost reaches an ROC-AUC above 0.{n} on the imbalanced dataset", "dataset": "imbalanced", "params": {}}
+        {"statement": f"XGBoost reaches an ROC-AUC above 0.{n} on the imbalanced dataset", "dataset": "customer_churn", "params": {}}
         for n in (7, 8, 9)
     ]
     completions = FakeCompletions([plan(comparing), plan(absolute)])

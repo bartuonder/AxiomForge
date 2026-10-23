@@ -6,6 +6,7 @@ from openai import OpenAI
 from app.config import OPENAI_API_KEY
 from app.graph.evidence import evidence_sentences
 from app.graph.selection import primary_hypothesis
+from app.datasets import DATASETS, describe
 from app.graph.state import AgentState
 from app.variants import display_name
 
@@ -27,6 +28,8 @@ SYSTEM_PROMPT = (
     "her model parametresini olduğu gibi yaz; spec'te olmayan bir veri seti veya parametre uydurma. "
     "Veri Seti Şeffaflığı: Methodology kısmına veri setinin özelliklerini "
     "(örnek sayısı, feature sayısı, imbalanced oranı) kesinlikle yaz. "
+    "Veri seti gerçek bir Hugging Face veri setidir: Methodology içinde Dataset source satırındaki Hub kimliğini ve örneklemeyi olduğu gibi yaz, "
+    "veriyi sentetik veya üretilmiş diye anlatma. "
     "Zorunlu Atıf (Citation): Literatür taramasından (literature_context) gelen veya Planner'ın önerdiği yöntemleri "
     "kullanıyorsan, makalede bu yöntemin geçtiği yere parantez içinde yazar veya arXiv referansı ekle. "
     "Bu referans literature_context içinde açıkça yoksa uydurma; yöntemi makaleye dahil etme. "
@@ -159,6 +162,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Literature:\n{json.dumps(literature, ensure_ascii=False)}\n"
         f"Metrics: {json.dumps(metrics, ensure_ascii=False)}\n"
         f"Dataset profile:\n{json.dumps(dataset_profile, ensure_ascii=False)}\n"
+        f"Dataset source: {describe(str(experiment_spec['dataset'])) if experiment_spec.get('dataset') in DATASETS else 'not recorded'}\n"
         f"Tested models this run:\n{json.dumps(tested_models, ensure_ascii=False)}\n"
         f"Model results (rows from this run only; do not average and do not add models that are absent here):\n{json.dumps(model_results, ensure_ascii=False)}\n"
         f"Statistical results (exact Python means, standard deviations, variances, and statistical_conclusion; copy these, do not choose a winner):\n{json.dumps(statistical_results, ensure_ascii=False)}\n"

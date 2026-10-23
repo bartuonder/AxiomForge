@@ -11,6 +11,7 @@ from app.agents.experiment import (
     split_contract_error,
 )
 from app.agents.spec import spec_code_error
+from app.datasets import dataset_code_error, pick_dataset
 from app.variants import expected_keys
 from app.memory.rag_memory import save_experiment
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
@@ -51,6 +52,8 @@ def execute_experiment(
         contract_error = models_dict_error(source, allowed, spec)
         if not contract_error and spec:
             contract_error = spec_code_error(source, spec, allowed)
+        elif not contract_error:
+            contract_error = dataset_code_error(source, pick_dataset(prompt))
         if not contract_error:
             contract_error = split_contract_error(source)
         if contract_error:

@@ -9,12 +9,14 @@ import pytest
 from app.datasets import (
     DATASETS,
     SYNTHETIC_CALLS,
+    data_brief,
     dataset_code_error,
     dataset_keys,
     dataset_menu,
     describe,
     hf_ids,
     loader_code,
+    pick_dataset,
 )
 from app.tracking.mlflow_logger import parse_dataset_profile
 
@@ -189,3 +191,26 @@ def test_the_positive_label_becomes_one(key, hub):
     namespace = run(key)
     frame = fake_frame(key)
     assert int(namespace["y"].sum()) == int((frame[DATASETS[key]["target"]] == DATASETS[key]["positive"]).sum())
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("Compare SVM and RandomForest on tumour diagnosis", "breast_cancer"),
+        ("credit card fraud detection with rare events", "credit_fraud"),
+        ("Will the credit card client default on the loan", "credit_default"),
+        ("customer churn in a telecom subscription", "customer_churn"),
+        ("predict income from census demographics", "adult_income"),
+        ("something with no known domain", "customer_churn"),
+        ("", "customer_churn"),
+    ],
+)
+def test_the_dataset_follows_the_domain_of_the_text(text, expected):
+    assert pick_dataset(text) == expected
+
+
+def test_the_brief_pastes_the_block_and_forbids_generators():
+    brief = data_brief("adult_income")
+    assert loader_code("adult_income") in brief
+    assert "with_preprocessing" in brief
+    assert "do not generate or simulate data" in brief

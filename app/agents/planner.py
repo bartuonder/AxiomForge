@@ -2,8 +2,9 @@ import json
 
 from openai import OpenAI
 
-from app.agents.spec import DATASETS, SpecError, allowed_params_text, validate_spec
+from app.agents.spec import SpecError, allowed_params_text, validate_spec
 from app.config import OPENAI_API_KEY
+from app.datasets import dataset_keys, dataset_menu
 
 MODEL = "gpt-4o"
 MAX_PLAN_ATTEMPTS = 2
@@ -19,14 +20,14 @@ SYSTEM_PROMPT = (
     "or one model is more stable than the other in ROC-AUC variance. "
     "The parameters only decide how each model is configured for that comparison. "
     "A hypothesis must never claim that a parameter, a dataset or a method improves something, "
-    "because the experiment has no baseline to test that. "
+    "because the claim must compare the two models; the system measures the effect of the parameters separately against default controls. "
     "Its statement names both models and may mention their configuration only as context. "
     "Each hypothesis is a JSON object with these fields: "
     "statement (one testable sentence that names both models), "
     "claim (an object: kind is 'performance' or 'stability'; "
     "metric is roc_auc, pr_auc or f1 for a performance claim and roc_auc for a stability claim; "
     "subject is the model claimed to be higher or more stable; other is the model it is compared with), "
-    f"dataset (one of: {', '.join(DATASETS)}), "
+    f"dataset (one of: {', '.join(dataset_keys())}; choose the real dataset whose domain fits the query), "
     "params (an object keyed by model name, each value an object of allowed parameter names to numbers or strings; "
     "use an empty object when you set no parameter). "
     "If only one model is allowed, set claim to null and write one absolute sentence about that model's result "
@@ -57,6 +58,7 @@ def run_planner_agent(
         f"deneylerin kayıtları: {_format_past_experiments(past_experiments)}. "
         "Yeni hipotezler üretirken geçmişte başarısız olanları TEKRAR ETME.\n\n"
         f"Allowed models: {', '.join(model_keys)}\n"
+        f"Datasets (real Hugging Face data):\n{dataset_menu()}\n"
         f"Allowed parameters per model:\n{allowed_params_text(model_keys)}\n\n"
         f"Query:\n{query}\n\nLiterature:\n{literature}"
     )

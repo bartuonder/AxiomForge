@@ -3,12 +3,8 @@ import json
 import re
 from typing import Any
 
+from app.datasets import DATASETS, data_brief, dataset_code_error
 from app.variants import baseline_name, configured_models
-
-DATASETS = {
-    "breast_cancer": "sklearn.datasets.load_breast_cancer",
-    "imbalanced": "sklearn.datasets.make_classification with class_sep of at most 0.5 and a weights list",
-}
 
 MODEL_PARAMS: dict[str, tuple[str, ...]] = {
     "LinearSVC": ("C", "class_weight"),
@@ -125,11 +121,10 @@ def allowed_params_text(model_keys: list[str]) -> str:
 
 
 def spec_brief(spec: dict[str, Any]) -> str:
-    dataset = DATASETS[str(spec["dataset"])]
     lines = [
         "Experiment specification (follow it exactly):",
         json.dumps(spec, ensure_ascii=False),
-        f"Use this dataset and no other: {dataset}.",
+        data_brief(str(spec["dataset"])),
     ]
     for model, values in spec.get("params", {}).items():
         pairs = ", ".join(f"{name}={value!r}" for name, value in values.items())
@@ -156,17 +151,9 @@ def spec_code_error(code: str, spec: dict[str, Any], models: list[dict]) -> str:
         return ""
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
     names = {call_name(call.func) for call in calls}
-    if spec["dataset"] == "breast_cancer":
-        if "load_breast_cancer" not in names or "make_classification" in names:
-            return "The dataset must be load_breast_cancer and make_classification must not appear."
-    else:
-        generators = [call for call in calls if call_name(call.func) == "make_classification"]
-        weighted = any(keyword.arg == "weights" for call in generators for keyword in call.keywords)
-        if not weighted or "load_breast_cancer" in names:
-            return (
-                "The dataset must be make_classification with a weights argument "
-                "and load_breast_cancer must not appear."
-            )
+    data_error = dataset_code_error(code, str(spec["dataset"]))
+    if data_error:
+        return data_error
     classes = {str(item["key"]): tuple(item["classes"]) for item in models}
     missing: list[str] = []
     leaked: list[str] = []

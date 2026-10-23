@@ -9,7 +9,7 @@ import app.main as main
 
 SPECS = [
     {"statement": "first", "dataset": "breast_cancer", "models": ["A"], "params": {}},
-    {"statement": "second", "dataset": "imbalanced", "models": ["A"], "params": {"A": {"C": 2}}},
+    {"statement": "second", "dataset": "customer_churn", "models": ["A"], "params": {"A": {"C": 2}}},
     {"statement": "third", "dataset": "breast_cancer", "models": ["A"], "params": {}},
 ]
 WAITING = {

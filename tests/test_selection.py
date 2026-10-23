@@ -5,7 +5,7 @@ from app.graph.selection import primary_hypothesis, selected_index, validate_sel
 
 SPECS = [
     {"statement": "first", "dataset": "breast_cancer", "models": ["A"], "params": {}},
-    {"statement": "second", "dataset": "imbalanced", "models": ["A"], "params": {"A": {"C": 2}}},
+    {"statement": "second", "dataset": "customer_churn", "models": ["A"], "params": {"A": {"C": 2}}},
     {"statement": "third", "dataset": "breast_cancer", "models": ["A"], "params": {}},
 ]
 
@@ -61,5 +61,5 @@ def test_the_report_brief_carries_only_the_selected_hypothesis():
     assert '["second"]' in brief
     assert "first" not in brief
     assert "third" not in brief
-    assert '"imbalanced"' in brief
+    assert '"customer_churn"' in brief
     assert '"C": 2' in brief

@@ -22,6 +22,8 @@ MAX_CRITIC_ROUNDS = 2
 LEAKAGE_PROMPT = (
     "Bu makine öğrenmesi kodunda test setine data leakage (veri sızıntısı) var mı? "
     "(Örn: train ve test ayrılmadan önce imputation veya fit_transform yapılmış mı?) "
+    "Bir Pipeline veya ColumnTransformer içinde duran ve yalnız eğitim bölümüne fit edilen ön işleme sızıntı sayılmaz. "
+    "Kimlik sütunlarını atmak, sabit tohumlu satır örneklemesi ve tür dönüştürme bölmeden önce olabilir ve sızıntı değildir. "
     "Analiz et ve varsa sebebini dön. "
     'Return only JSON: {"leakage": true, "reason": "..."}.'
 )

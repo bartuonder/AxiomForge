@@ -61,7 +61,7 @@ def log_run(verdict=None):
         critic_rounds=0,
         hypothesis="Hi has a higher ROC-AUC than Lo",
         dataset={"dataset": "d", "samples": 1000.0, "features": 20.0, "negative_ratio": 0.9, "positive_ratio": 0.1},
-        spec={"dataset": "imbalanced", "params": {}},
+        spec={"dataset": "customer_churn", "params": {}},
     )
     return mlflow.get_run(run_id)
 
