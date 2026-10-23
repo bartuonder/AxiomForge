@@ -31,11 +31,13 @@ from app.graph.verifier import (
     instability_text,
     judge_data_leakage,
     metric_summary,
+    parameter_effects,
     performance_comparisons,
     rewrite_seeds,
     seeded_rows,
     stability_decision,
     summarize_seed_runs,
+    without_baselines,
 )
 from app.memory.rag_memory import save_experiment, search_past_experiments
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
@@ -356,14 +358,16 @@ def verifier_node(state: AgentState) -> dict:
         logger.info("verifier leakage=%s reason=%s", leakage, leakage_reason)
         if leakage:
             reasons.append(f"Leakage çözülemedi: {leakage_reason}")
-    decision = stability_decision(collected)
+    main_runs = without_baselines(collected)
+    samples = float((state.get("dataset_profile") or {}).get("samples", 0.0))
+    spec = primary_hypothesis(state)[1] or {}
+    decision = stability_decision(main_runs)
     decision["instability"] = instability_finding(statistical_results)
     logger.info("verifier instability=%s", decision["instability"])
-    decision["performance"] = performance_comparisons(
-        collected,
-        float((state.get("dataset_profile") or {}).get("samples", 0.0)),
-    )
-    claim = (primary_hypothesis(state)[1] or {}).get("claim")
+    decision["performance"] = performance_comparisons(main_runs, samples)
+    decision["parameter_effects"] = parameter_effects(collected, samples, spec.get("params"))
+    logger.info("verifier parameter_effects=%s", decision["parameter_effects"])
+    claim = spec.get("claim")
     decision["hypothesis"] = hypothesis_verdict(claim, decision)
     logger.info("verifier hypothesis=%s", decision["hypothesis"])
     logger.info("verifier statistical_decision=%s", decision)

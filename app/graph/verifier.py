@@ -9,6 +9,7 @@ from openai import OpenAI
 from app.config import OPENAI_API_KEY
 from app.graph.stats import MIN_SPLITS, corrected_resampled_t, holm_adjust, pitman_morgan_p
 from app.seeds import SPLIT_SEEDS
+from app.variants import baseline_name, is_baseline
 
 VERIFICATION_SEEDS = SPLIT_SEEDS
 UNSTABLE_STD = 0.05
@@ -63,7 +64,7 @@ def summarize_seed_runs(
             record[f"{metric}_variance"] = std ** 2
         summary[name] = record
     finished: dict[str, dict[str, float] | str] = dict(summary)
-    finished["statistical_conclusion"] = conclusion_sentence(stability_decision(runs))
+    finished["statistical_conclusion"] = conclusion_sentence(stability_decision(without_baselines(runs)))
     return finished
 
 
@@ -144,17 +145,67 @@ def stability_decision(runs: list[list[dict[str, str | float]]]) -> dict[str, An
     return decision
 
 
+def without_baselines(runs: list[list[dict[str, str | float]]]) -> list[list[dict[str, str | float]]]:
+    return [[item for item in run if not is_baseline(str(item["model"]))] for run in runs]
+
+
+def _split_sizes(runs: list[list[dict[str, str | float]]], samples: float) -> tuple[float, float] | None:
+    rows = [item for run in runs for item in run]
+    if not rows or not all(key in rows[0] for key in ("tn", "fp", "fn", "tp")):
+        return None
+    test_size = float(rows[0]["tn"] + rows[0]["fp"] + rows[0]["fn"] + rows[0]["tp"])
+    train_size = float(samples) - test_size
+    if test_size <= 0 or train_size <= 0:
+        return None
+    return train_size, test_size
+
+
+def parameter_effects(
+    runs: list[list[dict[str, str | float]]],
+    samples: float,
+    params: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    sizes = _split_sizes(runs, samples)
+    if sizes is None or not params:
+        return []
+    train_size, test_size = sizes
+    effects: list[dict[str, Any]] = []
+    for metric in PERFORMANCE_METRICS:
+        series = model_series(runs, metric)
+        for model, values in params.items():
+            control = baseline_name(model)
+            if not values or model not in series or control not in series:
+                continue
+            if len(series[model]) != len(series[control]) or len(series[model]) < MIN_SPLITS:
+                continue
+            mean_difference, effect_size, p_value = corrected_resampled_t(
+                series[model], series[control], train_size, test_size
+            )
+            effects.append(
+                {
+                    "model": model,
+                    "params": dict(values),
+                    "metric": metric,
+                    "mean_difference": mean_difference,
+                    "effect_size_dz": effect_size,
+                    "p_value": p_value,
+                }
+            )
+    adjusted = holm_adjust([item["p_value"] for item in effects])
+    for item, adjusted_p in zip(effects, adjusted):
+        item["adjusted_p_value"] = adjusted_p
+        item["significant"] = adjusted_p < ALPHA
+    return effects
+
+
 def performance_comparisons(
     runs: list[list[dict[str, str | float]]],
     samples: float,
 ) -> list[dict[str, Any]]:
-    rows = [item for run in runs for item in run]
-    if not rows or not all(key in rows[0] for key in ("tn", "fp", "fn", "tp")):
+    sizes = _split_sizes(runs, samples)
+    if sizes is None:
         return []
-    test_size = float(rows[0]["tn"] + rows[0]["fp"] + rows[0]["fn"] + rows[0]["tp"])
-    train_size = float(samples) - test_size
-    if test_size <= 0 or train_size <= 0:
-        return []
+    train_size, test_size = sizes
     comparisons: list[dict[str, Any]] = []
     for metric in PERFORMANCE_METRICS:
         series = model_series(runs, metric)
@@ -251,7 +302,7 @@ def conclusion_sentence(decision: dict[str, Any]) -> str:
 def instability_finding(summary: dict[str, dict[str, float] | str]) -> dict[str, Any]:
     flagged: list[dict[str, Any]] = []
     for model, record in summary.items():
-        if not isinstance(record, dict):
+        if not isinstance(record, dict) or is_baseline(model):
             continue
         for metric in ("roc_auc", "f1"):
             std = float(record.get(f"{metric}_std", 0.0))
