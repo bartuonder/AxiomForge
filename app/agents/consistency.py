@@ -21,7 +21,7 @@ _SUPERIORITY = re.compile(
     re.IGNORECASE,
 )
 _NEGATION = re.compile(r"\b(?:no|not|neither|nor|none|never|cannot|without)\b|n't", re.IGNORECASE)
-_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|\n")
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])[\"')\]]*\s+|\n")
 _HEADING = re.compile(r"^#{1,6}[ \t]*(.+?)[ \t]*$", re.MULTILINE)
 _FAILED_VERIFICATION = re.compile(
     r"\bfailed\s+(?:the\s+)?(?:\w+\s+)?verification\b"
@@ -507,9 +507,12 @@ def parameter_effect_issues(paper: str, effects: list[dict] | None) -> list[str]
         if not item.get("significant"):
             offending = None
             for sentence in prose:
+                if _HYPOTHESIS_WORD.search(sentence) or _INTENT.search(sentence):
+                    continue
                 for clause in _CLAUSE_BREAK.split(sentence):
                     if (
-                        squashed in _squash(clause)
+                        _DEFAULT_TERMS.search(clause)
+                        and squashed in _squash(clause)
                         and label.search(clause)
                         and _CLAIM_TERMS.search(clause)
                         and not _NEGATION.search(clause)
