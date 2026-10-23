@@ -50,6 +50,10 @@ Karar verildi (Seçenek B): konfigürasyon karışıklığı, parametre verilen 
 
 Üçüncü gerçek tam koşu (thread `26344d2d-7234-415f-8d2f-ee1e529d4668`, RandomForest ve LogisticRegression, sorgu bilerek StandardScaler'ın tüm veriye bölmeden önce uydurulmasını istiyordu, hipotez 2 seçildi) `Passed` ve `Completed` bitti. Tur 0'da LLM sızıntı yargıcı sızıntıyı yakaladı, doğrulama `Failed` oldu, eleştirmen kodu düzeltti, tur 1'de `Passed`. 4 model (iki asıl, iki kontrol) × 10 bölme = 40 iç içe MLflow run'ı. Parametre etkilerinden yalnız LogisticRegression `C=0.1` F1'de anlamlıydı (varsayılandan düşük, `dz` 2.53, düzeltilmiş `p` 0.012). Kapı ilk denemede geçti. Ama makale çelişiyordu: Methodology "StandardScaler tüm veri üzerinde bölmeden önce uyduruldu" yazıp aynı yerde "veri sızıntısı tespit edilmedi" diyordu, çünkü yazıcı düzeltilmiş kodu değil sorgudaki talimatı aktarmıştı. Hiçbir kontrol bunu yakalamıyordu. Çözüm: `leakage_description_issues` kapıya eklendi ve yazıcı prompt'u ön işlemeyi Final code ile aynı anlatmasını istiyor. Kural gerçek makalede sorunu yakalıyor, reports içindeki diğer dokuz makalede yanlış alarm vermiyor. Bu koşuda denenmeyen yollar: `Failed` doğrulama makalesi, `NeedsReview`, betik döngü basmadığında 10 koşuluk yedek yol, sandbox zaman aşımı.
 
+Dördüncü gerçek tam koşu (thread `96acf4c2-2712-4ea7-9977-a447186a7670`, sorgu tek bölme istiyordu) 10 koşuluk yedek yolu gerçek servislerle denedi: doğrulayıcı kodu bir kez çalıştırdı, bölme döngüsü bulamadı, tohumları 42'den 900'e yazıp 10 ayrı E2B koşusu yaptı (her biri yaklaşık 5 sn), 4 model × 10 bölme = 40 iç içe MLflow run'ı oluştu. Doğrulama `Passed` oldu. Koşu `NeedsReview` bitti, çünkü `parameter_effect_issues` yanlış alarm verdi: Methodology'deki tırnaklı hipotez cümlesi (`...dataset."`) cümle bölücüde bölünmedi ve yanındaki "The control group included models with default parameters" cümlesiyle birleşip anlamlı olmayan iki etki için fark iddiası sayıldı. Çözüm `7673cb7`: bölücü kapanış işaretlerini (`"`, `'`, `)`, `]`) cümle sonuna dahil eder, "default" aynı yan cümlede aranır, hipotez ve amaç cümleleri muaftır. Ders: yeni bir kalıp kontrolünü yalnız eski makalelerle değil, yeni özelliğin gerçek makalesiyle de sına.
+
+Gerçek veri entegrasyonu (Faz 10, `2d29b9e` ve `8a50ef1`) sonrası iki küçük canlı deneme yapıldı (grafın dışında, `execute_experiment`): spesifikasyonlu churn (RF ve LR, kontrol grubuyla, 36 sn) ve spesifikasyonsuz fraud (XGBoost ve KNN, 34 sn). İkisi de ilk denemede geçti, veri bloğu aynen yapıştırıldı. Gerçek veri setleriyle tam araştırma koşusu henüz yapılmadı (Koşu 3 ve 4 sentetik veriyle yapılmıştı).
+
 Yeni iş için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
@@ -124,6 +128,10 @@ Faz 7. `experiment-v4`. Veri döngünün dışında bir kez ve sabit tohumla gel
 
 Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptta ve şablonda varsayılan model yoktur. Üretilen `models` sözlüğü bu anahtarların dışına çıkamaz. Hipotez model ekleyemez. Sorguda en az iki model yoksa istek `422` ve `query names fewer than two models` ile reddedilir (Faz 8'de eşik bir modeldi). Her metriğin varyansı `std ** 2` olur ve `{metrik}_variance` diye yazılır. `statistical_conclusion` ROC-AUC için Pitman-Morgan testi ve Holm düzeltmesiyle kurulur (ilk sürümde `VARIANCE_TIE_GAP = 0.005` sabit eşiği vardı, kaldırıldı). Tek bir model her rakibine karşı anlamlı biçimde düşük varyanslıysa `winner`, değilse `tie` olur. Cümleler İngilizcedir ve karar `statistical_decision` alanında yapısal tutulur. Results ve Conclusion bu karar yönünde yazılır. `outcome` `tie` iken makalede `superior`, `more stable`, `outperformed` veya `better` geçiyorsa LLM çağrılmaz. Hata `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` olur ve rapor yeniden yazılır.
 
+Faz 9. `experiment-v8`. Parametre verilen her model `Model__default` kontrol girdisiyle birlikte koşar, doğrulayıcı kontrolü ana analizlerden çıkarır ve `parameter_effects` etkiyi kontrole karşı ölçer (`app/variants.py`).
+
+Faz 10. `experiment-v9`. Veri sentetik değil, `app/datasets.py` kaydındaki beş doğrulanmış Hugging Face veri setinden biridir (`breast_cancer`, `credit_default`, `customer_churn`, `adult_income`, `credit_fraud`). Python her set için bir veri bloğu üretir, ajan bloğu aynen yapıştırır, AST denetimi (`dataset_code_error`) bunu zorunlu kılar ve sentetik yükleyicileri reddeder. Ön işleme `with_preprocessing` ile her modelin `Pipeline`'ında eğitim bölümüne uydurulur. Sandbox her koşudan önce `datasets` paketini kurar. Faz 5 ve Faz 7'deki `make_classification` anlatımı artık geçerli değildir.
+
 ## Kodun durduğu yerler
 
 | Konu | Dosya |
@@ -137,9 +145,10 @@ Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptt
 | Bölme tohumu, NumPy özeti ve `stability_decision` | `app/graph/verifier.py` |
 | Araştırma hatalarının kaydı | `app/graph/errors.py` |
 | Pitman-Morgan, düzeltilmiş t-testi, Holm | `app/graph/stats.py` |
-| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v8` |
+| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v9` |
 | Deney spesifikasyonu | `app/agents/spec.py` |
 | Kontrol grubu adlandırması | `app/variants.py` |
+| Hugging Face veri seti kaydı ve veri bloğu | `app/datasets.py` |
 | Planlayıcı | `app/agents/planner.py` |
 | Rapor promptu | `app/agents/report.py` |
 | İddia hakemi | `app/agents/consistency.py` |
