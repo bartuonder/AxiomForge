@@ -16,6 +16,7 @@ from app.agents.consistency import (
     reliability_issue,
     table_issues,
     tuning_claim_issues,
+    unfounded_instability_issues,
     untuned_model_issues,
     unsupported_difference_issues,
     verification_issue,
@@ -279,6 +280,7 @@ def _gate_issues(state: AgentState) -> list[str]:
     issues.extend(leakage_description_issues(paper, status))
     spec = primary_hypothesis(state)[1] or {}
     issues.extend(untuned_model_issues(paper, spec))
+    issues.extend(unfounded_instability_issues(paper, decision.get("instability"), spec.get("models")))
     issues.extend(tuning_claim_issues(paper, decision.get("parameter_effects"), spec))
     issues.extend(table_issues(paper, statistical_results))
     return issues

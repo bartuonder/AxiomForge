@@ -35,7 +35,7 @@ _INSTABILITY_TERMS = re.compile(
     r"\bunstab\w*|\binstabilit\w*|\bhigh(?:er)?\s+(?:variance|variability)\b"
     r"|\b(?:large|high|substantial)\s+(?:standard\s+deviation|std|spread)\b"
     r"|\bexceed\w*\s+(?:the\s+)?(?:\w+\s+){0,3}threshold\b"
-    r"|\bsensitiv\w*\s+to\s+(?:the\s+)?(?:data\s+|train\w*\s+)?split",
+    r"|\bsensitiv\w*\s+to\s+(?:the\s+)?(?:data\s+|train\w*\s+)?(?:split|partition)",
     re.IGNORECASE,
 )
 INSTABILITY_ABSTRACT_NOTICE = (
@@ -193,6 +193,15 @@ COLLECTIVE_CLAIM_NOTICE = (
     '{metric} için {model} modelinin her rakibine karşı anlamlı bir {direction} yok (her çiftte significant true ve aynı yönde olmalı) '
     'ama makale toplu bir iddia kuruyor: "{sentence}". Toplu ifade ("the other models", "all models") kullanma; '
     'yalnız anlamlı satırları tek tek yaz.'
+)
+UNFOUNDED_INSTABILITY_NOTICE = (
+    'Doğrulayıcı hiçbir modeli kararsız bulmadı (instability.unstable false) ama makale kararsızlık, yüksek varyans ya da '
+    'bölmeye duyarlılık iddia ediyor: "{sentence}". Bu iddiayı kaldır; kararsızlık yalnız unstable true iken ve flagged '
+    'listesindeki modeller için yazılır.'
+)
+UNFOUNDED_MODEL_INSTABILITY_NOTICE = (
+    'Kararsızlık bulgusu yalnız {flagged} için var ama makale {named} için kararsızlık iddia ediyor: "{sentence}". '
+    'Kararsızlığı yalnız flagged listesindeki modeller için yaz.'
 )
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
@@ -694,6 +703,37 @@ def collective_claim_issues(paper: str, performance: list[dict] | None) -> list[
                         sentence=sentence.strip()[:200],
                     )
                 )
+    return issues
+
+
+def unfounded_instability_issues(paper: str, instability: dict | None, models: list[str] | None = None) -> list[str]:
+    if not isinstance(instability, dict) or "unstable" not in instability:
+        return []
+    flagged = {str(item["model"]) for item in instability.get("flagged") or []}
+    known = [str(model) for model in models or []]
+    issues: list[str] = []
+    for sentence in _prose_sentences(paper):
+        if not _INSTABILITY_TERMS.search(sentence):
+            continue
+        if _NEGATION.search(sentence) or re.search(r"\bthan\b", sentence, re.IGNORECASE):
+            continue
+        if _HYPOTHESIS_WORD.search(sentence) or _INTENT.search(sentence):
+            continue
+        if not instability.get("unstable"):
+            issues.append(UNFOUNDED_INSTABILITY_NOTICE.format(sentence=sentence.strip()[:200]))
+        else:
+            squashed = _squash(sentence)
+            named = [model for model in known if _squash(model) in squashed]
+            if named and not any(model in flagged for model in named):
+                issues.append(
+                    UNFOUNDED_MODEL_INSTABILITY_NOTICE.format(
+                        flagged=", ".join(sorted(flagged)),
+                        named=", ".join(named),
+                        sentence=sentence.strip()[:200],
+                    )
+                )
+        if len(issues) == 3:
+            break
     return issues
 
 
