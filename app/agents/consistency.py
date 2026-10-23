@@ -144,6 +144,26 @@ EFFECT_UNSUPPORTED_NOTICE = (
     '{model} için {metric} metriğinde parametrelerin varsayılana göre etkisi anlamlı değil (significant false) '
     'ama makale bir fark iddia ediyor: "{clause}". Bu etki için yalnızca "No significant effect" cümlesini kullan.'
 )
+_PREPROCESSING = re.compile(
+    r"\b(?:scal(?:e|ed|es|ing|er)|standardi[sz]\w*|normali[sz]\w*|preprocess\w*|imput\w*|transform\w*)\b"
+    r"|\bPCA\b|\bfeature\s+selection\b",
+    re.IGNORECASE,
+)
+_BEFORE_SPLIT = re.compile(
+    r"\b(?:before|prior\s+to|ahead\s+of)\s+(?:the\s+)?(?:\w+[- ]){0,2}?(?:split\w*|partition\w*)",
+    re.IGNORECASE,
+)
+_WHOLE_DATA = re.compile(
+    r"\b(?:entire|whole|full|complete)\s+(?:data\s?set|data|samples)\b"
+    r"|\ball\s+(?:of\s+)?the\s+(?:data|samples)\b",
+    re.IGNORECASE,
+)
+_AFTER_SPLIT = re.compile(r"\bafter\s+(?:the\s+)?(?:\w+[- ]){0,2}?(?:split\w*|partition\w*)", re.IGNORECASE)
+LEAKAGE_DESCRIPTION_NOTICE = (
+    'Doğrulama veri sızıntısı olmadığını söylüyor ama makale ön işlemeyi veri bölünmeden önce ya da tüm veri üzerinde '
+    'yapılmış gibi anlatıyor: "{sentence}". Ön işlemenin yalnız eğitim bölümüne uydurulduğunu, test bölümüne '
+    'yalnız uygulandığını yaz; sorgudaki talimat sızıntılıydıysa bunun düzeltildiğini belirt.'
+)
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
     'iddia ediyor: "{clause}". Bu karşılaştırma için yalnızca "No significant difference" cümlesini kullan.'
@@ -520,6 +540,20 @@ def parameter_effect_issues(paper: str, effects: list[dict] | None) -> list[str]
         if effect and not any(abs(number - effect) <= EFFECT_SIZE_TOLERANCE for number in numbers):
             issues.append(EFFECT_SIZE_DEFAULT_NOTICE.format(model=model, metric=metric, value=f"{effect:.2f}"))
     return issues
+
+
+def leakage_description_issues(paper: str, verification_status: str) -> list[str]:
+    if verification_status != "Passed":
+        return []
+    for sentence in _prose_sentences(paper):
+        if (
+            _PREPROCESSING.search(sentence)
+            and (_BEFORE_SPLIT.search(sentence) or _WHOLE_DATA.search(sentence))
+            and not _AFTER_SPLIT.search(sentence)
+            and not _NEGATION.search(sentence)
+        ):
+            return [LEAKAGE_DESCRIPTION_NOTICE.format(sentence=sentence.strip()[:200])]
+    return []
 
 
 def instability_issues(paper: str, instability: dict | None) -> list[str]:
