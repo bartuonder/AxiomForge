@@ -4,6 +4,7 @@ import re
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
+from app.variants import display_name
 
 MODEL = "gpt-4o"
 _NO_DIFFERENCE = re.compile(
@@ -128,6 +129,21 @@ _CLAIM_TERMS = re.compile(
     r"\bhigher\b|\blower\b|\bbetter\b|\bworse\b|\boutperform\w*|\bsuperior\b|\bgreater\b|\blarger\b|\bexceed\w*|\bimprov\w*",
     re.IGNORECASE,
 )
+_DEFAULT_TERMS = re.compile(r"\bdefault\b|\bcontrol\s+group\b", re.IGNORECASE)
+_UP_TERMS = re.compile(r"\bhigher\b|\bgreater\b|\blarger\b|\bbetter\b|\bimprov\w*|\bincreas\w*", re.IGNORECASE)
+_DOWN_TERMS = re.compile(r"\blower\b|\bworse\b|\bsmaller\b|\breduc\w*|\bdecreas\w*|\bdegrad\w*|\bdeclin\w*", re.IGNORECASE)
+EFFECT_OMISSION_NOTICE = (
+    "{model} için {metric} metriğinde parametrelerin varsayılana göre etkisi anlamlı (significant true, {direction}) "
+    "ama makale bunu tablo dışında bir cümlede yazmıyor. Results içinde 'with the listed parameters' ve "
+    "'with default parameters' ifadeleriyle yönü doğru (higher veya lower) yaz ve adjusted_p_value ile effect_size_dz ekle."
+)
+EFFECT_SIZE_DEFAULT_NOTICE = (
+    "{model} için {metric} metriğinde parametrelerin etki büyüklüğü (effect_size_dz = {value}) makalede yok."
+)
+EFFECT_UNSUPPORTED_NOTICE = (
+    '{model} için {metric} metriğinde parametrelerin varsayılana göre etkisi anlamlı değil (significant false) '
+    'ama makale bir fark iddia ediyor: "{clause}". Bu etki için yalnızca "No significant effect" cümlesini kullan.'
+)
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
     'iddia ediyor: "{clause}". Bu karşılaştırma için yalnızca "No significant difference" cümlesini kullan.'
@@ -228,7 +244,7 @@ def direction_conflict(paper: str, statistical_decision: dict) -> str:
         return ""
     labels = _significant_metric_labels(statistical_decision)
     for sentence in _SENTENCE_BREAK.split(paper):
-        if not _SUPERIORITY.search(sentence) or _NEGATION.search(sentence):
+        if not _SUPERIORITY.search(sentence) or _NEGATION.search(sentence) or _DEFAULT_TERMS.search(sentence):
             continue
         if _HYPOTHESIS_WORD.search(sentence) or _INTENT.search(sentence):
             continue
@@ -296,7 +312,7 @@ def performance_issues(paper: str, performance: list[dict] | None) -> list[str]:
     significant = [item for item in performance or [] if item.get("significant")]
     if not significant:
         return []
-    prose = _prose_sentences(paper)
+    prose = [sentence for sentence in _prose_sentences(paper) if not _DEFAULT_TERMS.search(sentence)]
     numbers = [float(match.group()) for sentence in prose for match in _NUMBER.finditer(sentence)]
     issues: list[str] = []
     for item in significant:
@@ -398,7 +414,7 @@ def table_issues(paper: str, statistical_results: dict | None) -> list[str]:
     for model, record in records.items():
         row = next((item for item in rows[1:] if item and _squash(item[0]) == _squash(model)), None)
         if row is None:
-            issues.append(TABLE_ROW_NOTICE.format(model=model))
+            issues.append(TABLE_ROW_NOTICE.format(model=display_name(model)))
             continue
         for index, metric in columns.items():
             mean, std = float(record[f"{metric}_mean"]), float(record[f"{metric}_std"])
@@ -408,7 +424,7 @@ def table_issues(paper: str, statistical_results: dict | None) -> list[str]:
                 continue
             issues.append(
                 TABLE_CELL_NOTICE.format(
-                    model=model,
+                    model=display_name(model),
                     metric=_TABLE_LABELS[metric],
                     found=cell or "boş",
                     expected=f"{mean:.4f} ± {std:.4f}",
@@ -453,6 +469,56 @@ def unsupported_difference_issues(paper: str, performance: list[dict] | None) ->
                     metric=_METRIC_NAMES[key], a=item["a"], b=item["b"], clause=offending[:200]
                 )
             )
+    return issues
+
+
+def parameter_effect_issues(paper: str, effects: list[dict] | None) -> list[str]:
+    prose = [sentence for sentence in _prose_sentences(paper) if _DEFAULT_TERMS.search(sentence)]
+    numbers = [float(match.group()) for sentence in prose for match in _NUMBER.finditer(sentence)]
+    issues: list[str] = []
+    for item in effects or []:
+        key = str(item.get("metric", ""))
+        label = _METRIC_LABELS.get(key)
+        if label is None:
+            continue
+        model = str(item["model"])
+        squashed = _squash(model)
+        metric = _METRIC_NAMES[key]
+        if not item.get("significant"):
+            offending = None
+            for sentence in prose:
+                for clause in _CLAUSE_BREAK.split(sentence):
+                    if (
+                        squashed in _squash(clause)
+                        and label.search(clause)
+                        and _CLAIM_TERMS.search(clause)
+                        and not _NEGATION.search(clause)
+                    ):
+                        offending = clause.strip()
+                        break
+                if offending:
+                    break
+            if offending:
+                issues.append(EFFECT_UNSUPPORTED_NOTICE.format(model=model, metric=metric, clause=offending[:200]))
+            continue
+        gain = float(item.get("mean_difference", 0.0)) > 0
+        right, wrong = (_UP_TERMS, _DOWN_TERMS) if gain else (_DOWN_TERMS, _UP_TERMS)
+        reported = any(
+            squashed in _squash(sentence)
+            and label.search(sentence)
+            and right.search(sentence)
+            and not wrong.search(sentence)
+            and not _NEGATION.search(sentence)
+            for sentence in prose
+        )
+        if not reported:
+            issues.append(
+                EFFECT_OMISSION_NOTICE.format(model=model, metric=metric, direction="higher" if gain else "lower")
+            )
+            continue
+        effect = abs(float(item.get("effect_size_dz", 0.0)))
+        if effect and not any(abs(number - effect) <= EFFECT_SIZE_TOLERANCE for number in numbers):
+            issues.append(EFFECT_SIZE_DEFAULT_NOTICE.format(model=model, metric=metric, value=f"{effect:.2f}"))
     return issues
 
 
