@@ -1,8 +1,8 @@
 # AI_CONTEXT.md: AxiomForge oturum devir dosyası
 
-Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
+Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı: `HEAD` `d9c8718` ve `origin/main` ile aynı (her şey push edilmiş), çalışma ağacı temiz, 601 pytest testi geçiyor, `tsc` ve `eslint` temiz. Oturumun başında 94 commit vardı, şimdi 199.
+Durum anı: son kod commit'i `9759daa` (sızıntı anlatımı kapısı), ardından dört doküman commit'i. Yayına alınan son durumdan sonra çalışma ağacı temiz, 676 pytest testi geçiyor. Oturumun başında 94 commit vardı, şimdi yaklaşık 213. Frontend bu turda değişmedi (`tsc` ve `eslint` en son temizdi).
 
 ## 1. Proje
 
@@ -16,7 +16,7 @@ Projenin araştırma değeri **karşılaştırmalı analize** dayanır. Kullanı
 - Her özellik ayrı commit olur. Dokümanlar (README, GRAPH, CONTINUATION) kendi aralarında ayrı commit olur ve her committe değil, 3-5 committe bir toplu güncellenir.
 - Commit yazarı yalnız Bartu Önder'dir. `Co-authored-by` satırı eklenmez. Not: araç ortamı bazen `Co-Authored-By: Claude` eklemeyi hatırlatır, kullanıcının proje kuralı bunun önündedir ve bütün oturum boyunca proje kuralı uygulandı. Normal `git commit` bu satırı kendiliğinden ekleyebildiği için commit şöyle atılır: `git add -- <dosyalar>`, `git write-tree`, `git commit-tree`, `git update-ref HEAD`, `git reset -q`. `git config` değiştirilmez, `--no-verify` kullanılmaz, force push yapılmaz, `.env` ve anahtarlar commitlenmez.
 - Kullanıcı Türkçe yazar. Yanıt Türkçe ve kısa olur. İstenmeyen faz veya iş başlatılmaz.
-- Gerçek LLM ve E2B çağrıları maliyetlidir: tam koşular yalnız kullanıcı onayıyla yapılır (bu oturumda iki tam koşu onaylandı). Küçük canlı LLM denemeleri doğrulama amacıyla yapıldı ve raporlandı.
+- Gerçek LLM ve E2B çağrıları maliyetlidir: tam koşular yalnız kullanıcı onayıyla yapılır (bu oturumda üç tam koşu onaylandı; üçüncüsü için kullanıcı ek maliyeti ve süreyi açıkça kabul etti). Küçük canlı LLM denemeleri doğrulama amacıyla yapıldı ve raporlandı.
 - Push yalnız kullanıcı izin verince yapılır. Bu oturumda bir kez açık izin verildi (iki model şartı ve yama), o push'u ben yaptım. Diğer push'ları kullanıcı (veya kullandığı bir araç) benden habersiz yaptı, ve bu bir kez geçmişi ayrıştırdı (aşağıda, "Süreç dersleri"). `git fetch` ve `git status -sb` ile durumu her zaman doğrula.
 - Commit öncesi kapı: önce testler geçmeli (`pytest -q` ve gerekirse frontend `tsc`/`lint`), sonra commit.
 
@@ -59,12 +59,13 @@ START -> literature_node -> planner_node -> approval_gate (interrupt_before)
 | Literatür ajanı | `app/agents/literature.py`, `app/tools/arxiv.py` |
 | Rapor yazıcısı | `app/agents/report.py` |
 | Hakem ve LLM'siz kontroller | `app/agents/consistency.py` |
+| Kontrol grubu adlandırması (`Model__default`) | `app/variants.py` |
 | Deney döngüsü (3 deneme) | `app/experiments.py` |
 | Sandbox | `app/sandbox/e2b_runner.py` |
 | Hafıza | `app/memory/rag_memory.py` |
 | MLflow ve çıktı ayrıştırma | `app/tracking/mlflow_logger.py` |
 | Konsol | `frontend/app/page.tsx`, `frontend/app/result/[threadId]/paper-view.tsx`, `frontend/components/*` |
-| Testler | `tests/` (24 dosya) |
+| Testler | `tests/` (29 dosya) |
 
 ### 3.3 Sabitler
 
@@ -80,7 +81,7 @@ START -> literature_node -> planner_node -> approval_gate (interrupt_before)
 | `MIN_MODELS` | 2 | `experiment.py` |
 | `MIN_RELEVANCE`, `KEEP_PAPERS`, aralık | 0.35, 3, 3 sn | `literature.py` |
 | Sandbox süreleri | kod 240 sn, kutu 300 sn | `e2b_runner.py` |
-| Deney prompt sürümü | `experiment-v7` | `experiment.py` |
+| Deney prompt sürümü | `experiment-v8` | `experiment.py` |
 | Hakem notu sınırı | 8 not, her biri 400 karakter | `nodes.py` |
 
 Desteklenen modeller (17): LinearSVC, SVM, RandomForest, LogisticRegression, DecisionTree, GradientBoosting, HistGradientBoosting, XGBoost, LightGBM, CatBoost, KNN, GaussianNB, MLP, AdaBoost, ExtraTrees, QDA, LDA. Hepsinin izinli kurucu parametre listesi `MODEL_PARAMS` içindedir. Veri setleri: `breast_cancer`, `imbalanced` (sentetik `make_classification`).
@@ -89,15 +90,16 @@ Desteklenen modeller (17): LinearSVC, SVM, RandomForest, LogisticRegression, Dec
 
 `query`, `literature_context`, `hypotheses`, `experiment_specs`, `selected_hypothesis`, `approval_status`, `current_experiment_code`, `experiment_error`, `experiment_metrics`, `model_results`, `tested_models`, `dataset_profile`, `statistical_results`, `statistical_decision`, `mlflow_run_id`, `verification_status`, `verifier_feedback`, `critic_rounds`, `critic_continue`, `paper_markdown`, `consistency_feedback`, `referee_notes`, `consistency_rounds`, `consistency_continue`, `research_status`.
 
-`statistical_decision` içeriği: `outcome` (`tie`/`winner`/`none`), `winner`, `comparisons` (Pitman-Morgan), `performance` (düzeltilmiş t, Holm), `instability`, `hypothesis` (`{claim, verdict, evidence}`).
+`statistical_decision` içeriği: `outcome` (`tie`/`winner`/`none`), `winner`, `comparisons` (Pitman-Morgan), `performance` (düzeltilmiş t, Holm), `instability`, `hypothesis` (`{claim, verdict, evidence}`), `parameter_effects` (yapılandırılmış ve varsayılan seri arasındaki fark, kendi Holm ailesi). Kontrol serileri (`Model__default`) `statistical_results`, tablo, `tested_models` ve MLflow'da bulunur ama ilk dört analize girmez.
 
 ### 3.5 Hipotez, claim ve karar zinciri
 
 1. Planlayıcı 3 spesifikasyon üretir: `{statement, models, claim, dataset, params}`. `claim` = `{kind: performance|stability, metric, subject, other}`. `statement` iki modeli de adlandırmalıdır. `params` yalnız yapılandırmayı belirler, hipotezin konusu olamaz. Geçersizse bir kez düzeltme istenir, yine geçersizse çalışma `failed` olur.
 2. Kullanıcı onayda birini seçer (`selected`). Yalnız o çalışır, kaydedilir, MLflow'a ve makaleye girer.
-3. Deney kodu AST ile denetlenir: modeller sözlüğü, spesifikasyondaki veri seti ve parametreler, her `train_test_split` çağrısında `stratify=y`. Prompt `experiment-v7` 10 tohumlu döngü ister.
+3. Deney kodu AST ile denetlenir: modeller sözlüğü (parametre verilen her model için ek `Model__default` girdisi, `variants.expected_keys`), spesifikasyondaki veri seti ve parametreler (yapılandırılmış girdide sabit yazılı, kontrol girdisinde yok ve aynı sınıf), her `train_test_split` çağrısında `stratify=y`. Prompt `experiment-v8` 10 tohumlu döngü ister.
 4. Doğrulayıcı `hypothesis_verdict` ile claim'i yapılan testlerden `supported`, `contradicted`, `inconclusive` veya `untested` olarak karara bağlar. Karar model sırasından bağımsızdır.
-5. `evidence.py` hipotez kararını, anlamlı her performans farkını (yön, düzeltilmiş p, `dz`) ve kararsızlık bulgusunu hazır İngilizce cümleler yapar. Yazıcı bunları Results'a aynen kopyalar.
+5. `verifier.parameter_effects` her yapılandırılmış model için ROC-AUC, PR-AUC ve F1'de yapılandırılmış ile varsayılan seriyi karşılaştırır. Bu, "parametre ayarı işe yaradı" iddiasının kontrol grubuna karşı sınanmasıdır (Seçenek B).
+6. `evidence.py` hipotez kararını, anlamlı her performans farkını (yön, düzeltilmiş p, `dz`), parametre etkilerini ve kararsızlık bulgusunu hazır İngilizce cümleler yapar. Yazıcı bunları Results'a aynen kopyalar, kontrol girdileri `Model (default)` adıyla görünür.
 
 ### 3.6 Makale kapısı: LLM'siz kontroller (karar bunlarda)
 
@@ -114,6 +116,10 @@ Desteklenen modeller (17): LinearSVC, SVM, RandomForest, LogisticRegression, Dec
 | `hypothesis_issues` | Abstract ve Conclusion `the hypothesis was <verdict>` diyor mu, ters yönde `supported` demiyor mu |
 | `table_issues` | Tablodaki her hücre doğrulanmış ortalama ± std ile uyuşuyor mu (yazılan son basamağın yarısı toleransla) |
 | `unsupported_difference_issues` | Anlamlı olmayan bir karşılaştırma için üstünlük iddiası var mı (aynı yan cümlede metrik, iki model adı ve `higher`/`outperforms` gibi bir sözcük, olumsuzlama, kararlılık, hipotez ve amaç cümleleri hariç) |
+| `parameter_effect_issues` | Anlamlı her parametre etkisi `default` geçen bir cümlede, doğru yönle (ters yön sözcüğü ve olumsuzlama yok) ve `dz` ile yazılmış mı. Anlamlı olmayan etki fark gibi anlatılıyor mu |
+| `leakage_description_issues` | Doğrulama `Passed` iken makale ön işlemeyi (ölçekleme, standardizasyon, normalizasyon, doldurma, PCA) bölmeden önce ya da tüm veri üzerinde yapılmış gibi anlatıyor mu (`after the split` geçen ve olumsuz cümleler muaf) |
+
+`default` geçen cümleler `performance_issues` ve `direction_conflict` tarafından atlanır (etki cümleleri model karşılaştırmasını ne sağlar ne tetikler). Tablo kontrolü eksik kontrol satırını `Model (default) satırı yok` diye bildirir.
 
 LLM hakem (`judge_consistency`) **danışmandır**: iş bitince bir kez çağrılır, notları `referee_notes` alanına yazılır, durumu belirlemez, yazıcıya gitmez. Çağrı hata verirse araştırma düşmez. Sonuç sayfasında kapalı bir blokta görünür.
 
@@ -144,31 +150,33 @@ cd frontend; npm run dev
 
 ### 3.9 Test altyapısı
 
-601 test, yaklaşık 25 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
+676 test, yaklaşık 30 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
 
 ### 3.10 Gerçek koşular
 
-| | Koşu 1 | Koşu 2 |
-| --- | --- | --- |
-| Thread | `a531b95d-a404-44ba-ae80-f65a0b4b64be` | `b670cc9a-416e-448e-9d2d-4e92930190e0` |
-| Sorgu | RandomForest ve LogisticRegression, dengesiz müşteri kaybı | SVM, KNN ve RandomForest, dengesiz müşteri kaybı |
-| Seçilen hipotez | 0 (`class_weight='balanced'`), claim yoktu (önceki sürüm) | 1 (`KNN` daha kararlı, kararlılık claim'i) |
-| Süre | yaklaşık 41 sn (plan 20 sn) | yaklaşık 61 sn (plan 25 sn) |
-| Sonuç | `Passed` / `Completed` | `Passed` / `NeedsReview` (eski kapıyla) |
-| Bulgu | Makale üç şeyde eksikti (güvenilirlik cümlesi, ROC-AUC farkı, etki büyüklüğü), düzeltildi | LLM hakem aynı makaleyi 4 çağrının 4'ünde yanlış gerekçelerle reddetti |
+| | Koşu 1 | Koşu 2 | Koşu 3 |
+| --- | --- | --- | --- |
+| Thread | `a531b95d-a404-44ba-ae80-f65a0b4b64be` | `b670cc9a-416e-448e-9d2d-4e92930190e0` | `26344d2d-7234-415f-8d2f-ee1e529d4668` |
+| Sorgu | RandomForest ve LogisticRegression, dengesiz müşteri kaybı | SVM, KNN ve RandomForest, dengesiz müşteri kaybı | RandomForest ve LogisticRegression, parametre ayarı ve StandardScaler'ın tüm veriye bölmeden önce uydurulması istendi |
+| Seçilen hipotez | 0 (`class_weight='balanced'`), claim yoktu (önceki sürüm) | 1 (`KNN` daha kararlı, kararlılık claim'i) | 2 (RF `n_estimators=200`, `class_weight='balanced_subsample'` ve LR `C=0.1`, PR-AUC claim'i) |
+| Süre | yaklaşık 41 sn (plan 20 sn) | yaklaşık 61 sn (plan 25 sn) | yaklaşık 75 sn (iki deney turu) |
+| Sonuç | `Passed` / `Completed` | `Passed` / `NeedsReview` (eski kapıyla) | `Passed` / `Completed` (tur 0 sızıntıyla `Failed`, tur 1 `Passed`) |
+| Bulgu | Makale üç şeyde eksikti (güvenilirlik cümlesi, ROC-AUC farkı, etki büyüklüğü), düzeltildi | LLM hakem aynı makaleyi 4 çağrının 4'ünde yanlış gerekçelerle reddetti | Makale sızıntıyı hem anlatıyor hem "tespit edilmedi" diyordu, kapı yoktu; `leakage_description_issues` eklendi |
 
 Koşu 2 sayıları: ROC-AUC RandomForest 0.944, SVM 0.914, KNN 0.866. KNN-RF farkı ROC-AUC ve F1'de anlamlı (düzeltilmiş `p=0.0464`). Hipotez `inconclusive` (KNN'nin varyansı RF'den yüksek, `p=1.0`). Kararsızlık: SVM F1 std 0.079, KNN 0.068. MLflow'da `Verified` üst run (52 metrik), 30 iç içe run. Hafızada `finding` kaydı.
 
 Önemli: Koşu 2'nin Postgres'teki kalıcı durumu hâlâ `NeedsReview` (eski kapı). Yeni kapı yalnız aynı makale ve veriyle yeniden oynatıldı ve `Completed` çıktı, durum güncellenmedi.
 
+Koşu 3 sayıları: 4 model (RF, RF varsayılan, LR, LR varsayılan) × 10 bölme, MLflow'da `experiment-v8`, 40 iç içe run, `significant_parameter_effects=1`. Hipotez `supported` (RF PR-AUC farkı 0.381, `dz` 5.60). Altı parametre etkisinden yalnız LR `C=0.1` F1'de anlamlı (varsayılandan düşük, 0.0572, `dz` 2.53, düzeltilmiş `p` 0.0123). Kararsızlık: LR F1 std 0.063. Sızıntı yargıcı tur 0'da `StandardScaler tüm veriye bölmeden önce uygulanmış` dedi, eleştirmen kodu düzeltti (scaler bölmeden sonra, yalnız eğitime uyduruluyor), tur 1'de `Passed`. Kapı ilk denemede geçti (0 yeniden yazma), ama makale çelişkiliydi (3.6, 4.1 madde 23). Hakem notları yine gürültülüydü (RF kararlılık kazananı iken "RF daha kararlı demesin" dedi). Denenmeyen yollar: `Failed` doğrulama makalesi, `NeedsReview`, 10 koşuluk yedek yol (üretilen kodda zaten bölme döngüsü vardı), sandbox zaman aşımı.
+
 12 sentetik makale döngüsü (3 tohum × 4 karar türü) gerçek `gpt-4o` ile ilk denemede, sıfır yeniden yazmayla `Completed` oldu. Bu testler iki modelli sade veriydi, karmaşık durumdaki hakem gürültüsünü göstermedi (Koşu 2 gösterdi).
 
 ### 3.11 Kalıntı veri (test ve koşulardan)
 
-- Postgres: 30 checkpoint thread'i, 30 hafıza kaydı, `research_errors` boş. Thread'lerin bir kısmı bu oturumun test ve koşularından, kalanı önceki oturumlardan; hangisinin hangisi olduğu ayrıştırılmadı (yalnız aşağıdaki beş kimlik bu oturumdan biliniyor).
-- `mlflow.db` (yaklaşık 2 MB) içinde gerçek ve test run'ları. `reports/` içinde 9 makale. `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
+- Postgres: yaklaşık 31 checkpoint thread'i ve 31 hafıza kaydı (Koşu 3 eklendi; sayılar tam doğrulanmadı), `research_errors` boş. Thread'lerin bir kısmı bu oturumun test ve koşularından, kalanı önceki oturumlardan; hangisinin hangisi olduğu ayrıştırılmadı (yalnız aşağıdaki beş kimlik bu oturumdan biliniyor).
+- `mlflow.db` (yaklaşık 2 MB) içinde gerçek ve test run'ları. `reports/` içinde 10 makale. `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
 - `test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı yalnız `is_success=False` kayıtları okur.
-- Bugünkü test thread'leri: `5f2808e4` (deney sırasında işçi kapatıldı, `running` kaldı), `38f98fd2`, `ad6ee6be` (reddedildi), `a531b95d` (Koşu 1), `b670cc9a` (Koşu 2).
+- Bugünkü test thread'leri: `5f2808e4` (deney sırasında işçi kapatıldı, `running` kaldı), `38f98fd2`, `ad6ee6be` (reddedildi), `a531b95d` (Koşu 1), `b670cc9a` (Koşu 2), `26344d2d` (Koşu 3).
 
 ## 4. Bugün tespit edilen mimari sorunlar
 
@@ -197,13 +205,15 @@ Koşu 2 sayıları: ROC-AUC RandomForest 0.944, SVM 0.914, KNN 0.866. KNN-RF far
 | 19 | Tek modelli sorguda karşılaştırma yok | Canlı planlayıcı | En az iki model, `422` |
 | 20 | Tablo kontrolü gerçek başlıkları (`Accuracy (Mean ± Std)`) tanımıyordu | Gerçek makale | Başlık süsleri temizleniyor, gerçek tablo test verisi |
 | 21 | Anlamlı olmayan farkın makalede iddia edilmesi denetimsizdi | Koşu 2 hakem notları | `unsupported_difference_issues` (gerçek ikinci koşu makalesinde 0 yanlış pozitif, gerçek ihlaller ve üç modelli yan cümleler testli) |
+| 22 | Konfigürasyon karışıklığı: claim iki modeli farklı yapılandırmayla karşılaştırıyor, parametresiz temel çizgi yoktu | Denetim, kullanıcı kararı (Seçenek B) | Parametre verilen her model `Model__default` kontrol girdisiyle koşar, `parameter_effects` etkiyi kontrole karşı ölçer, kontrol ana analizlerden çıkarılır |
+| 23 | Makale ön işlemeyi sızıntılı anlatıyordu (sorgudaki talimat) ve aynı yerde "sızıntı yok" diyordu | Koşu 3 | `leakage_description_issues` (gerçek makalede yakalıyor, diğer 9 makalede 0 yanlış alarm) ve yazıcı talimatı |
 
 ### 4.2 Açık sorunlar (öncelik sırasıyla)
 
 1. **Anlamsız fark denetimi kısmen çözüldü.** `unsupported_difference_issues` artık anlamlı olmayan bir çift için üstünlük iddiasını yakalıyor. Kalan boşluklar: yalnız bir model adı geçen cümleler ("Random Forest has the highest mean PR-AUC") ve `highest`, `best` gibi çift belirtmeyen ifadeler kontrol edilmiyor. Anlamlı bir satırın *yönü* (makale doğru modeli üstün gösteriyor mu) de kontrol edilmiyor. Gerçek bir koşuda yazıcının bu kontrolü tetikleyip tetiklemediği henüz görülmedi.
-2. **Konfigürasyon karışıklığı.** Claim iki modeli *farklı yapılandırmayla* karşılaştırıyor ("RF `n_estimators=100` ve SVM `kernel='rbf'`"), varsayılan parametreli temel çizgi yok. Karar "bu yapılandırma çifti" için geçerli, "model sınıfı" için değil. Seçenek B (her modeli varsayılan ve hipotez parametreleriyle koşturmak) yapılmadı, sandbox işini ve istatistiği iki katına çıkarır.
-3. **Gerçek koşuda hiç tetiklenmeyen yollar.** Eleştiri döngüsü (sızıntı, çökme), `Failed` doğrulama makalesi, `NeedsReview` kalıcı durumu, betik döngü basmadığında 10 koşuluk yedek yol (artık 10 ayrı sandbox koşusu), çok modelli veya yavaş sorguda sandbox zaman aşımı (XGBoost paket kurulumu dahil). Hepsi testlerle ve sahte servislerle kapsandı, gerçek servislerle denenmedi.
-4. **Kalıp tabanlı kontrollerin kırılganlığı.** Sekiz LLM'siz kontrol regex tabanlı. Gerçek çıktıyla üç kez hata gösterdiler (tablo başlığı, olumsuzlama kapsamı, hipotez cümlesi). Yeni bir kontrol eklemek yerine mümkünse cümleyi Python'a yazdırmak (kanıt cümleleri) daha sağlam bulundu. Yazıcı çok farklı bir ifade seçerse gereksiz yeniden yazma ve en kötü `NeedsReview` olabilir.
+2. **Claim hâlâ yapılandırma çiftinin kararıdır.** Kontrol grubu parametrelerin etkisini ayrıca ölçüyor ama hipotez kararı (`supported`/`contradicted`) yapılandırılmış iki model arasındadır, "model sınıfı" için değil. Makale de kararı böyle yazmalı, bu henüz denetlenmiyor. Parametre değeri varsayılana eşitse (ör. LR `C=1.0`) etki sıfırdır ve `p=1` çıkar, planlayıcı bunu ayırt etmez. Etki ailesi 6 satırdır (model × 3 metrik), kontrol grubu sandbox süresini ve MLflow run sayısını artırır (4 model × 10 bölme).
+3. **Gerçek koşuda hâlâ tetiklenmeyen yollar.** Sızıntı eleştiri döngüsü Koşu 3'te gerçek servislerle çalıştı. Kalanlar: sandbox çökmesi, `Failed` doğrulama makalesi, `NeedsReview` kalıcı durumu, betik döngü basmadığında 10 koşuluk yedek yol (artık 10 ayrı sandbox koşusu, kontrol girdileriyle de denenmedi), çok modelli veya yavaş sorguda sandbox zaman aşımı (XGBoost paket kurulumu dahil). Bunlar testlerle ve sahte servislerle kapsandı.
+4. **Kalıp tabanlı kontrollerin kırılganlığı.** On LLM'siz kontrol regex tabanlı. `leakage_description_issues` "ön işleme sözcüğü + tüm veri/bölmeden önce" kalıbına bakar; "scaler ve full dataset" geçen meşru bir cümleyi yanlışlıkla işaretleyebilir (en kötü iki yeniden yazma, sonra `NeedsReview`), canlı denenmedi. Gerçek çıktıyla üç kez hata gösterdiler (tablo başlığı, olumsuzlama kapsamı, hipotez cümlesi). Yeni bir kontrol eklemek yerine mümkünse cümleyi Python'a yazdırmak (kanıt cümleleri) daha sağlam bulundu. Yazıcı çok farklı bir ifade seçerse gereksiz yeniden yazma ve en kötü `NeedsReview` olabilir.
 5. **İşçi ölürse araştırma `running` kalır.** Otomatik kurtarma ve "bayat çalışma" tespiti yok. Koşu sırasında işçiyi kapatmak (testlerde yaptım) böyle bir thread bıraktı.
 6. **İstatistik varsayımları.** 10 bölme birbirinden bağımsız değil (aynı veri), p değerleri iyimser olabilir (Nadeau-Bengio düzeltmesi bunu kısmen karşılar). Başta ölçülen güç (%74) beş bölmeye aitti, on bölmede artmalı, yeniden ölçülmedi. Wilcoxon ve `RepeatedStratifiedKFold` uygulanmadı (10 tekrarlı stratify'lı `train_test_split` kullanılıyor).
 7. **Literatür.** `MIN_RELEVANCE=0.35` eşiği iki üç sorguyla ölçüldü. Makale hiçbir atıf yapmıyor (yazıcı atıfsız yazıyor). Veri seti seçenekleri iki tane.
@@ -214,6 +224,8 @@ Koşu 2 sayıları: ROC-AUC RandomForest 0.944, SVM 0.914, KNN 0.866. KNN-RF far
 12. **Hakem istemi eski.** Danışman olduğu için zarar vermiyor ama gürültülü, onay cümlelerini "sorun" diye listeliyor. Sadeleştirilebilir.
 13. **Test kalıntıları.** Postgres ve `mlflow.db` içinde test verisi (3.11). Temizlik aracı yok, silme kararı kullanıcıya ait.
 14. **Docker imajı eski**, CI yok, frontend testi yok.
+15. **`POST /approve_plan` geçersiz karar için `503` döner** (`decide_plan` doğrulama hatasını `RuntimeError` ile verir, `422` olmalı). `decision` yalnız `Y` veya `N` kabul eder.
+16. **Hakem gürültüsü sürüyor.** Koşu 3'te danışman hakem kazanan RandomForest'ı "daha kararlı" yazdığı için eleştirdi (karar `winner` iken). Zararsız ama yanıltıcı, istem sadeleştirilmeli (madde 12).
 
 ## 5. Kullanıcının 13 maddelik TODO listesinin durumu
 
@@ -226,7 +238,7 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 | 3 | Zorunlu cümleyi çevir, `needs_review` | Tamam | Yok |
 | 4 | Gerçek istatistik, ≥10 tekrar, stratify, p ve etki büyüklüğü | Büyük ölçüde | Wilcoxon, `RepeatedStratifiedKFold`, güç yeniden ölçümü (4.2 madde 6) |
 | 5 | Kritik döngüsü | Tamam | Yok |
-| 6 | Hipotez → deney bağı | Tamam, genişletildi (claim, verdict, seçim) | Konfigürasyon karışıklığı (4.2 madde 2) |
+| 6 | Hipotez → deney bağı | Tamam, genişletildi (claim, verdict, seçim, kontrol grubu) | Claim kararı yapılandırma çifti için (4.2 madde 2) |
 | 7 | Hafıza | Tamam | Yok |
 | 8 | Literatür | Tamam | Eşik kalibrasyonu, atıf (madde 7) |
 | 9 | Celery | Tamam (taşındı) | İşçi ölümü kurtarma (madde 5) |
@@ -237,12 +249,12 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 
 ## 6. Yarın için önerilen sıra
 
-1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (574 geçmeli).
-2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). İstenirse anlamlı satırın yönünün denetimi ve tek model adlı cümleler eklenebilir.
-3. Konfigürasyon karışıklığı için karar iste: seçenek B (temel çizgi) mi, yoksa verdict'i "yapılandırma çifti" olarak etiketlemek mi.
-4. Üçüncü gerçek tam koşu, bu kez bir yolu bilerek zorlayan sorgu (sızıntılı veya çöken kod, `Failed` makale, yedek 10 koşu yolu). Maliyet onayı iste.
+1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (676 geçmeli).
+2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). ~~Konfigürasyon karışıklığı~~ Seçenek B ile yapıldı. ~~Üçüncü gerçek koşu~~ yapıldı (sızıntı yolu). İstenirse anlamlı satırın yönünün denetimi, tek model adlı cümleler ve claim kararının "yapılandırma çifti" olarak yazıldığının denetimi eklenebilir.
+3. Kalan yolların gerçek koşusu: `Failed` doğrulama makalesi, 10 koşuluk yedek yol (kontrol girdileriyle), sandbox çökmesi. Maliyet onayı iste.
+4. `POST /approve_plan` doğrulama hatasını `422` yap (4.2 madde 15).
 5. İşçi ölümü kurtarması (bayat `running` tespiti).
-6. Ölü kod temizliği (4.2 madde 9) ve doküman düzeltmeleri (`localhost:3000`).
+6. Ölü kod temizliği (4.2 madde 9).
 7. Frontend: Docker imajı, form ipucu, otomatik arayüz testi.
 8. Hakem isteminin sadeleştirilmesi, MLflow artifact.
 
@@ -250,7 +262,7 @@ Kullanıcı farklı bir öncelik verebilir. Mesajı gelmeden iş başlatma.
 
 ## 7. Süreç dersleri ve tuzaklar
 
-- **Heredoc ve ters eğik çizgi:** Bash heredoc içindeki Python kaynağında `\\` bir kat azalıyor (`\b` geri-silme karakteri, `\n` gerçek satır sonu oldu). Regex veya kaçış içeren her değişiklik `Write` aracıyla bir betik dosyası yazılarak yapılır. Bozuk karakter taraması: tracked dosyalarda 0x00-0x1f (sekme ve CR hariç) ara.
+- **Heredoc ve ters eğik çizgi:** Bash heredoc içindeki Python kaynağında (tırnaklı `'EOF'` ile bile) `\\` bir kat azalıyor (`\b` geri-silme karakteri, `\n` gerçek satır sonu oldu). Regex veya kaçış içeren her değişiklik `Write` aracıyla bir betik dosyası yazılarak yapılır. Bozuk karakter taraması: tracked dosyalarda 0x00-0x1f (sekme ve CR hariç) ara.
 - **CRLF:** Çalışma kopyası CRLF, çok satırlı eski-desen eşleşmeleri sessizce uygulanmaz (mutasyon betikleri bir kez uygulanmadan "geçti" gösterdi). Tek satırlık desen kullan ya da `\r\n` normalleştir.
 - **`git checkout -- dosya` ile geri alma tehlikelidir:** commit'lenmemiş gerçek değişiklikleri siler (bir kez sildim, betikten geri uyguladım). Mutasyon denemelerinde dosyayı yedeğe kopyalayıp oradan geri koy.
 - **Commit kapısı:** `pytest && commit` kullan. Bir kez testin sonucuna bakmadan commit attım, test dosyası bozuktu, düzelttim.
@@ -260,5 +272,8 @@ Kullanıcı farklı bir öncelik verebilir. Mesajı gelmeden iş başlatma.
 - **Test geçince şüphelen:** İlk seferde geçen testler mutasyonla iki kez yanlış nedenle geçtiğini gösterdi.
 - **LLM kuralları ve hakem:** Yazıcıya kural eklemek yerine mümkünse Python'ın hazırladığı cümleyi kopyalatmak güvenilir. LLM hakemi kapı yapma.
 - **Windows süreçleri:** MLflow sunucusunun yetim `multiprocessing` çocukları portu (5000) tutabiliyor, ana süreç ölse bile. Süreç öldürürken komut satırı deseni kendi kabuğunu eşleştirebilir (bir kez kendi kabuğumu öldürdüm), `Name` ve `AxiomForge` ile daralt.
+- **Testler arası içe aktarma çalışmaz:** `tests/` paket değil (`__init__.py` yok), bir test dosyasından `from tests.test_nodes import ...` ModuleNotFoundError verir. Ortak yardımcıyı her dosyada yeniden tanımla.
+- **Kontrol grubu eklerken:** ana aileyi (kararlılık, performans, hipotez, kararsızlık) `without_baselines` ile süz, yoksa kontrol serileri çiftlere girer. `default` geçen cümleleri model karşılaştırması kontrollerinden hariç tut, yoksa etki cümlesi bir karşılaştırmayı sağlamış gibi sayılır.
+- **Arka plan servisleri:** `Monitor` ile `until` döngüsü kullanıldı, `sleep` zincirleri engelleniyor. `POST /approve_plan` için `decision` değeri `Y`.
 - **`scratchpad` geçicidir:** Canlı doğrulama betikleri (`live_loop*.py`, `live_final.py`, `live_planner.py`, mock API, tarayıcı sürücüleri) depoda değil, kaybolabilir. Kalıcı araç istenirse bir `tools/` klasörüne taşınmalı.
 - **Arayüz doğrulaması:** Başsız Edge ile DevTools protokolü kullanıldı, `localhost:3000` adresi gerekli.
