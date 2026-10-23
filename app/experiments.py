@@ -11,6 +11,7 @@ from app.agents.experiment import (
     split_contract_error,
 )
 from app.agents.spec import spec_code_error
+from app.variants import expected_keys
 from app.memory.rag_memory import save_experiment
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
 from app.tracking.mlflow_logger import (
@@ -47,7 +48,7 @@ def execute_experiment(
     last_error = ""
     for attempt in range(1, MAX_RETRIES + 1):
         logger.info("sandbox attempt %s/%s", attempt, MAX_RETRIES)
-        contract_error = models_dict_error(source, allowed)
+        contract_error = models_dict_error(source, allowed, spec)
         if not contract_error and spec:
             contract_error = spec_code_error(source, spec, allowed)
         if not contract_error:
@@ -82,7 +83,7 @@ def execute_experiment(
                 name = str(item["model"])
                 if name not in printed:
                     printed.append(name)
-            allowed_names = [str(item["key"]) for item in allowed]
+            allowed_names = expected_keys([str(item["key"]) for item in allowed], spec)
             if printed != allowed_names:
                 last_error = "Printed model names must be exactly " + ", ".join(allowed_names) + "."
                 logger.error("sandbox attempt %s/%s failed:\n%s", attempt, MAX_RETRIES, last_error)

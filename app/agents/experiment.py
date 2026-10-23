@@ -6,9 +6,10 @@ from openai import OpenAI
 from app.agents.spec import call_name, spec_brief
 from app.config import OPENAI_API_KEY
 from app.seeds import SPLIT_SEEDS
+from app.variants import baseline_name, configured_models, expected_keys
 
 MODEL = "gpt-4o"
-PROMPT_VERSION = "experiment-v7"
+PROMPT_VERSION = "experiment-v8"
 MIN_MODELS = 2
 QUERY_NAMES_TOO_FEW_MODELS = "query names fewer than two models"
 
@@ -231,8 +232,8 @@ def requested_models(query: str) -> list[dict]:
     return chosen
 
 
-def models_dict_error(code: str, models: list[dict]) -> str:
-    allowed = [str(item["key"]) for item in models]
+def models_dict_error(code: str, models: list[dict], spec: dict | None = None) -> str:
+    allowed = expected_keys([str(item["key"]) for item in models], spec)
     try:
         tree = ast.parse(code)
     except SyntaxError:
@@ -332,7 +333,13 @@ def correct_classification_code(
 
 def _task(prompt: str, csv_schema: str, models: list[dict], spec: dict | None = None) -> str:
     lines = "\n".join(f"- {item['key']}: {item['hint']}" for item in models)
-    names = ", ".join(str(item["key"]) for item in models)
+    controls = [
+        f"- {baseline_name(model)}: the control group of {model}, built without the parameters of the specification"
+        for model in configured_models(spec)
+    ]
+    if controls:
+        lines += "\n" + "\n".join(controls)
+    names = ", ".join(expected_keys([str(item["key"]) for item in models], spec))
     task = (
         f"Prompt:\n{prompt}\n\n"
         f"CSV structure:\n{csv_schema}\n\n"

@@ -62,7 +62,7 @@ def test_the_prompt_demands_stratification():
 
 
 def test_the_prompt_version_names_the_new_protocol():
-    assert PROMPT_VERSION == "experiment-v7"
+    assert PROMPT_VERSION == "experiment-v8"
 
 
 @pytest.mark.parametrize("seed", SPLIT_SEEDS)

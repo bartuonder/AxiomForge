@@ -3,6 +3,8 @@ import json
 import re
 from typing import Any
 
+from app.variants import baseline_name, configured_models
+
 DATASETS = {
     "breast_cancer": "sklearn.datasets.load_breast_cancer",
     "imbalanced": "sklearn.datasets.make_classification with class_sep of at most 0.5 and a weights list",
@@ -132,6 +134,14 @@ def spec_brief(spec: dict[str, Any]) -> str:
     for model, values in spec.get("params", {}).items():
         pairs = ", ".join(f"{name}={value!r}" for name, value in values.items())
         lines.append(f"Construct {model} with these keyword arguments written literally: {pairs}.")
+    controls = configured_models(spec)
+    if controls:
+        lines.append(
+            "Control group: for every model that has parameters add one more models entry named "
+            + ", ".join(baseline_name(model) for model in controls)
+            + " (the model name followed by __default), built from the same estimator class without any of the listed parameters, "
+            "so it runs with the library defaults apart from random_state. It is trained on the same splits and printed like every other entry."
+        )
     lines.append(
         "Arguments the specification does not list are yours to choose, such as random_state or max_iter for convergence, "
         "but they must not change a listed value."
@@ -159,8 +169,17 @@ def spec_code_error(code: str, spec: dict[str, Any], models: list[dict]) -> str:
             )
     classes = {str(item["key"]): tuple(item["classes"]) for item in models}
     missing: list[str] = []
+    leaked: list[str] = []
+    unbuilt: list[str] = []
+    entries = _models_entries(tree)
     for model, values in spec.get("params", {}).items():
-        constructors = [call for call in calls if call_name(call.func) in classes.get(model, ())]
+        entry = entries.get(model)
+        scope = list(ast.walk(entry)) if entry is not None else list(ast.walk(tree))
+        constructors = [
+            node
+            for node in scope
+            if isinstance(node, ast.Call) and call_name(node.func) in classes.get(model, ())
+        ]
         for name, value in values.items():
             if not any(
                 keyword.arg == name and _literal(keyword.value) == value
@@ -168,9 +187,48 @@ def spec_code_error(code: str, spec: dict[str, Any], models: list[dict]) -> str:
                 for keyword in call.keywords
             ):
                 missing.append(f"{model}.{name}={value!r}")
+        control = entries.get(baseline_name(model))
+        if control is not None:
+            built = False
+            for node in ast.walk(control):
+                if isinstance(node, ast.Call):
+                    built = built or call_name(node.func) in classes.get(model, ())
+                    leaked.extend(
+                        f"{baseline_name(model)}.{keyword.arg}"
+                        for keyword in node.keywords
+                        if keyword.arg in values
+                    )
+            if not built:
+                unbuilt.append(baseline_name(model))
     if missing:
         return "The constructors must set these parameters literally: " + ", ".join(missing) + "."
+    if unbuilt:
+        return "The default entries must construct the same estimator class: " + ", ".join(unbuilt) + "."
+    if leaked:
+        return "The default entries must not set the listed parameters: " + ", ".join(dict.fromkeys(leaked)) + "."
     return ""
+
+
+def _models_entries(tree: ast.AST) -> dict[str, ast.expr]:
+    found: list[dict[str, ast.expr]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets, value = list(node.targets), node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets, value = [node.target], node.value
+        else:
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "models" for target in targets):
+            continue
+        if isinstance(value, ast.Dict):
+            found.append(
+                {
+                    key.value: item
+                    for key, item in zip(value.keys, value.values)
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str)
+                }
+            )
+    return found[0] if len(found) == 1 else {}
 
 
 def call_name(func: ast.expr) -> str:
