@@ -27,6 +27,36 @@ MODEL_PARAMS: dict[str, tuple[str, ...]] = {
 }
 
 
+DEFAULT_PARAMS: dict[str, dict[str, Any]] = {
+    "LinearSVC": {"C": 1.0, "class_weight": None},
+    "SVM": {"C": 1.0, "kernel": "rbf", "gamma": "scale", "class_weight": None},
+    "RandomForest": {"n_estimators": 100, "max_depth": None, "min_samples_leaf": 1, "class_weight": None},
+    "LogisticRegression": {"C": 1.0, "max_iter": 100, "class_weight": None},
+    "DecisionTree": {"max_depth": None, "min_samples_leaf": 1, "class_weight": None},
+    "GradientBoosting": {"n_estimators": 100, "learning_rate": 0.1, "max_depth": 3},
+    "HistGradientBoosting": {"learning_rate": 0.1, "max_depth": None, "max_iter": 100},
+    "XGBoost": {"n_estimators": 100, "learning_rate": 0.3, "max_depth": 6},
+    "LightGBM": {"n_estimators": 100, "learning_rate": 0.1, "max_depth": -1},
+    "CatBoost": {"iterations": 1000, "learning_rate": None, "depth": 6},
+    "KNN": {"n_neighbors": 5, "weights": "uniform"},
+    "GaussianNB": {"var_smoothing": 1e-09},
+    "MLP": {"alpha": 0.0001, "max_iter": 200},
+    "AdaBoost": {"n_estimators": 50, "learning_rate": 1.0},
+    "ExtraTrees": {"n_estimators": 100, "max_depth": None, "min_samples_leaf": 1, "class_weight": None},
+    "QDA": {"reg_param": 0.0},
+}
+
+
+def is_default(model: str, name: str, value: Any) -> bool:
+    defaults = DEFAULT_PARAMS.get(model, {})
+    if name not in defaults:
+        return False
+    default = defaults[name]
+    if default is None or value is None:
+        return default is None and value is None
+    return default == value
+
+
 CLAIM_KINDS = ("performance", "stability")
 CLAIM_METRICS = ("roc_auc", "pr_auc", "f1")
 
@@ -75,7 +105,7 @@ def _validate_claim(raw: Any, model_keys: list[str], statement: str) -> dict[str
     return {"kind": kind, "metric": metric, "subject": subject, "other": other}
 
 
-def validate_spec(raw: Any, model_keys: list[str]) -> dict[str, Any]:
+def validate_spec(raw: Any, model_keys: list[str], drop_defaults: bool = False) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise SpecError("each hypothesis must be a JSON object")
     statement = raw.get("statement")
@@ -101,6 +131,13 @@ def validate_spec(raw: Any, model_keys: list[str]) -> dict[str, Any]:
                 raise SpecError(f"{model} does not allow parameter {name}; allowed: {listed}")
             if isinstance(value, bool) or not (value is None or isinstance(value, (int, float, str))):
                 raise SpecError(f"{model}.{name} must be a number, a string or null")
+            if is_default(model, name, value):
+                if drop_defaults:
+                    continue
+                raise SpecError(
+                    f"{model}.{name}={value!r} is already the library default, so it is not a tuning: "
+                    "give a value that differs from the default or leave the parameter out"
+                )
             cleaned[name] = value
         if cleaned:
             params[model] = cleaned
@@ -115,7 +152,14 @@ def validate_spec(raw: Any, model_keys: list[str]) -> dict[str, Any]:
 
 def allowed_params_text(model_keys: list[str]) -> str:
     return "\n".join(
-        f"- {key}: " + (", ".join(MODEL_PARAMS.get(key, ())) or "no parameters")
+        f"- {key}: "
+        + (
+            ", ".join(
+                f"{name} (default {DEFAULT_PARAMS.get(key, {}).get(name)!r})" if name in DEFAULT_PARAMS.get(key, {}) else name
+                for name in MODEL_PARAMS.get(key, ())
+            )
+            or "no parameters"
+        )
         for key in model_keys
     )
 

@@ -30,6 +30,9 @@ SYSTEM_PROMPT = (
     f"dataset (one of: {', '.join(dataset_keys())}; choose the real dataset whose domain fits the query), "
     "params (an object keyed by model name, each value an object of allowed parameter names to numbers or strings; "
     "use an empty object when you set no parameter). "
+    "Each allowed parameter is listed with its library default. A value equal to that default is not a tuning, "
+    "because the system already runs every configured model next to a default-parameter control: "
+    "give a value that differs from the default or leave the parameter out. "
     "If only one model is allowed, set claim to null and write one absolute sentence about that model's result "
     "without any comparison word such as than, higher, lower, better, improves or compared, "
     "because the experiment has no second configuration to compare it with. "
@@ -63,7 +66,7 @@ def run_planner_agent(
         f"Query:\n{query}\n\nLiterature:\n{literature}"
     )
     error = ""
-    for _ in range(MAX_PLAN_ATTEMPTS):
+    for attempt in range(MAX_PLAN_ATTEMPTS):
         response = client.chat.completions.create(
             model=MODEL,
             temperature=0,
@@ -75,7 +78,7 @@ def run_planner_agent(
         )
         content = response.choices[0].message.content or ""
         try:
-            return _plan(content, model_keys)
+            return _plan(content, model_keys, drop_defaults=attempt == MAX_PLAN_ATTEMPTS - 1)
         except SpecError as exc:
             error = str(exc)
     raise RuntimeError(f"planner returned an invalid experiment spec: {error}")
@@ -98,7 +101,7 @@ def _format_past_experiments(past_experiments: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
-def _plan(content: str, model_keys: list[str]) -> tuple[list[dict], str]:
+def _plan(content: str, model_keys: list[str], drop_defaults: bool = False) -> tuple[list[dict], str]:
     try:
         payload = json.loads(content)
     except json.JSONDecodeError as exc:
@@ -108,7 +111,7 @@ def _plan(content: str, model_keys: list[str]) -> tuple[list[dict], str]:
         raise RuntimeError("planner did not return hypotheses")
     if len(items) < 3:
         raise SpecError("exactly 3 hypotheses are required")
-    specs = [validate_spec(item, model_keys) for item in items[:3]]
+    specs = [validate_spec(item, model_keys, drop_defaults) for item in items[:3]]
     note = payload.get("memory_note", "") if isinstance(payload, dict) else ""
     if not isinstance(note, str):
         note = ""
