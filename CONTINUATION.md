@@ -46,6 +46,10 @@ Karar verildi: projenin araştırma değeri karşılaştırmalı analize dayand�
 
 Tablo kontrolü gerçek veriyle bir hata yakaladı: ilk sürüm başlıkları `Accuracy` gibi sade bekliyordu, yazıcı ise `Accuracy (Mean ± Std)` yazıyordu, bu yüzden gerçek makalede "tablo yok" diyordu ve testlerim bunu görmedi. Başlıklar artık parantezden ve `Mean ± Std` süsünden arındırılıyor, ve yazıcının gerçekten yazdığı tablo test verisi olarak kodlandı. Ders: kalıp tabanlı bir kontrolü yalnız uydurma girdiyle değil gerçek çıktıyla da sına.
 
+Karar verildi (Seçenek B): konfigürasyon karışıklığı, parametre verilen her modelin varsayılan parametreli bir kontrol girdisiyle birlikte koşturulmasıyla çözüldü. Eski sınırlama ("deneyde parametresiz temel çizgi yok") kalktı. Ayrıntı: `experiment-v8`, `app/variants.py` (`Model__default`, `expected_keys`, `display_name`), doğrulayıcıda `without_baselines` ve `parameter_effects`, `evidence.effect_sentences`, kapıda `parameter_effect_issues`, MLflow'da `significant_parameter_effects`. Kontrol serileri kararlılık, performans, hipotez ve kararsızlık analizlerine girmez, yalnız özet, tablo ve MLflow'da bulunur.
+
+Üçüncü gerçek tam koşu (thread `26344d2d-7234-415f-8d2f-ee1e529d4668`, RandomForest ve LogisticRegression, sorgu bilerek StandardScaler'ın tüm veriye bölmeden önce uydurulmasını istiyordu, hipotez 2 seçildi) `Passed` ve `Completed` bitti. Tur 0'da LLM sızıntı yargıcı sızıntıyı yakaladı, doğrulama `Failed` oldu, eleştirmen kodu düzeltti, tur 1'de `Passed`. 4 model (iki asıl, iki kontrol) × 10 bölme = 40 iç içe MLflow run'ı. Parametre etkilerinden yalnız LogisticRegression `C=0.1` F1'de anlamlıydı (varsayılandan düşük, `dz` 2.53, düzeltilmiş `p` 0.012). Kapı ilk denemede geçti. Ama makale çelişiyordu: Methodology "StandardScaler tüm veri üzerinde bölmeden önce uyduruldu" yazıp aynı yerde "veri sızıntısı tespit edilmedi" diyordu, çünkü yazıcı düzeltilmiş kodu değil sorgudaki talimatı aktarmıştı. Hiçbir kontrol bunu yakalamıyordu. Çözüm: `leakage_description_issues` kapıya eklendi ve yazıcı prompt'u ön işlemeyi Final code ile aynı anlatmasını istiyor. Kural gerçek makalede sorunu yakalıyor, reports içindeki diğer dokuz makalede yanlış alarm vermiyor. Bu koşuda denenmeyen yollar: `Failed` doğrulama makalesi, `NeedsReview`, betik döngü basmadığında 10 koşuluk yedek yol, sandbox zaman aşımı.
+
 Yeni iş için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
@@ -74,7 +78,7 @@ npm install
 npm run dev
 ```
 
-Konsol `http://127.0.0.1:3000`. API `http://127.0.0.1:8000`. MLflow `http://127.0.0.1:5000`. Windows üzerinde Celery `--pool=threads` ile çalışır, `--pool=solo` tek görev yürütür. Postgres imajı `pgvector/pgvector:pg16` olur. Redis `redis://localhost:6379/0`.
+Konsol `http://localhost:3000` (`127.0.0.1:3000` adresinde Next dev sunucusu istemci kodunu çalıştırmaz). API `http://127.0.0.1:8000`. MLflow `http://127.0.0.1:5000`. Windows üzerinde Celery `--pool=threads` ile çalışır, `--pool=solo` tek görev yürütür. Postgres imajı `pgvector/pgvector:pg16` olur. Redis `redis://localhost:6379/0`.
 
 ## Ürün
 
@@ -133,8 +137,9 @@ Faz 8. `experiment-v5`. Model listesi yalnız `query` metninden çıkar. Promptt
 | Bölme tohumu, NumPy özeti ve `stability_decision` | `app/graph/verifier.py` |
 | Araştırma hatalarının kaydı | `app/graph/errors.py` |
 | Pitman-Morgan, düzeltilmiş t-testi, Holm | `app/graph/stats.py` |
-| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v7` |
+| Deney promptu | `app/agents/experiment.py`, sürüm `experiment-v8` |
 | Deney spesifikasyonu | `app/agents/spec.py` |
+| Kontrol grubu adlandırması | `app/variants.py` |
 | Planlayıcı | `app/agents/planner.py` |
 | Rapor promptu | `app/agents/report.py` |
 | İddia hakemi | `app/agents/consistency.py` |
