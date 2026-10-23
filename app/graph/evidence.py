@@ -31,6 +31,30 @@ def performance_sentences(performance: list[dict[str, Any]] | None) -> list[str]
     return sentences
 
 
+def effect_sentences(effects: list[dict[str, Any]] | None) -> list[str]:
+    sentences: list[str] = []
+    for item in effects or []:
+        metric = METRIC_NAMES.get(str(item.get("metric")))
+        if metric is None:
+            continue
+        model = item["model"]
+        p_value = _p(item["adjusted_p_value"])
+        if item.get("significant"):
+            difference = float(item["mean_difference"])
+            direction = "higher" if difference > 0 else "lower"
+            effect = abs(float(item["effect_size_dz"]))
+            sentences.append(
+                f"{model} with the listed parameters has a {direction} mean {metric} than {model} with default parameters "
+                f"(mean difference {abs(difference):.4f}, adjusted p = {p_value}, dz = {effect:.2f})."
+            )
+        else:
+            sentences.append(
+                f"No significant effect of the listed parameters on {metric} was found for {model} "
+                f"compared with default parameters (adjusted p = {p_value})."
+            )
+    return sentences
+
+
 def hypothesis_sentences(hypothesis: dict[str, Any] | None) -> list[str]:
     verdict = str((hypothesis or {}).get("verdict", ""))
     if verdict == "untested":
@@ -73,5 +97,6 @@ def evidence_sentences(decision: dict[str, Any] | None) -> list[str]:
     return (
         hypothesis_sentences(decision.get("hypothesis"))
         + performance_sentences(decision.get("performance"))
+        + effect_sentences(decision.get("parameter_effects"))
         + instability_sentences(decision.get("instability"))
     )

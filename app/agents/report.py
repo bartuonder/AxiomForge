@@ -7,6 +7,7 @@ from app.config import OPENAI_API_KEY
 from app.graph.evidence import evidence_sentences
 from app.graph.selection import primary_hypothesis
 from app.graph.state import AgentState
+from app.variants import display_name
 
 MODEL = "gpt-4o"
 REPORTS_DIR = Path(__file__).resolve().parents[2] / "reports"
@@ -76,6 +77,13 @@ SYSTEM_PROMPT = (
     "Hipotezi yeniden çerçeveleme, verdict'i değiştirme ve verdict contradicted veya inconclusive iken hipotezin desteklendiğini yazma. "
     "Evidence sentences bölümündeki her cümleyi Results içinde aynen kopyala: sırayı, sayıları ve model adlarını değiştirme, yeniden yazma. "
     "Bu cümleler hipotez kararını, anlamlı her performans farkını (p ve dz ile) ve kararsızlık bulgusunu taşır. "
+    "Experiment spec içinde params doluysa deney her parametreli model için aynı bölmelerde çalışan bir kontrol grubu içerir: "
+    "adı 'Model (default)' olan satır aynı modelin kütüphane varsayılan parametreleriyle çalışan halidir ve bir rakip model değildir. "
+    "Methodology içinde bu kontrol grubunu ve parametrelerin etkisinin onunla karşılaştırıldığını tek cümleyle yaz. "
+    "Sonuç tablosuna kontrol grubu satırlarını da 'Model (default)' adıyla koy ve hücreleri statistical_results'tan kopyala. "
+    "Statistical decision içindeki parameter_effects bir parametre ayarının varsayılana göre etkisidir; "
+    "her satırı Evidence sentences içindeki cümleyle yaz. significant false ise parametrelerin etkisi olduğunu iddia etme. "
+    "Kontrol grubunu model karşılaştırmasında ve hipotezde yer alan bir model gibi anlatma. "
     "Verification status Failed ise deney doğrulamadan geçmemiştir ve makale bunu gizleyemez. "
     "Abstract içinde 'failed verification' ifadesini aynen kullan ve nedenini İngilizce tek cümleyle yaz; "
     "Verifier feedback Türkçedir, onu çevirerek özetle. "
@@ -135,6 +143,9 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
             name = str(item.get("model", ""))
             if name and name not in tested_models:
                 tested_models.append(name)
+    tested_models = [display_name(name) for name in tested_models]
+    model_results = [{**item, "model": display_name(str(item.get("model", "")))} for item in model_results]
+    statistical_results = {display_name(str(name)): value for name, value in statistical_results.items()}
     return (
         f"Run id: {run_id}\n"
         f"Query: {state.get('query', '')}\n"
