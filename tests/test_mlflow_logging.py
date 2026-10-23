@@ -4,6 +4,7 @@ import pytest
 import app.tracking.mlflow_logger as logger_module
 from app.graph.verifier import (
     instability_finding,
+    parameter_effects,
     performance_comparisons,
     seeded_rows,
     stability_decision,
@@ -83,6 +84,30 @@ def test_the_hypothesis_verdict_is_a_tag(store):
 
 def test_a_decision_without_a_verdict_is_logged_as_untested(store):
     assert log_run().data.tags["hypothesis_verdict"] == "untested"
+
+
+def test_parameter_effects_are_logged_as_metrics(store):
+    runs = [[row("Hi", HI[i]), row("Hi__default", LO[i])] for i in range(SPLITS)]
+    summary = summarize_seed_runs(runs)
+    decision = {"parameter_effects": parameter_effects(runs, 1000.0, {"Hi": {"x": 1}})}
+    run_id = logger_module.log_verified_comparison(
+        seeded_rows(runs),
+        summary,
+        decision,
+        prompt_version="experiment-v8",
+        model="gpt-4o",
+        critic_rounds=0,
+        hypothesis="h",
+    )
+    metrics = mlflow.get_run(run_id).data.metrics
+    assert metrics["significant_parameter_effects"] == 3.0
+    assert metrics["effect/Hi/roc_auc/mean_difference"] == pytest.approx(sum(HI) / SPLITS - sum(LO) / SPLITS)
+    assert metrics["effect/Hi/roc_auc/adjusted_p_value"] < 0.05
+    assert "Hi__default/roc_auc_mean" in metrics
+
+
+def test_a_run_without_effects_logs_a_zero_count(store):
+    assert log_run().data.metrics["significant_parameter_effects"] == 0.0
 
 
 def test_every_split_becomes_a_nested_run_with_its_seed(store):

@@ -210,6 +210,15 @@ def log_verified_comparison(
             "significant_performance_differences",
             float(sum(1 for item in performance if item.get("significant"))),
         )
+        effects = decision.get("parameter_effects") or []
+        mlflow.log_metric(
+            "significant_parameter_effects",
+            float(sum(1 for item in effects if item.get("significant"))),
+        )
+        for item in effects:
+            prefix = f"effect/{item['model']}/{item['metric']}"
+            mlflow.log_metric(f"{prefix}/mean_difference", float(item["mean_difference"]))
+            mlflow.log_metric(f"{prefix}/adjusted_p_value", float(item["adjusted_p_value"]))
         conclusion = summary.get("statistical_conclusion")
         if isinstance(conclusion, str) and conclusion:
             mlflow.set_tag("statistical_conclusion", conclusion[:5000])
