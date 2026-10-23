@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı: son kod commit'i `eedebae` (ayar iddiası kontrolleri), ardından doküman commit'leri. Çalışma ağacı temiz, 795 pytest testi geçiyor. Oturumun başında 94 commit vardı, şimdi yaklaşık 225. Frontend bu turda değişmedi (`tsc` ve `eslint` en son temizdi).
+Durum anı: son kod commit'i `3f98244` (literatür ajanı), ardından doküman commit'leri. Çalışma ağacı temiz, 941 pytest testi geçiyor. Oturumun başında 94 commit vardı, şimdi yaklaşık 235. Frontend bu turda değişmedi (`tsc` ve `eslint` en son temizdi).
 
 ## 1. Proje
 
@@ -56,7 +56,7 @@ START -> literature_node -> planner_node -> approval_gate (interrupt_before)
 | Spesifikasyon, claim, kod denetimi | `app/agents/spec.py` |
 | Planlayıcı | `app/agents/planner.py` |
 | Deney ajanı, model listesi, kod sözleşmeleri | `app/agents/experiment.py` |
-| Literatür ajanı | `app/agents/literature.py`, `app/tools/arxiv.py` |
+| Literatür ajanı (alan çıkarımı, model adları, arama merdiveni) | `app/agents/literature.py`, `app/tools/arxiv.py` |
 | Rapor yazıcısı | `app/agents/report.py` |
 | Hakem ve LLM'siz kontroller | `app/agents/consistency.py` |
 | Kontrol grubu adlandırması (`Model__default`) | `app/variants.py` |
@@ -66,7 +66,7 @@ START -> literature_node -> planner_node -> approval_gate (interrupt_before)
 | Hafıza | `app/memory/rag_memory.py` |
 | MLflow ve çıktı ayrıştırma | `app/tracking/mlflow_logger.py` |
 | Konsol | `frontend/app/page.tsx`, `frontend/app/result/[threadId]/paper-view.tsx`, `frontend/components/*` |
-| Testler | `tests/` (33 dosya) |
+| Testler | `tests/` (37 dosya) |
 
 ### 3.3 Sabitler
 
@@ -81,6 +81,7 @@ START -> literature_node -> planner_node -> approval_gate (interrupt_before)
 | `MAX_PLAN_ATTEMPTS` | 2 | `planner.py` |
 | `MIN_MODELS` | 2 | `experiment.py` |
 | `MIN_RELEVANCE`, `KEEP_PAPERS`, aralık | 0.35, 3, 3 sn | `literature.py` |
+| `MAX_SEARCHES`, `ENOUGH_CANDIDATES`, `MAX_TOPICS`, `MAX_TOPIC_WORDS` | 5, 12, 2, 3 | `literature.py` |
 | Sandbox süreleri | kod 240 sn, kutu 300 sn | `e2b_runner.py` |
 | Deney prompt sürümü | `experiment-v9` | `experiment.py` |
 | Hakem notu sınırı | 8 not, her biri 400 karakter | `nodes.py` |
@@ -121,6 +122,8 @@ Desteklenen modeller (17): LinearSVC, SVM, RandomForest, LogisticRegression, Dec
 | `leakage_description_issues` | Doğrulama `Passed` iken makale ön işlemeyi (ölçekleme, standardizasyon, normalizasyon, doldurma, PCA) bölmeden önce ya da tüm veri üzerinde yapılmış gibi anlatıyor mu (`after the split` geçen ve olumsuz cümleler muaf) |
 | `untuned_model_issues` | Spec'te `params`'ı olmayan bir model makalede ayar sözcüğüyle (`tuned`, `tuning`, `hyperparameter`, `optimized`) aynı yan cümlede anılıyor mu (olumsuzlama ve `default` geçen yan cümleler muaf) |
 | `tuning_claim_issues` | Hiçbir parametre etkisi anlamlı değilken makale ayarın sonucu etkilediğini (`impact`, `improve`, `enhance`, `boost`, `better`) söylüyor mu (olumsuzlama, `default`, hipotez ve amaç cümleleri, `to improve` yapısı ve `Gradient Boosting` adı muaf, bir etki anlamlıysa kontrol çalışmaz) |
+| `collective_claim_issues` | İkiden çok modelde bir model `the other models`, `all models`, `the rest` gibi toplu ifadeyle üstün/düşük gösteriliyorsa her rakibe karşı satır anlamlı ve aynı yönde mi (olumsuzlama, hipotez, amaç, kararlılık cümleleri ve model adı olmayanlar muaf) |
+| `unfounded_instability_issues` | `unstable` false iken ya da yalnız başka model işaretliyken makale kararsızlık/yüksek varyans/bölmeye duyarlılık iddia ediyor mu (olumsuzlama, hipotez, amaç ve `than` karşılaştırmaları muaf) |
 
 `default` geçen cümleler `performance_issues` ve `direction_conflict` tarafından atlanır (etki cümleleri model karşılaştırmasını ne sağlar ne tetikler). Tablo kontrolü eksik kontrol satırını `Model (default) satırı yok` diye bildirir.
 
@@ -153,7 +156,7 @@ cd frontend; npm run dev
 
 ### 3.9 Test altyapısı
 
-795 test, yaklaşık 30 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
+941 test, yaklaşık 30 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
 
 ### 3.10 Gerçek koşular
 
@@ -176,14 +179,18 @@ Koşu 4 (thread `96acf4c2-2712-4ea7-9977-a447186a7670`, 10 koşuluk yedek yol): 
 
 Koşu 5 (thread `40222d61-edd7-463e-9d68-a847faa67dfd`, gerçek Hugging Face verisiyle ilk tam koşu): sorgu RandomForest, LogisticRegression ve HistGradientBoosting, telekom müşteri kaybı. Planlayıcı `customer_churn` veri setini kendisi seçti, hipotez 2 onaylandı (LR `C=0.5`, HGB `max_depth=5`, PR-AUC iddiası). Veri 7043 satır, 19 özellik, %27 pozitif. Deney ilk denemede geçti (yaklaşık 27 sn), toplam yaklaşık 80 sn, `Passed` / `Completed`, kapı ilk turda geçti, hakem notu çıkmadı. 5 model × 10 bölme = 50 iç içe run. Hipotez `inconclusive` (fark −0.0061, düzeltilmiş `p` 0.42). LR ve HGB, RF'den ROC-AUC ve PR-AUC'de anlamlı yüksek (LR ROC-AUC 0.844 en iyi), LR ile HGB arasında anlamlı fark yok. Altı parametre etkisinin hiçbiri anlamlı (HGB ROC-AUC düzeltilmiş `p` 0.07 en yakını). Makale yanlıştı ve kapı yakalamadı: Abstract RF'nin `n_estimators` ayarını odak diye yazdı (spec'te RF parametresi yok, kod `n_estimators=100` varsayılan), Conclusion "ayar performansı etkileyebilir" dedi. `eedebae` ile iki kontrol eklendi.
 
+Koşu 6 (thread `5fcf65e4-c75c-42af-a1ac-4776b1ed882a`, RF + LR + KNN, `credit_default`, hipotez 1: KNN `n_neighbors=5` PR-AUC iddiası): `Passed`, hipotez `contradicted`, tur 0'da kapı üç sorun buldu (F1 farkı, spec'te parametresi olmayan RF "ayarlandı", anlamlı etki yokken "ayar etkiledi"), tur 1'de düzeldi, `Completed`. KNN `n_neighbors=5` varsayılan olduğu için kontrol grubuyla birebir aynıydı. Son makalede "RF diğer modellerden PR-AUC'de yüksek" iddiası kaldı (RF-LR anlamlı değil) ve kapı yakalamadı; `collective_claim_issues` bunun için eklendi.
+
+Koşu 7 (thread `e0785e18-b992-4f3e-9c8c-196635fe26f4`, RF + LR + KNN, `credit_default`, hipotez 0: RF/LR `class_weight='balanced'`): sorgu bilerek varsayılan değerleri "ayar" diye istedi ve makalede "diğer modellere üstünlük" cümlesi istedi. Planlayıcı tek LLM çağrısında kendisi varsayılan olmayan değerler seçti, yazıcı toplu ifade kullanmadı, kapı ilk turda geçti, hipotez `supported` (RF-LR ROC-AUC farkı 0.048, dz 3.31). Makale RF'ye "yüksek varyans, bölmeye duyarlı" dedi, `unstable` false idi: `unfounded_instability_issues` bunun için eklendi. İlk iki deneme `arxiv returned no papers` ile literatür adımında düştü (literatür ajanı yeniden yazıldı). Planlayıcı tek başına, `n_estimators=100`, `n_neighbors=5`, `C=1.0` değerlerini zorlayan bir sorguyla denendi: ilk çağrıda hepsi önerildi, doğrulayıcı reddetti (`...is already the library default...`), ikinci çağrıda LLM `max_depth=10`, `C=0.5`, `n_neighbors=10` gibi değerlerle yeniden planladı.
+
 12 sentetik makale döngüsü (3 tohum × 4 karar türü) gerçek `gpt-4o` ile ilk denemede, sıfır yeniden yazmayla `Completed` oldu. Bu testler iki modelli sade veriydi, karmaşık durumdaki hakem gürültüsünü göstermedi (Koşu 2 gösterdi).
 
 ### 3.11 Kalıntı veri (test ve koşulardan)
 
 - Postgres: yaklaşık 31 checkpoint thread'i ve 31 hafıza kaydı (Koşu 3 eklendi; sayılar tam doğrulanmadı), `research_errors` boş. Thread'lerin bir kısmı bu oturumun test ve koşularından, kalanı önceki oturumlardan; hangisinin hangisi olduğu ayrıştırılmadı (yalnız aşağıdaki beş kimlik bu oturumdan biliniyor).
-- `mlflow.db` (yaklaşık 2 MB) içinde gerçek ve test run'ları. `reports/` içinde 12 makale. `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
+- `mlflow.db` (yaklaşık 2 MB) içinde gerçek ve test run'ları. `reports/` içinde 14 makale. `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
 - `test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı yalnız `is_success=False` kayıtları okur.
-- Bugünkü test thread'leri: `5f2808e4` (deney sırasında işçi kapatıldı, `running` kaldı), `38f98fd2`, `ad6ee6be` (reddedildi), `a531b95d` (Koşu 1), `b670cc9a` (Koşu 2), `26344d2d` (Koşu 3), `96acf4c2` (Koşu 4), `40222d61` (Koşu 5). Eski thread'lerin ve hafıza kayıtlarının spesifikasyonları `dataset: imbalanced` taşıyabilir; bu anahtar artık geçersizdir, eski thread yeniden oynatılmamalı.
+- Bugünkü test thread'leri: `5f2808e4` (deney sırasında işçi kapatıldı, `running` kaldı), `38f98fd2`, `ad6ee6be` (reddedildi), `a531b95d` (Koşu 1), `b670cc9a` (Koşu 2), `26344d2d` (Koşu 3), `96acf4c2` (Koşu 4), `40222d61` (Koşu 5), `5fcf65e4` (Koşu 6), `e0785e18` (Koşu 7). Koşu 7'den önce iki başarısız thread daha var (literatür adımında düştü), kimlikleri `f0143a53` ve `b4356310`. Eski thread'lerin ve hafıza kayıtlarının spesifikasyonları `dataset: imbalanced` taşıyabilir; bu anahtar artık geçersizdir, eski thread yeniden oynatılmamalı.
 
 ## 4. Bugün tespit edilen mimari sorunlar
 
@@ -217,16 +224,20 @@ Koşu 5 (thread `40222d61-edd7-463e-9d68-a847faa67dfd`, gerçek Hugging Face ver
 | 24 | Sistem sentetik veri üretiyordu (`make_classification`) | Kullanıcı kararı (projenin en büyük yapısal eksiği) | Beş doğrulanmış Hugging Face veri seti, Python'ın ürettiği veri bloğu, AST zorunluluğu, Pipeline içinde ön işleme, sandbox'ta `datasets` kurulumu |
 | 25 | `parameter_effect_issues` tırnaklı hipotez cümlesinde yanlış alarm veriyordu | Koşu 4 | Cümle bölücü kapanış işaretlerini tanır, "default" aynı yan cümlede aranır, hipotez ve amaç cümleleri muaf (`7673cb7`) |
 | 26 | Makale spec'te parametresi olmayan modelin ayarlandığını ve anlamlı etki yokken ayarın etkili olduğunu yazıyordu (sorgudaki talimat aktarılıyordu) | Koşu 5 | `untuned_model_issues`, `tuning_claim_issues` ve yazıcı kuralları (`eedebae`), gerçek makalelerde 3. ve 4. koşuda 0 yanlış alarm, 5. koşuda tam birer uyarı |
+| 27 | Makale "diğer modellere" karşı toplu üstünlük iddia ediyordu, oysa bir rakibe karşı fark anlamlı değildi | Koşu 6 | `collective_claim_issues` (`acdf5f9`): gerçek makalede PR-AUC için tam bir uyarı, 5. ve 2. koşu makalelerinde 0 yanlış alarm |
+| 28 | Planlayıcı varsayılan değeri "ayar" diye öneriyordu (`n_neighbors=5`) ve sıfır etkili kontrol grubu doğuyordu | Koşu 6 | `DEFAULT_PARAMS` (13 sklearn modeli sklearn 1.9.1'e karşı testli), planlayıcı prompt'unda varsayılanlar, `validate_spec` reddi ve son denemede sessiz çıkarma (`3bbeb2f`) |
+| 29 | Makale `unstable` false iken modele kararsızlık atfediyordu | Koşu 7 | `unfounded_instability_issues` (`40f2e35`): gerçek makalenin iki cümlesi yakalanıyor, 6 diğer gerçek makalede (üçünde flagged model) 0 yanlış alarm |
+| 30 | Literatür ajanı sorgudaki ayar ifadelerini ve 4 ifadelik `AND`'i aramaya katıp 0 sonuç alıyordu, araştırma `failed` oluyordu | Koşu 7 | Alan LLM'den, modeller Python'dan, en çok iki ifadeli arama merdiveni (`3f98244`); düşen üç sorgu gerçek arXiv ile 3 makale döndürdü |
 
 ### 4.2 Açık sorunlar (öncelik sırasıyla)
 
-1. **Anlamsız fark denetimi kısmen çözüldü.** `unsupported_difference_issues` artık anlamlı olmayan bir çift için üstünlük iddiasını yakalıyor. Kalan boşluklar: yalnız bir model adı geçen cümleler ("Random Forest has the highest mean PR-AUC") ve `highest`, `best` gibi çift belirtmeyen ifadeler kontrol edilmiyor. Anlamlı bir satırın *yönü* (makale doğru modeli üstün gösteriyor mu) de kontrol edilmiyor. Gerçek bir koşuda yazıcının bu kontrolü tetikleyip tetiklemediği henüz görülmedi.
+1. **Anlamsız fark denetimi kısmen çözüldü.** `unsupported_difference_issues` artık anlamlı olmayan bir çift için üstünlük iddiasını yakalıyor. Kalan boşluklar: yalnız bir model adı geçen cümleler ("Random Forest has the highest mean PR-AUC") ve `highest`, `best` gibi çift belirtmeyen ifadeler kontrol edilmiyor. Anlamlı bir satırın *yönü* (makale doğru modeli üstün gösteriyor mu) de kontrol edilmiyor. Toplu ifadeler ("the other models") artık `collective_claim_issues` ile denetleniyor, ama `highest`/`best` gibi üstünlük sıfatları hâlâ denetlenmiyor. Gerçek bir koşuda yazıcının bu kontrolü tetikleyip tetiklemediği henüz görülmedi.
 2. **Claim hâlâ yapılandırma çiftinin kararıdır.** Kontrol grubu parametrelerin etkisini ayrıca ölçüyor ama hipotez kararı (`supported`/`contradicted`) yapılandırılmış iki model arasındadır, "model sınıfı" için değil. Makale de kararı böyle yazmalı, bu henüz denetlenmiyor. Parametre değeri varsayılana eşitse (ör. LR `C=1.0`) etki sıfırdır ve `p=1` çıkar, planlayıcı bunu ayırt etmez. Etki ailesi 6 satırdır (model × 3 metrik), kontrol grubu sandbox süresini ve MLflow run sayısını artırır (4 model × 10 bölme).
 3. **Gerçek koşuda hâlâ tetiklenmeyen yollar.** Sızıntı eleştiri döngüsü Koşu 3'te, 10 koşuluk yedek yol Koşu 4'te gerçek servislerle çalıştı, ama ikisi de sentetik veriyle; gerçek Hugging Face verisiyle tam koşu Koşu 5'te yapıldı (`Passed` / `Completed`). Kalanlar: sandbox çökmesi, `Failed` doğrulama makalesi, `NeedsReview` kalıcı durumu, çok modelli veya yavaş sorguda sandbox zaman aşımı (XGBoost paket kurulumu dahil). Bunlar testlerle ve sahte servislerle kapsandı.
-4. **Kalıp tabanlı kontrollerin kırılganlığı.** On iki LLM'siz kontrol regex tabanlı. `leakage_description_issues` "ön işleme sözcüğü + tüm veri/bölmeden önce" kalıbına bakar; "scaler ve full dataset" geçen meşru bir cümleyi yanlışlıkla işaretleyebilir (en kötü iki yeniden yazma, sonra `NeedsReview`), canlı denenmedi. Gerçek çıktıyla üç kez hata gösterdiler (tablo başlığı, olumsuzlama kapsamı, hipotez cümlesi). Yeni bir kontrol eklemek yerine mümkünse cümleyi Python'a yazdırmak (kanıt cümleleri) daha sağlam bulundu. Yazıcı çok farklı bir ifade seçerse gereksiz yeniden yazma ve en kötü `NeedsReview` olabilir.
+4. **Kalıp tabanlı kontrollerin kırılganlığı.** On dört LLM'siz kontrol regex tabanlı. `leakage_description_issues` "ön işleme sözcüğü + tüm veri/bölmeden önce" kalıbına bakar; "scaler ve full dataset" geçen meşru bir cümleyi yanlışlıkla işaretleyebilir (en kötü iki yeniden yazma, sonra `NeedsReview`), canlı denenmedi. Gerçek çıktıyla üç kez hata gösterdiler (tablo başlığı, olumsuzlama kapsamı, hipotez cümlesi). Yeni bir kontrol eklemek yerine mümkünse cümleyi Python'a yazdırmak (kanıt cümleleri) daha sağlam bulundu. Yazıcı çok farklı bir ifade seçerse gereksiz yeniden yazma ve en kötü `NeedsReview` olabilir.
 5. **İşçi ölürse araştırma `running` kalır.** Otomatik kurtarma ve "bayat çalışma" tespiti yok. Koşu sırasında işçiyi kapatmak (testlerde yaptım) böyle bir thread bıraktı.
 6. **İstatistik varsayımları.** 10 bölme birbirinden bağımsız değil (aynı veri), p değerleri iyimser olabilir (Nadeau-Bengio düzeltmesi bunu kısmen karşılar). Başta ölçülen güç (%74) beş bölmeye aitti, on bölmede artmalı, yeniden ölçülmedi. Wilcoxon ve `RepeatedStratifiedKFold` uygulanmadı (10 tekrarlı stratify'lı `train_test_split` kullanılıyor).
-7. **Literatür.** `MIN_RELEVANCE=0.35` eşiği iki üç sorguyla ölçüldü. Makale hiçbir atıf yapmıyor (yazıcı atıfsız yazıyor). Veri seti seçenekleri iki tane.
+7. **Literatür.** `MIN_RELEVANCE=0.35` eşiği iki üç sorguyla ölçüldü, yeni arama merdiveniyle yeniden ölçülmedi. Dört test sorgusunda skorlar 0.36-0.57 aralığındaydı, ilk üçte genel (alan dışı) makaleler de geldi ("Storms prediction: logistic regression vs random forest"). Alan LLM'in tek çıkarımına bağlı; LLM alanı vermezse (kural dışı kelime sayısı) arama yalnız modellerle yapılır ve daha az konuya özgü olur. Makale hiçbir atıf yapmıyor (yazıcı atıfsız yazıyor). Veri seti seçenekleri beş tane.
 8. **`POST /experiments` grafla tutarsız.** Doğrulayıcı olmadığı için deneyden hemen sonra kendi hafıza ve MLflow kaydını yazıyor (`record_memory`, `track_run` bayrakları). Aynı uç artık iki model şartını da uyguluyor.
 9. **Ölü kod.** `models_dropped`, `performance_dropped`, `DROP_LIMIT` (`verifier.py`), `log_classification_run`, `parse_metrics` yalnız testlerde kullanılıyor. `EXPERIMENT_CSV_SCHEMA` sandbox'a bir `data.csv` yükletiyor ama prompt bu veriyi tek kaynak olarak kullanmayı yasaklıyor (fiilen kullanılmıyor).
 10. **MLflow.** `statistical_decision` JSON'u artifact olarak yüklenmiyor. Run kimliği state'te.
@@ -263,7 +274,7 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 
 1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (676 geçmeli).
 2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). ~~Konfigürasyon karışıklığı~~ Seçenek B ile yapıldı. ~~Üçüncü gerçek koşu~~ yapıldı (sızıntı yolu). İstenirse anlamlı satırın yönünün denetimi, tek model adlı cümleler ve claim kararının "yapılandırma çifti" olarak yazıldığının denetimi eklenebilir.
-3. Kalan yollar: `Failed` doğrulama makalesi, sandbox çökmesi, diğer veri setlerinde (`breast_cancer`, `credit_default`, `adult_income`, `credit_fraud`) tam koşu. Maliyet onayı iste.
+3. Yeni dört kontrolün (toplu ifade, kararsızlık, ayar, sızıntı anlatımı) bir arada çalıştığı daha uzun gerçek koşular (farklı veri setleri, dört model) ve kalan yollar: `Failed` doğrulama makalesi, sandbox çökmesi, diğer veri setlerinde (`breast_cancer`, `credit_default`, `adult_income`, `credit_fraud`) tam koşu. Maliyet onayı iste.
 4. `POST /approve_plan` doğrulama hatasını `422` yap (4.2 madde 15).
 5. İşçi ölümü kurtarması (bayat `running` tespiti).
 6. Ölü kod temizliği (4.2 madde 9).
@@ -290,5 +301,8 @@ Kullanıcı farklı bir öncelik verebilir. Mesajı gelmeden iş başlatma.
 - **Python dizgisinde `\n`:** heredoc ile yazılan bir betikte dizgi içindeki `\n` gerçek satır sonuna dönüşüp betiği bozdu (ikinci kez). Escape içeren her şey `Write` ile dosya olarak yazılır.
 - **Veri bloğu yaklaşımı:** LLM'e veri yükleme kodu yazdırmak yerine Python'ın ürettiği bloğu aynen yapıştırtmak ve AST ile ifade ifade doğrulamak güvenilir çıktı (iki canlı denemede ilk denemede geçti). `sample(random_state=0)` kullan, `train_test_split` değil: doğrulayıcı `train_test_split` çağrılarının tohumunu yeniden yazar, bir örnekleme çağrısı da yazılırsa veri her tohumda değişir.
 - **Etki sözcüğü kalıpları model adlarına takılır:** `boost*` kalıbı "Hist Gradient Boosting" adına eşleşti ve temiz bir cümleyi işaretledi. Model adı içeren her kalıbı model adlarıyla da sına.
+- **Windows Python ve Git Bash `/tmp`:** Bash'te `cp x /tmp/x.bak` ile aldığım yedek Windows Python'dan görünmez (`/tmp` farklı bir yere işaret eder); mutasyon betiğinde `shutil.copy('/tmp/...')` çalışmadı ve mutasyon dosyada kaldı. Yedeği geri yüklemeyi her zaman bash'ten yap ve ardından `diff` ile doğrula.
+- **Model adı muafiyeti:** "Hist Gradient Boosting" adındaki `Boosting`, `boost*` etki sözcüğünü tetikledi ve `(?<!Gradient )` lookbehind'iyle muaf tutuldu; model adı içeren her kalıbı gerçek model adlarıyla sına.
+- **Literatür kırılganlığı:** arXiv'e giden `AND` sorgusundaki her ek ifade sonucu daraltır. Sorgudaki talimat ve ayar sözcükleri aramaya sızmamalı.
 - **`scratchpad` geçicidir:** Canlı doğrulama betikleri (`live_loop*.py`, `live_final.py`, `live_planner.py`, mock API, tarayıcı sürücüleri) depoda değil, kaybolabilir. Kalıcı araç istenirse bir `tools/` klasörüne taşınmalı.
 - **Arayüz doğrulaması:** Başsız Edge ile DevTools protokolü kullanıldı, `localhost:3000` adresi gerekli.
