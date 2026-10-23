@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı: `HEAD` `d9c8718` ve `origin/main` ile aynı (her şey push edilmiş), çalışma ağacı temiz, 574 pytest testi geçiyor, `tsc` ve `eslint` temiz. Oturumun başında 94 commit vardı, şimdi 199.
+Durum anı: `HEAD` `d9c8718` ve `origin/main` ile aynı (her şey push edilmiş), çalışma ağacı temiz, 601 pytest testi geçiyor, `tsc` ve `eslint` temiz. Oturumun başında 94 commit vardı, şimdi 199.
 
 ## 1. Proje
 
@@ -64,7 +64,7 @@ START -> literature_node -> planner_node -> approval_gate (interrupt_before)
 | Hafıza | `app/memory/rag_memory.py` |
 | MLflow ve çıktı ayrıştırma | `app/tracking/mlflow_logger.py` |
 | Konsol | `frontend/app/page.tsx`, `frontend/app/result/[threadId]/paper-view.tsx`, `frontend/components/*` |
-| Testler | `tests/` (23 dosya) |
+| Testler | `tests/` (24 dosya) |
 
 ### 3.3 Sabitler
 
@@ -113,6 +113,7 @@ Desteklenen modeller (17): LinearSVC, SVM, RandomForest, LogisticRegression, Dec
 | `performance_issues` | Anlamlı her performans satırı tablo dışında yazılmış mı, `dz` ile |
 | `hypothesis_issues` | Abstract ve Conclusion `the hypothesis was <verdict>` diyor mu, ters yönde `supported` demiyor mu |
 | `table_issues` | Tablodaki her hücre doğrulanmış ortalama ± std ile uyuşuyor mu (yazılan son basamağın yarısı toleransla) |
+| `unsupported_difference_issues` | Anlamlı olmayan bir karşılaştırma için üstünlük iddiası var mı (aynı yan cümlede metrik, iki model adı ve `higher`/`outperforms` gibi bir sözcük, olumsuzlama, kararlılık, hipotez ve amaç cümleleri hariç) |
 
 LLM hakem (`judge_consistency`) **danışmandır**: iş bitince bir kez çağrılır, notları `referee_notes` alanına yazılır, durumu belirlemez, yazıcıya gitmez. Çağrı hata verirse araştırma düşmez. Sonuç sayfasında kapalı bir blokta görünür.
 
@@ -143,7 +144,7 @@ cd frontend; npm run dev
 
 ### 3.9 Test altyapısı
 
-574 test, yaklaşık 20 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
+601 test, yaklaşık 25 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
 
 ### 3.10 Gerçek koşular
 
@@ -195,10 +196,11 @@ Koşu 2 sayıları: ROC-AUC RandomForest 0.944, SVM 0.914, KNN 0.866. KNN-RF far
 | 18 | Bölme iki katına çıkınca sandbox süresi yetmeyebilir | Analiz | 240/300 sn (ölçüme değil orantıya dayanır) |
 | 19 | Tek modelli sorguda karşılaştırma yok | Canlı planlayıcı | En az iki model, `422` |
 | 20 | Tablo kontrolü gerçek başlıkları (`Accuracy (Mean ± Std)`) tanımıyordu | Gerçek makale | Başlık süsleri temizleniyor, gerçek tablo test verisi |
+| 21 | Anlamlı olmayan farkın makalede iddia edilmesi denetimsizdi | Koşu 2 hakem notları | `unsupported_difference_issues` (gerçek ikinci koşu makalesinde 0 yanlış pozitif, gerçek ihlaller ve üç modelli yan cümleler testli) |
 
 ### 4.2 Açık sorunlar (öncelik sırasıyla)
 
-1. **Anlamsız farkın iddiası denetimsiz.** `performance` içinde `significant` olmayan bir karşılaştırma için makalenin "daha yüksek" demesini hiçbir kontrol yakalamıyor, yalnız hakemin danışman notunda çıkabilir. LLM'siz yapmak üç modelli cümlelerde belirsiz (hangi çiftten söz ediliyor). Fikir: kanıt cümlelerini beyaz liste gibi kullanmak, tabloya ve kanıt cümlelerine dayanmayan metrik karşılaştırma cümlelerini yasaklamak.
+1. **Anlamsız fark denetimi kısmen çözüldü.** `unsupported_difference_issues` artık anlamlı olmayan bir çift için üstünlük iddiasını yakalıyor. Kalan boşluklar: yalnız bir model adı geçen cümleler ("Random Forest has the highest mean PR-AUC") ve `highest`, `best` gibi çift belirtmeyen ifadeler kontrol edilmiyor. Anlamlı bir satırın *yönü* (makale doğru modeli üstün gösteriyor mu) de kontrol edilmiyor. Gerçek bir koşuda yazıcının bu kontrolü tetikleyip tetiklemediği henüz görülmedi.
 2. **Konfigürasyon karışıklığı.** Claim iki modeli *farklı yapılandırmayla* karşılaştırıyor ("RF `n_estimators=100` ve SVM `kernel='rbf'`"), varsayılan parametreli temel çizgi yok. Karar "bu yapılandırma çifti" için geçerli, "model sınıfı" için değil. Seçenek B (her modeli varsayılan ve hipotez parametreleriyle koşturmak) yapılmadı, sandbox işini ve istatistiği iki katına çıkarır.
 3. **Gerçek koşuda hiç tetiklenmeyen yollar.** Eleştiri döngüsü (sızıntı, çökme), `Failed` doğrulama makalesi, `NeedsReview` kalıcı durumu, betik döngü basmadığında 10 koşuluk yedek yol (artık 10 ayrı sandbox koşusu), çok modelli veya yavaş sorguda sandbox zaman aşımı (XGBoost paket kurulumu dahil). Hepsi testlerle ve sahte servislerle kapsandı, gerçek servislerle denenmedi.
 4. **Kalıp tabanlı kontrollerin kırılganlığı.** Sekiz LLM'siz kontrol regex tabanlı. Gerçek çıktıyla üç kez hata gösterdiler (tablo başlığı, olumsuzlama kapsamı, hipotez cümlesi). Yeni bir kontrol eklemek yerine mümkünse cümleyi Python'a yazdırmak (kanıt cümleleri) daha sağlam bulundu. Yazıcı çok farklı bir ifade seçerse gereksiz yeniden yazma ve en kötü `NeedsReview` olabilir.
@@ -236,7 +238,7 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 ## 6. Yarın için önerilen sıra
 
 1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (574 geçmeli).
-2. Anlamsız fark iddiası kontrolü (4.2 madde 1). Önce gerçek makalelerden örnek cümle topla (Koşu 1 ve 2 makaleleri `reports/` içinde), sonra kalıp yaz ve gerçek makaleyle sına.
+2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). İstenirse anlamlı satırın yönünün denetimi ve tek model adlı cümleler eklenebilir.
 3. Konfigürasyon karışıklığı için karar iste: seçenek B (temel çizgi) mi, yoksa verdict'i "yapılandırma çifti" olarak etiketlemek mi.
 4. Üçüncü gerçek tam koşu, bu kez bir yolu bilerek zorlayan sorgu (sızıntılı veya çöken kod, `Failed` makale, yedek 10 koşu yolu). Maliyet onayı iste.
 5. İşçi ölümü kurtarması (bayat `running` tespiti).
