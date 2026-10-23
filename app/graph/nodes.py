@@ -4,6 +4,7 @@ from pathlib import Path
 from langchain_core.runnables import RunnableConfig
 
 from app.agents.consistency import (
+    collective_claim_issues,
     conclusion_issues,
     direction_conflict,
     hypothesis_issues,
@@ -272,6 +273,7 @@ def _gate_issues(state: AgentState) -> list[str]:
         issues.append(reliability)
     issues.extend(performance_issues(paper, decision.get("performance")))
     issues.extend(unsupported_difference_issues(paper, decision.get("performance")))
+    issues.extend(collective_claim_issues(paper, decision.get("performance")))
     issues.extend(hypothesis_issues(paper, decision.get("hypothesis")))
     issues.extend(parameter_effect_issues(paper, decision.get("parameter_effects")))
     issues.extend(leakage_description_issues(paper, status))

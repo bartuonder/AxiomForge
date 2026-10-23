@@ -182,6 +182,18 @@ TUNING_CLAIM_NOTICE = (
     'Hiçbir parametre etkisi anlamlı değil (significant false) ama makale parametre ayarının sonucu etkilediğini '
     'söylüyor: "{clause}". Bunun yerine parametrelerin varsayılana göre anlamlı bir etkisi bulunmadığını yaz.'
 )
+_COLLECTIVE = re.compile(
+    r"\b(?:the\s+|all\s+(?:the\s+)?|both\s+|every\s+|two\s+)?(?:other|remaining|competing)\s+(?:\w+\s+)?"
+    r"(?:models?|classifiers?|methods?|algorithms?|estimators?)\b"
+    r"|\bthe\s+(?:rest|others)\b|\ball\s+(?:the\s+)?models\b|\bevery\s+model\b|\bany\s+other\b",
+    re.IGNORECASE,
+)
+_STABLE_WORD = re.compile(r"\bstable\b", re.IGNORECASE)
+COLLECTIVE_CLAIM_NOTICE = (
+    '{metric} için {model} modelinin her rakibine karşı anlamlı bir {direction} yok (her çiftte significant true ve aynı yönde olmalı) '
+    'ama makale toplu bir iddia kuruyor: "{sentence}". Toplu ifade ("the other models", "all models") kullanma; '
+    'yalnız anlamlı satırları tek tek yaz.'
+)
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
     'iddia ediyor: "{clause}". Bu karşılaştırma için yalnızca "No significant difference" cümlesini kullan.'
@@ -622,6 +634,67 @@ def tuning_claim_issues(paper: str, effects: list[dict] | None, spec: dict | Non
             ):
                 return [TUNING_CLAIM_NOTICE.format(clause=clause.strip()[:200])]
     return []
+
+
+def _dominates(performance: list[dict], model: str, metric: str, higher: bool) -> bool:
+    rivals = {name for item in performance for name in (item["a"], item["b"])} - {model}
+    for rival in rivals:
+        row = next(
+            (
+                item
+                for item in performance
+                if item.get("metric") == metric and {item["a"], item["b"]} == {model, rival}
+            ),
+            None,
+        )
+        if row is None or not row.get("significant"):
+            return False
+        sign = 1.0 if row["a"] == model else -1.0
+        difference = sign * float(row["mean_difference"])
+        if (difference > 0) != higher:
+            return False
+    return True
+
+
+def collective_claim_issues(paper: str, performance: list[dict] | None) -> list[str]:
+    rows = [item for item in performance or [] if item.get("metric") in _METRIC_NAMES]
+    models = list(dict.fromkeys(str(name) for item in rows for name in (item["a"], item["b"])))
+    if len(models) < 3:
+        return []
+    issues: list[str] = []
+    seen: set[tuple[str, str]] = set()
+    for sentence in _prose_sentences(paper):
+        if not _COLLECTIVE.search(sentence):
+            continue
+        if _NEGATION.search(sentence) or _STABILITY_TERMS.search(sentence) or _STABLE_WORD.search(sentence):
+            continue
+        if _HYPOTHESIS_WORD.search(sentence) or _INTENT.search(sentence):
+            continue
+        squashed = _squash(sentence)
+        positions = {model: squashed.find(_squash(model)) for model in models if _squash(model) in squashed}
+        if not positions:
+            continue
+        subject = min(positions, key=lambda name: positions[name])
+        up = bool(_UP_TERMS.search(sentence) or _SUPERIORITY.search(sentence))
+        down = bool(_DOWN_TERMS.search(sentence))
+        if up == down:
+            continue
+        named = [key for key, label in _METRIC_LABELS.items() if label.search(sentence)]
+        metrics = named or list(_METRIC_NAMES)
+        for key in metrics:
+            if (subject, key) in seen:
+                continue
+            seen.add((subject, key))
+            if not _dominates(rows, subject, key, higher=up):
+                issues.append(
+                    COLLECTIVE_CLAIM_NOTICE.format(
+                        metric=_METRIC_NAMES[key],
+                        model=subject,
+                        direction="üstünlük" if up else "düşüklük",
+                        sentence=sentence.strip()[:200],
+                    )
+                )
+    return issues
 
 
 def instability_issues(paper: str, instability: dict | None) -> list[str]:

@@ -62,6 +62,8 @@ SYSTEM_PROMPT = (
     "adjusted_p_value ve effect_size_dz. ROC-AUC dahil hiçbir anlamlı metriği Abstract ve Conclusion'dan çıkarma. "
     "significant false ise o metrikte anlamlı fark bulunamadığını yaz; ortalamalar farklı görünse bile fark iddia etme. "
     "Performans farkını higher veya lower ile anlat, better kullanma. "
+    "İkiden çok model varsa 'the other models', 'all models', 'the rest' gibi toplu ifadelerle üstünlük veya düşüklük iddia etme; "
+    "bir modelin her rakibine karşı satırlar significant true ve aynı yöndeyse bile farkları Evidence sentences'taki gibi çift çift yaz. "
     "Statistical decision içindeki instability alanı bir bulgudur, hata değildir. "
     "unstable true ise Results içinde flagged listesindeki her model ve metriği std değeriyle ve std_threshold ile birlikte yaz, "
     "Conclusion içinde bu modellerin sonuçlarının bölmeye duyarlı olduğunu limitasyon olarak belirt ve onlara güvenilir veya kararlı deme. "
