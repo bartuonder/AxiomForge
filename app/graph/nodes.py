@@ -12,6 +12,7 @@ from app.agents.consistency import (
     performance_issues,
     reliability_issue,
     table_issues,
+    unsupported_difference_issues,
     verification_issue,
 )
 from app.agents.experiment import MODEL, PROMPT_VERSION, requested_models
@@ -264,6 +265,7 @@ def _gate_issues(state: AgentState) -> list[str]:
     if reliability:
         issues.append(reliability)
     issues.extend(performance_issues(paper, decision.get("performance")))
+    issues.extend(unsupported_difference_issues(paper, decision.get("performance")))
     issues.extend(hypothesis_issues(paper, decision.get("hypothesis")))
     issues.extend(table_issues(paper, statistical_results))
     return issues

@@ -124,6 +124,14 @@ TABLE_ROW_NOTICE = "Sonuç tablosunda {model} satırı yok."
 TABLE_CELL_NOTICE = (
     "Sonuç tablosunda {model} için {metric} hücresi '{found}' ama doğrulanmış değer {expected}."
 )
+_CLAIM_TERMS = re.compile(
+    r"\bhigher\b|\blower\b|\bbetter\b|\bworse\b|\boutperform\w*|\bsuperior\b|\bgreater\b|\blarger\b|\bexceed\w*|\bimprov\w*",
+    re.IGNORECASE,
+)
+UNSUPPORTED_DIFFERENCE_NOTICE = (
+    '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
+    'iddia ediyor: "{clause}". Bu karşılaştırma için yalnızca "No significant difference" cümlesini kullan.'
+)
 RELIABILITY_NOTICE = (
     "Doğrulama Passed ama makale bunu sonuçların güvenilir olduğunun kanıtı gibi anlatıyor "
     "('reliability', 'robust' gibi sözcüklerle). Passed yalnız deneyin hatasız çalıştığını "
@@ -404,6 +412,45 @@ def table_issues(paper: str, statistical_results: dict | None) -> list[str]:
                     metric=_TABLE_LABELS[metric],
                     found=cell or "boş",
                     expected=f"{mean:.4f} ± {std:.4f}",
+                )
+            )
+    return issues
+
+
+def unsupported_difference_issues(paper: str, performance: list[dict] | None) -> list[str]:
+    rows = [item for item in performance or [] if not item.get("significant")]
+    if not rows:
+        return []
+    prose = _prose_sentences(paper)
+    issues: list[str] = []
+    for item in rows:
+        key = str(item.get("metric", ""))
+        label = _METRIC_LABELS.get(key)
+        if label is None:
+            continue
+        first, second = _squash(str(item["a"])), _squash(str(item["b"]))
+        offending = None
+        for sentence in prose:
+            if _HYPOTHESIS_WORD.search(sentence) or _INTENT.search(sentence):
+                continue
+            for clause in _CLAUSE_BREAK.split(sentence):
+                squashed = _squash(clause)
+                if (
+                    label.search(clause)
+                    and first in squashed
+                    and second in squashed
+                    and _CLAIM_TERMS.search(clause)
+                    and not _NEGATION.search(clause)
+                    and not _STABILITY_TERMS.search(clause)
+                ):
+                    offending = clause.strip()
+                    break
+            if offending:
+                break
+        if offending:
+            issues.append(
+                UNSUPPORTED_DIFFERENCE_NOTICE.format(
+                    metric=_METRIC_NAMES[key], a=item["a"], b=item["b"], clause=offending[:200]
                 )
             )
     return issues
