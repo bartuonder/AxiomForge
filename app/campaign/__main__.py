@@ -1,0 +1,97 @@
+import argparse
+import json
+import sys
+from pathlib import Path
+from typing import Any, Callable
+
+from app.campaign import store
+from app.campaign.demos import demo_names, demo_spec
+from app.campaign.runner import DEFAULT_WORKERS
+from app.campaign.service import execute_campaign
+from app.campaign.spec import CampaignSpecError
+from app.sandbox.e2b_runner import run_classification
+
+EXIT_OK = 0
+EXIT_UNFINISHED = 1
+EXIT_USAGE = 2
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="python -m app.campaign", description="Replicate a published claim across datasets.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    run = commands.add_parser("run", help="run a campaign")
+    source = run.add_mutually_exclusive_group(required=True)
+    source.add_argument("--demo", help="a ready campaign: " + ", ".join(demo_names()))
+    source.add_argument("--spec", help="path of a campaign specification in JSON")
+    run.add_argument("--datasets", help="comma separated dataset keys that replace the specification's datasets")
+    run.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="datasets run in parallel")
+    run.add_argument("--id", help="campaign id; a new one is generated when omitted")
+    commands.add_parser("list", help="list stored campaigns")
+    commands.add_parser("demos", help="list the ready campaigns")
+    show = commands.add_parser("show", help="print the report of a stored campaign")
+    show.add_argument("id")
+    return parser
+
+
+def _load_spec(arguments: argparse.Namespace) -> dict[str, Any]:
+    if arguments.demo:
+        spec = demo_spec(arguments.demo)
+    else:
+        try:
+            spec = json.loads(Path(arguments.spec).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise CampaignSpecError(f"cannot read {arguments.spec}: {exc}") from exc
+    if arguments.datasets:
+        spec["datasets"] = [key.strip() for key in arguments.datasets.split(",") if key.strip()]
+    return spec
+
+
+def _describe(state: dict[str, Any]) -> list[str]:
+    lines = [f"campaign {state['id']}: {state['status']}"]
+    for key, item in state["datasets"].items():
+        detail = f" ({item['error']})" if item.get("error") else ""
+        lines.append(f"  {key}: {item['status']}{detail}")
+    for verdict in state.get("verdicts", []):
+        lines.append(f"  {verdict['id']} {verdict['verdict']}: {verdict['statement']}")
+    for issue in state.get("issues", []):
+        lines.append(f"  issue: {issue}")
+    if state.get("error"):
+        lines.append(f"  error: {state['error']}")
+    if state["status"] in {"completed", "needs_review"}:
+        lines.append(f"report: {store.campaign_dir(state['id']) / 'report.md'}")
+    return lines
+
+
+def main(argv: list[str] | None = None, execute: Callable[[str, str], str] = run_classification, out=None) -> int:
+    out = out or sys.stdout
+    arguments = _parser().parse_args(argv)
+    if arguments.command == "demos":
+        print("\n".join(demo_names()), file=out)
+        return EXIT_OK
+    if arguments.command == "list":
+        for campaign_id in store.list_campaigns():
+            state = store.load_state(campaign_id) or {}
+            print(f"{campaign_id} {state.get('status', '?')} {state.get('title', '')}", file=out)
+        return EXIT_OK
+    if arguments.command == "show":
+        try:
+            report = store.load_report(arguments.id)
+        except store.CampaignStoreError as exc:
+            print(str(exc), file=out)
+            return EXIT_USAGE
+        if report is None:
+            print(f"campaign {arguments.id} has no report", file=out)
+            return EXIT_USAGE
+        print(report, file=out)
+        return EXIT_OK
+    try:
+        state = execute_campaign(_load_spec(arguments), arguments.id, execute, arguments.workers)
+    except (CampaignSpecError, store.CampaignStoreError) as exc:
+        print(f"invalid campaign: {exc}", file=out)
+        return EXIT_USAGE
+    print("\n".join(_describe(state)), file=out)
+    return EXIT_OK if state["status"] == "completed" else EXIT_UNFINISHED
+
+
+if __name__ == "__main__":
+    sys.exit(main())
