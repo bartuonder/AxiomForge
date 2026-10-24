@@ -23,6 +23,28 @@ def _verdicts(analysis: dict[str, Any]) -> list[dict[str, Any]]:
     return [{"id": claim["id"], "statement": claim["statement"], "verdict": claim["verdict"]} for claim in analysis.get("claims", [])]
 
 
+def _initial_state(campaign_id: str, spec: dict[str, Any], status: str) -> dict[str, Any]:
+    return {
+        "id": campaign_id,
+        "title": spec["title"],
+        "status": status,
+        "datasets": {dataset: {"status": "queued"} for dataset in spec["datasets"]},
+    }
+
+
+def queue_campaign(raw_spec: Any) -> tuple[str, dict[str, Any]]:
+    spec = validate_campaign(raw_spec)
+    campaign_id = store.new_campaign_id()
+    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued") | {"queued": store.now()})
+    return campaign_id, spec
+
+
+def reject_campaign(campaign_id: str, reason: str) -> None:
+    state = store.load_state(campaign_id)
+    if state is not None:
+        store.save_state(campaign_id, state | {"status": "failed", "error": reason, "finished": store.now()})
+
+
 def execute_campaign(
     raw_spec: Any,
     campaign_id: str | None = None,
@@ -34,13 +56,7 @@ def execute_campaign(
     spec = validate_campaign(raw_spec)
     campaign_id = campaign_id or store.new_campaign_id()
     lock = threading.Lock()
-    state: dict[str, Any] = {
-        "id": campaign_id,
-        "title": spec["title"],
-        "status": "running",
-        "started": store.now(),
-        "datasets": {dataset: {"status": "queued"} for dataset in spec["datasets"]},
-    }
+    state = _initial_state(campaign_id, spec, "running") | {"started": store.now()}
     store.save_state(campaign_id, state)
 
     def on_update(dataset: str, result: dict[str, Any]) -> None:

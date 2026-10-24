@@ -202,3 +202,44 @@ def test_progress_updates_from_parallel_datasets_never_corrupt_the_state():
 def test_only_progress_fields_reach_the_state():
     result = {"status": "finished", "attempts": 2, "seconds": 3.5, "script": "x", "summary": {}, "profile": {}, "error": "e"}
     assert service._progress(result) == {"status": "finished", "attempts": 2, "seconds": 3.5, "error": "e"}
+
+
+def test_a_queued_campaign_is_stored_with_every_dataset_queued_before_it_runs():
+    campaign_id, spec = service.queue_campaign(SPEC)
+    state = store.load_state(campaign_id)
+    assert state["status"] == "queued" and state["title"] == SPEC["title"]
+    assert state["queued"].endswith("+00:00") and "started" not in state
+    assert state["datasets"] == {key: {"status": "queued"} for key in KEYS}
+    assert spec["datasets"] == KEYS and spec["claims"][0]["id"] == "C1"
+
+
+def test_a_queued_campaign_gets_a_unique_id_each_time():
+    first, _ = service.queue_campaign(SPEC)
+    second, _ = service.queue_campaign(SPEC)
+    assert first != second
+
+
+def test_an_invalid_spec_is_not_queued(root):
+    with pytest.raises(CampaignSpecError):
+        service.queue_campaign({**SPEC, "claims": []})
+    assert not root.exists()
+
+
+def test_the_validated_spec_can_be_executed_under_the_queued_id():
+    campaign_id, spec = service.queue_campaign(SPEC)
+    state = service.execute_campaign(spec, campaign_id, healthy, workers=2)
+    assert state["id"] == campaign_id and state["status"] == "completed"
+    assert store.list_campaigns() == [campaign_id]
+
+
+def test_a_rejected_campaign_keeps_its_datasets_and_records_the_reason():
+    campaign_id, _ = service.queue_campaign(SPEC)
+    service.reject_campaign(campaign_id, "task queue is unavailable")
+    state = store.load_state(campaign_id)
+    assert state["status"] == "failed" and state["error"] == "task queue is unavailable"
+    assert state["finished"].endswith("+00:00") and set(state["datasets"]) == set(KEYS)
+
+
+def test_rejecting_an_unknown_campaign_does_nothing(root):
+    service.reject_campaign("ghost", "whatever")
+    assert not root.exists()
