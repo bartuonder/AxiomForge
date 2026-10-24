@@ -281,6 +281,30 @@ def hypothesis_verdict(claim: dict[str, str] | None, decision: dict[str, Any]) -
     return result
 
 
+def leader_summary(
+    summary: dict[str, dict[str, float] | str],
+    performance: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    key = f"{CONCLUSION_METRIC}_mean"
+    means = {
+        name: float(record[key])
+        for name, record in summary.items()
+        if isinstance(record, dict) and not is_baseline(name) and key in record
+    }
+    if len(means) < 2:
+        return None
+    leader = max(means, key=lambda name: means[name])
+    behind: list[str] = []
+    for rival in means:
+        if rival == leader:
+            continue
+        row = _pair(performance or [], leader, rival, CONCLUSION_METRIC)
+        sign = 1.0 if row is not None and row["a"] == leader else -1.0
+        if row is None or not row.get("significant") or sign * float(row["mean_difference"]) <= 0:
+            behind.append(rival)
+    return {"model": leader, "metric": CONCLUSION_METRIC, "mean": means[leader], "not_significant_against": behind}
+
+
 def conclusion_sentence(decision: dict[str, Any]) -> str:
     outcome = decision.get("outcome")
     if outcome not in {"tie", "winner"}:

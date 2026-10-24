@@ -76,6 +76,7 @@ _GENERIC_PERFORMANCE = re.compile(r"\bperform\w*|\bpredictive\b", re.IGNORECASE)
 _STABILITY_TERMS = re.compile(r"\bstabil\w*|\bvarianc\w*|\bvariab\w*", re.IGNORECASE)
 _NUMBER = re.compile(r"(?<![\w.])\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
 EFFECT_SIZE_TOLERANCE = 0.006
+SIMILARITY_LIMIT = 0.8
 PERFORMANCE_OMISSION_NOTICE = (
     "{metric} için {a} ile {b} arasında anlamlı bir fark var (significant true) ama makale bunu "
     "tablo dışında bir cümlede yazmıyor. Results içinde yönü (higher veya lower), adjusted_p_value ve "
@@ -202,6 +203,37 @@ UNFOUNDED_INSTABILITY_NOTICE = (
 UNFOUNDED_MODEL_INSTABILITY_NOTICE = (
     'Kararsızlık bulgusu yalnız {flagged} için var ama makale {named} için kararsızlık iddia ediyor: "{sentence}". '
     'Kararsızlığı yalnız flagged listesindeki modeller için yaz.'
+)
+_FORBIDDEN_METHOD = re.compile(
+    r"\b\d+[- ]?fold\b|\bk[- ]?fold\b|\bcross[- ]?validat\w*|\bleave[- ]one[- ]out\b|\bbootstrap\w*|\bnested\s+cv\b",
+    re.IGNORECASE,
+)
+_CV_ABBREVIATION = re.compile(r"\b(?:CV|LOOCV)\b")
+_CITING = re.compile(r"\bet\s+al\b|\bprior\s+work\b|\bprevious\s+(?:work|stud\w*)\b|\bliterature\b", re.IGNORECASE)
+_REPEATED_SPLITS = re.compile(
+    r"\b(?:repeated|ten|10)\b(?:[\s/-]+\w+){0,5}?[\s/-]+splits?\b",
+    re.IGNORECASE,
+)
+METHOD_TERM_NOTICE = (
+    'Değerlendirme yöntemi tekrarlı eğitim/test bölmesidir; makale ise başka bir yöntemden söz ediyor: "{sentence}". '
+    "k-fold, cross-validation, CV, bootstrap ve leave-one-out sözcüklerini kullanma."
+)
+METHOD_MISSING_NOTICE = (
+    "Methodology yöntemi tekrarlı bölme olarak anlatmıyor. Şu ifadeyi kullan: "
+    "'10 repeated stratified train/test splits' (yalnız bölme tohumu değişir)."
+)
+_BEST_CUE = re.compile(r"\b(?:highest|best|top|strongest|leading|greatest|largest)\b", re.IGNORECASE)
+LEADER_MISSING_NOTICE = (
+    "{section} bölümü en iyi ortalama ROC-AUC'ye sahip modeli ({model}, {mean:.4f}) açıkça yazmıyor. "
+    "Evidence sentences içindeki 'had the highest mean ROC-AUC' bilgisini bu bölümde yaz."
+)
+EFFECT_SUMMARY_MISSING_NOTICE = (
+    "{section} bölümü {model} için anlamlı bulunan parametre etkisini ({metrics}) anmıyor. "
+    "Modeli, 'default parameters' karşılaştırmasını ve metriği bu bölümde yaz."
+)
+REPETITION_NOTICE = (
+    'Abstract ve Conclusion aynı cümleyi tekrar etmemeli ve her bölümde yalnız bir kez söylenmeli: "{sentence}". '
+    "Aynı bulguyu Conclusion'da farklı sözcüklerle yaz."
 )
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
@@ -735,6 +767,117 @@ def unfounded_instability_issues(paper: str, instability: dict | None, models: l
         if len(issues) == 3:
             break
     return issues
+
+
+def _exact_section(paper: str, title: str) -> str | None:
+    headings = list(_HEADING.finditer(paper))
+    for position, heading in enumerate(headings):
+        if heading.group(1).strip().rstrip(":").lower() == title.lower():
+            end = headings[position + 1].start() if position + 1 < len(headings) else len(paper)
+            return paper[heading.end():end]
+    return None
+
+
+def method_issues(paper: str, n_splits: int) -> list[str]:
+    if n_splits < 3:
+        return []
+    issues: list[str] = []
+    previous = ""
+    for sentence in _prose_sentences(paper):
+        cited = bool(re.search(r"\bet\s+al\.?$", previous.strip(), re.IGNORECASE))
+        previous = sentence
+        if cited or _NEGATION.search(sentence) or _CITING.search(sentence):
+            continue
+        if _FORBIDDEN_METHOD.search(sentence) or _CV_ABBREVIATION.search(sentence):
+            issues.append(METHOD_TERM_NOTICE.format(sentence=sentence.strip()[:200]))
+            if len(issues) == 3:
+                break
+    methodology = _exact_section(paper, "Methodology")
+    if methodology is None or not any(_REPEATED_SPLITS.search(sentence) for sentence in _prose_sentences(methodology)):
+        issues.append(METHOD_MISSING_NOTICE)
+    return issues
+
+
+def summary_completeness_issues(paper: str, leader: dict | None, effects: list[dict] | None) -> list[str]:
+    significant: dict[str, list[str]] = {}
+    for item in effects or []:
+        if item.get("significant") and str(item.get("metric")) in _METRIC_LABELS:
+            significant.setdefault(str(item["model"]), []).append(str(item["metric"]))
+    if not leader and not significant:
+        return []
+    issues: list[str] = []
+    for title in ("Abstract", "Conclusion"):
+        section = _exact_section(paper, title) or ""
+        sentences = _prose_sentences(section)
+        if leader:
+            squashed = _squash(str(leader["model"]))
+            label = _METRIC_LABELS.get(str(leader.get("metric", "roc_auc")), _METRIC_LABELS["roc_auc"])
+            found = any(
+                squashed in _squash(clause) and label.search(clause) and _BEST_CUE.search(clause)
+                for sentence in sentences
+                for clause in _CLAUSE_BREAK.split(sentence)
+            )
+            if not found:
+                issues.append(
+                    LEADER_MISSING_NOTICE.format(section=title, model=leader["model"], mean=float(leader["mean"]))
+                )
+        for model, metrics in significant.items():
+            squashed = _squash(model)
+            labels = [_METRIC_LABELS[metric] for metric in metrics]
+            found = any(
+                squashed in _squash(sentence)
+                and re.search(r"parameter|default|tun", sentence, re.IGNORECASE)
+                and any(label.search(sentence) for label in labels)
+                and not _NEGATION.search(sentence)
+                for sentence in sentences
+            )
+            if not found:
+                issues.append(
+                    EFFECT_SUMMARY_MISSING_NOTICE.format(
+                        section=title,
+                        model=model,
+                        metrics=", ".join(_METRIC_NAMES[metric] for metric in dict.fromkeys(metrics)),
+                    )
+                )
+    return issues
+
+
+def _words(sentence: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", sentence.lower())
+
+
+def _is_verdict_sentence(sentence: str) -> bool:
+    return bool(_HYPOTHESIS_WORD.search(sentence)) and any(pattern.search(sentence) for pattern in _VERDICT_WORDS.values())
+
+
+def repetition_issues(paper: str) -> list[str]:
+    sections = {title: _prose_sentences(_exact_section(paper, title) or "") for title in ("Abstract", "Conclusion")}
+    issues: list[str] = []
+    for title, sentences in sections.items():
+        verdicts = [sentence for sentence in sentences if _is_verdict_sentence(sentence)]
+        if len(verdicts) > 1:
+            issues.append(REPETITION_NOTICE.format(sentence=verdicts[1].strip()[:200]))
+        seen: set[str] = set()
+        for sentence in sentences:
+            words = _words(sentence)
+            if len(words) < 5:
+                continue
+            key = " ".join(words)
+            if key in seen:
+                issues.append(REPETITION_NOTICE.format(sentence=sentence.strip()[:200]))
+            seen.add(key)
+    first = [(sentence, set(_words(sentence))) for sentence in sections["Abstract"] if len(_words(sentence)) >= 5]
+    for sentence in sections["Conclusion"]:
+        words = set(_words(sentence))
+        if len(words) < 5:
+            continue
+        for other, other_words in first:
+            if _is_verdict_sentence(other):
+                continue
+            if len(words & other_words) / len(words | other_words) >= SIMILARITY_LIMIT:
+                issues.append(REPETITION_NOTICE.format(sentence=sentence.strip()[:200]))
+                break
+    return issues[:3]
 
 
 def instability_issues(paper: str, instability: dict | None) -> list[str]:

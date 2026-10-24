@@ -55,6 +55,25 @@ def effect_sentences(effects: list[dict[str, Any]] | None) -> list[str]:
     return sentences
 
 
+def _names(models: list[str]) -> str:
+    if len(models) <= 1:
+        return "".join(models)
+    return ", ".join(models[:-1]) + " and " + models[-1]
+
+
+def leader_sentences(leader: dict[str, Any] | None) -> list[str]:
+    if not leader:
+        return []
+    metric = METRIC_NAMES.get(str(leader.get("metric")))
+    if metric is None:
+        return []
+    sentence = f"{leader['model']} had the highest mean {metric} ({float(leader['mean']):.4f})"
+    behind = [str(name) for name in leader.get("not_significant_against") or []]
+    if behind:
+        sentence += f", but its lead over {_names(behind)} is not statistically significant"
+    return [sentence + "."]
+
+
 def hypothesis_sentences(hypothesis: dict[str, Any] | None) -> list[str]:
     verdict = str((hypothesis or {}).get("verdict", ""))
     if verdict == "untested":
@@ -96,6 +115,7 @@ def evidence_sentences(decision: dict[str, Any] | None) -> list[str]:
     decision = decision or {}
     return (
         hypothesis_sentences(decision.get("hypothesis"))
+        + leader_sentences(decision.get("leader"))
         + performance_sentences(decision.get("performance"))
         + effect_sentences(decision.get("parameter_effects"))
         + instability_sentences(decision.get("instability"))
