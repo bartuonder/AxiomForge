@@ -9,7 +9,7 @@ from app.seeds import SPLIT_SEEDS
 VERDICT_LABELS = {
     "replicated": "REPLICATED",
     "partially_replicated": "PARTIALLY REPLICATED",
-    "reversed": "REVERSED (the opposite held)",
+    "contradicted": "CONTRADICTED (the opposite held)",
     "inconclusive": "NOT REPLICATED (inconclusive)",
     "not_testable": "NOT TESTABLE",
 }
@@ -82,7 +82,7 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
         if not coverage["enough_for_tests"]:
             lines += [
                 f"Only {len(finished)} datasets finished {dataset_refs}; the exact signed-rank test cannot reach p < {ALPHA} with fewer than {MIN_DATASETS} datasets, "
-                "so no claim can be called replicated or reversed.",
+                "so no claim can be called replicated or contradicted.",
                 "",
             ]
     lines += ["## Protocol", ""]

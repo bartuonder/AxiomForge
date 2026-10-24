@@ -145,12 +145,12 @@ def claim_verdict(
         elif not row["significant"]:
             row["verdict"] = "inconclusive"
         else:
-            row["verdict"] = "replicated" if row["median_difference"] > 0 else "reversed"
+            row["verdict"] = "replicated" if row["median_difference"] > 0 else "contradicted"
     verdicts = {row["verdict"] for row in rows}
     if verdicts == {"replicated"}:
         overall = "replicated"
-    elif "reversed" in verdicts and "replicated" not in verdicts:
-        overall = "reversed"
+    elif "contradicted" in verdicts and "replicated" not in verdicts:
+        overall = "contradicted"
     elif "replicated" in verdicts:
         overall = "partially_replicated"
     elif verdicts == {"not_testable"}:

@@ -184,13 +184,13 @@ def test_a_campaign_where_nothing_finished_still_produces_an_honest_report():
 
 
 def test_the_labels_cover_every_verdict_the_statistics_can_return():
-    assert set(VERDICT_LABELS) == {"replicated", "partially_replicated", "reversed", "inconclusive", "not_testable"}
+    assert set(VERDICT_LABELS) == {"replicated", "partially_replicated", "contradicted", "inconclusive", "not_testable"}
 
 
-def test_a_reversed_claim_is_labelled_so():
+def test_a_contradicted_claim_is_labelled_so():
     spec = {**SPEC, "claims": [{**CLAIMS[0], "subject": ["MLP"], "other": ["RandomForest", "HistGradientBoosting"], "metrics": ["roc_auc"]}]}
     markdown, _ = build(spec)
-    assert "**REVERSED (the opposite held)**" in markdown
+    assert "**CONTRADICTED (the opposite held)**" in markdown
 
 
 class TestTraceabilityCheck:

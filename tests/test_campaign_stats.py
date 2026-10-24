@@ -203,7 +203,7 @@ def test_a_family_that_wins_everywhere_replicates_the_claim():
 
 def test_a_family_that_loses_everywhere_reverses_the_claim():
     result = claim_verdict(results(TREES), {**CLAIM, "subject": ["MLP"], "other": ["RandomForest", "HistGradientBoosting"]})
-    assert result["verdict"] == "reversed"
+    assert result["verdict"] == "contradicted"
 
 
 def test_a_mixed_picture_is_inconclusive():
