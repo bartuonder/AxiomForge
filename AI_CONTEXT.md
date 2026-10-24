@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı (24 Ekim 2026): son kod commit'i kampanya paneli (`be90517`). 20 commit `e3d381f`'e kadar pushlandı; sonrası (MLflow kaydı, özet listesi, konsol paneli ve dokümanlar) yerelde. 1414 pytest testi geçiyor. Bu turda Faz 12 (replikasyon kampanyası) eklendi, bkz. 3.12. Frontend değişmedi.
+Durum anı (25 Ekim 2026): son kod commit'i Faz 13 hafıza adımı (`d6c32be`); Faz 13 (ajanlı kampanya orkestrasyonu) 3.13'te. 20 commit `e3d381f`'e kadar pushlandı; sonrası (MLflow kaydı, özet listesi, konsol paneli ve dokümanlar) yerelde. 1942 pytest testi geçiyor. Bu turda Faz 12 (replikasyon kampanyası) eklendi, bkz. 3.12. Frontend değişmedi.
 
 ## 1. Proje
 
@@ -163,7 +163,7 @@ cd frontend; npm run dev
 
 ### 3.9 Test altyapısı
 
-1414 test, yaklaşık 75 saniye (MLflow testleri yavaş), hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
+1942 test, yaklaşık 80 saniye (MLflow testleri yavaş), hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
 
 ### 3.10 Gerçek koşular
 
@@ -202,6 +202,31 @@ Koşu 15 (`demo-grinsztajn-1`, kampanya motoru, LLM yok, yalnız E2B): bkz. 3.12
 - `mlflow.db` (yaklaşık 2 MB) içinde gerçek ve test run'ları. `reports/` içinde 20 makale. `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
 - `test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı yalnız `is_success=False` kayıtları okur.
 - Bugünkü test thread'leri: `5f2808e4` (deney sırasında işçi kapatıldı, `running` kaldı), `38f98fd2`, `ad6ee6be` (reddedildi), `a531b95d` (Koşu 1), `b670cc9a` (Koşu 2), `26344d2d` (Koşu 3), `96acf4c2` (Koşu 4), `40222d61` (Koşu 5), `5fcf65e4` (Koşu 6), `e0785e18` (Koşu 7), `d5f3ebbe` (Koşu 8), `4696ef76` (Koşu 9), `156b2b6e` (Koşu 10), `30a7b310` (Koşu 11, kredi bitti), `aeffac90` (Koşu 12), `9d0cd838` (Koşu 13), `1fb974d7` (Koşu 14). Koşu 7'den önce iki başarısız thread daha var (literatür adımında düştü), kimlikleri `f0143a53` ve `b4356310`. Eski thread'lerin ve hafıza kayıtlarının spesifikasyonları `dataset: imbalanced` taşıyabilir; bu anahtar artık geçersizdir, eski thread yeniden oynatılmamalı.
+
+### 3.13 Faz 13: ajanlı kampanya orkestrasyonu
+
+Kullanıcının kararları: `mode` yalnız açıkça seçilir (`auto` kesinlikle yok), iki düğümlü asenkron dağıtım (dispatch, durur, collect) ve Celery zinciri, onaya üç aday kampanya, Abstract/Results/Methodology/Limitations deterministik ve yalnız Introduction ile Discussion LLM, etiket `Contradicted`.
+
+| Parça | Dosya |
+| --- | --- |
+| Deterministik planlama (model eşleme, veri seti seçimi, güç kontrolü, süre tahmini) | `app/campaign/planning.py` |
+| Aday planlayıcı (alıntı doğrulaması, `unsupported`, geçmiş ve `repeats`) | `app/agents/campaign_planner.py` |
+| Düğümler (dispatch idempotent, collect, meta report, meta consistency, rotalar) | `app/graph/campaign_nodes.py`, `app/graph/nodes.py` (`campaign_planner_node`, `route_after_*`) |
+| Graf, durum, adımlar, onay, `resume_campaign`, bayat kampanya | `app/graph/workflow.py` |
+| Celery | `app/tasks.py` (`run_campaign_task`, `resume_campaign_task`) |
+| Meta makale | `app/agents/meta_report.py`, `app/campaign/meta_evidence.py` |
+| Meta kapı | `app/agents/consistency_meta.py` |
+| Hafıza | `app/campaign/memory.py` |
+| arXiv bağlantısı ve yapısal literatür | `app/tools/arxiv.py`, `app/agents/literature.py` (`run_literature_search`) |
+| Konsol | `frontend/components/ResearchForm.tsx`, `CampaignApprovalDialog.tsx`, `ResearchStatus.tsx`, `frontend/app/page.tsx` |
+
+State alanları: `mode`, `literature_sources`, `campaign_specs`, `selected_campaign`, `campaign_spec`, `campaign_id`, `campaign_status`, `campaign_analysis`, `campaign_ledger`, `campaign_issues`, `campaign_mlflow_run_id`. Kampanya kimliği `campaign_id_for(thread_id, spec)` ile türer, bu yüzden dispatch yeniden çalışsa da ikinci kampanya açılmaz.
+
+Karar kuralları: iddia yalnız makale özetinden ya da sorgudan birebir alıntıyla kanıtlanırsa kabul edilir; eşlenemeyen model (TabNet gibi) tahmin edilmez, aday reddedilir; ResNet ve FT-Transformer MLP'ye eşlenir ve sapma notu olur; 3 ölçütte 7'den az veri seti reddedilir (en küçük Holm düzeltmeli p ≥ 0,05); Discussion'da rakam ve hedge'siz neden yasaktır; Introduction'da karar sözcüğü yasaktır.
+
+Test koruması: `tests/conftest.py` E2B anahtarını ve vektör hafızayı kapatır. Hafıza koruması eklenmeden önce `campaign_planner_node` testi gerçek Postgres'e bağlanıp asılı kaldı.
+
+Bilinen sınırlar: planlayıcı yalnız arXiv özetini görür (tam metin yok) ve kaynak künyesinde yazar yok (başlık ve bağlantı); gerçek gpt-4o ile planlayıcı, Introduction ve Discussion denenmedi; gerçek uçtan uca koşu yapılmadı; kampanya hattında doğrulayıcı yok (protokol şablonu ön işlemeyi Pipeline içinde yaptığı için sızıntı yapısal olarak engelli); meta kapı regex tabanlı ve gerçek LLM çıktısıyla yanlış alarm oranı ölçülmedi.
 
 ### 3.12 Faz 12: replikasyon kampanyası (`app/campaign/`)
 
@@ -323,9 +348,9 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 
 ## 6. Yarın için önerilen sıra
 
-0. Faz 12 sonrası: kampanyayı canlı MLflow sunucusuyla bir kez doğrula, konsola başlatma düğmesi ekle, ikinci bir hazır replikasyon (başka bir makale) yaz, hiperparametre araması ekleyip makaleye daha yakın bir koşu yap. Önce kullanıcının önceliğini sor.
+0. Faz 13 sonrası: gerçek gpt-4o ve E2B ile uçtan uca bir kampanya koşusu (`mode: campaign`, Grinsztajn sorgusu) yap ve meta kapının yanlış alarm oranını ölç; sonra kampanyayı canlı MLflow sunucusuyla doğrula, konsola başlatma düğmesi ekle, ikinci bir hazır replikasyon (başka bir makale) yaz, hiperparametre araması ekleyip makaleye daha yakın bir koşu yap. Önce kullanıcının önceliğini sor.
 
-1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (1414 geçmeli).
+1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (1942 geçmeli).
 2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). ~~Konfigürasyon karışıklığı~~ Seçenek B ile yapıldı. ~~Üçüncü gerçek koşu~~ yapıldı (sızıntı yolu). İstenirse anlamlı satırın yönünün denetimi, tek model adlı cümleler ve claim kararının "yapılandırma çifti" olarak yazıldığının denetimi eklenebilir.
 3. Hazır cümle yaklaşımıyla (genel en iyi model dahil, `f5966e5`) farklı veri setlerinde ve model sayılarında tekrar canlı koşular (Koşu 13 ve 14 aynı sorgu, ikisi de ilk turda geçti; planlayıcı koşudan koşuya hafifçe değişiyor) ve kalan yollar: `Failed` doğrulama makalesi, sandbox çökmesi, diğer veri setlerinde (`breast_cancer`, `credit_default`, `adult_income`, `credit_fraud`) tam koşu. Maliyet onayı iste.
 4. `POST /approve_plan` doğrulama hatasını `422` yap (4.2 madde 15).
