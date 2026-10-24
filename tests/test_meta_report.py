@@ -454,3 +454,12 @@ class TestPromptRules:
         assert "never use the words significant, significantly, supported, supports, confirmed or proved" in meta_report.DISCUSSION_RULES
         assert "significance is reported only in the Results" in meta_report.DISCUSSION_RULES
         assert "plain words such as larger, smaller, ahead or behind" in meta_report.DISCUSSION_RULES
+
+
+class TestIntroductionRules:
+    def test_a_year_may_be_written_with_digits(self):
+        assert "A publication year may be written with digits, for example Grinsztajn et al. 2022." in meta_report.INTRODUCTION_RULES
+
+    def test_a_claim_from_the_query_is_not_a_reason_to_comment_on_sources(self):
+        assert "If no source paper states the claims, say only that they come from the user question" in meta_report.INTRODUCTION_RULES
+        assert "do not comment on sources, abstracts or the lack of them" in meta_report.INTRODUCTION_RULES

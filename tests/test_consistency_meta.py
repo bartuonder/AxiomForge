@@ -416,3 +416,22 @@ class TestSupportWords:
     def test_the_significance_message_tells_the_writer_what_to_say_instead(self):
         found = issues({**PROSE, "discussion": DISCUSSION + " It differs significantly."})
         assert any("compare with plain words such as larger, smaller, ahead or behind" in issue for issue in found)
+
+
+class TestYears:
+    @pytest.mark.parametrize("year", ["1999", "2022", "2030"])
+    def test_a_publication_year_is_fine_in_the_introduction(self, year):
+        assert not any("must contain no digits" in issue for issue in issues({**PROSE, "introduction": f"{INTRO} The claim comes from Grinsztajn et al. {year}."}))
+
+    def test_a_year_is_not_a_free_pass_in_the_discussion(self):
+        found = issues({**PROSE, "discussion": DISCUSSION + " It resembles a 2022 result."})
+        assert "The Discussion must contain no digits, but it contains: 2022." in found
+
+    @pytest.mark.parametrize("number", ["1850", "3000", "20225", "12"])
+    def test_other_numbers_are_still_reported_in_the_introduction(self, number):
+        found = issues({**PROSE, "introduction": f"{INTRO} It used {number} rows."})
+        assert any("The Introduction must contain no digits" in issue for issue in found)
+
+    def test_the_numbers_beside_a_year_are_still_reported(self):
+        found = issues({**PROSE, "introduction": f"{INTRO} In 2022 it used 6000 rows."})
+        assert "The Introduction must contain no digits, but it contains: 6000." in found

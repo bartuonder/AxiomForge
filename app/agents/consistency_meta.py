@@ -22,6 +22,7 @@ _ABSOLUTE = re.compile(r"\b(always|never|universally|in general|generally speaki
 _NEGATIONS = ("not ", "n't", "fail", "unable", "cannot", "no ")
 _QUOTED = re.compile(r'"([^"]{20,})"')
 _DATASET_NAME = re.compile(r"\b(?:tb_[a-z0-9]+|" + "|".join(re.escape(key) for key in sorted(DATASETS, key=len, reverse=True)) + r")\b")
+_YEAR = re.compile(r"\b(?:19|20)\d{2}\b")
 _NAMED_DIGITS = re.compile(r"\bF1\b|\bC\d+\b|" + _DATASET_NAME.pattern)
 
 
@@ -37,7 +38,10 @@ def _model_pattern(key: str) -> re.Pattern[str]:
 def _digit_issues(sections: dict[str, str]) -> list[str]:
     issues = []
     for name in LLM_SECTIONS:
-        found = _DIGITS.findall(_NAMED_DIGITS.sub("", sections.get(name, "")))
+        text = _NAMED_DIGITS.sub("", sections.get(name, ""))
+        if name == "Introduction":
+            text = _YEAR.sub("", text)
+        found = _DIGITS.findall(text)
         if found:
             issues.append(f"The {name} must contain no digits, but it contains: {', '.join(found[:MAX_EXAMPLES])}.")
     return issues

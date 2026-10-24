@@ -21,7 +21,9 @@ INTRODUCTION_RULES = (
     "why testing a claim across many datasets matters, and which claims are tested. "
     "Hard rules: state no result, no verdict and no number; use no digits at all; "
     "never use the words replicated, contradicted, confirmed, supported, supports, refuted, significant or significantly; "
-    "mention a source only by its exact title in quotation marks; do not invent sources, authors or facts that the abstracts do not contain."
+    "mention a source only by its exact title in quotation marks; do not invent sources, authors or facts that the abstracts do not contain. "
+    "A publication year may be written with digits, for example Grinsztajn et al. 2022. "
+    "If no source paper states the claims, say only that they come from the user question and do not comment on sources, abstracts or the lack of them."
 )
 DISCUSSION_RULES = (
     "You write the Discussion of a replication report in English. "
