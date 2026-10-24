@@ -43,6 +43,56 @@ export type ResearchSnapshot = {
   steps: ResearchStep[];
 };
 
+export type CampaignStatus = "queued" | "running" | "completed" | "needs_review" | "failed";
+
+export type CampaignVerdict = {
+  id: string;
+  verdict: string;
+  statement?: string;
+};
+
+export type CampaignSummary = {
+  id: string;
+  title: string;
+  status: CampaignStatus;
+  updated: string;
+  datasets: number;
+  finished: number;
+  failed: number;
+  verdicts: CampaignVerdict[];
+};
+
+export type CampaignDatasetState = {
+  status: "queued" | "running" | "finished" | "failed";
+  attempts?: number;
+  seconds?: number;
+  error?: string;
+};
+
+export type CampaignState = {
+  id: string;
+  title: string;
+  status: CampaignStatus;
+  updated: string;
+  datasets: Record<string, CampaignDatasetState>;
+  verdicts?: CampaignVerdict[];
+  issues?: string[];
+  error?: string;
+  mlflow_run_id?: string;
+};
+
+export type LedgerEntry = {
+  id: string;
+  kind: string;
+  key: string;
+  [field: string]: unknown;
+};
+
+export type CampaignReport = {
+  markdown: string;
+  ledger: LedgerEntry[];
+};
+
 export const STEP_LABELS: Record<string, string> = {
   literature_node: "Literature",
   planner_node: "Planner",

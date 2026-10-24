@@ -1,4 +1,10 @@
-import { API_URL, type ResearchSnapshot } from "@/lib/types";
+import {
+  API_URL,
+  type CampaignReport,
+  type CampaignState,
+  type CampaignSummary,
+  type ResearchSnapshot,
+} from "@/lib/types";
 
 export async function startResearch(query: string): Promise<{ thread_id: string }> {
   const response = await fetch(`${API_URL}/start_research`, {
@@ -42,6 +48,31 @@ export async function fetchReport(threadId: string): Promise<string> {
   }
   const body = (await response.json()) as { markdown: string };
   return body.markdown;
+}
+
+export async function fetchCampaigns(): Promise<CampaignSummary[]> {
+  const response = await fetch(`${API_URL}/campaigns`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  const body = (await response.json()) as { items: CampaignSummary[] };
+  return body.items;
+}
+
+export async function fetchCampaign(campaignId: string): Promise<CampaignState> {
+  const response = await fetch(`${API_URL}/campaign/${encodeURIComponent(campaignId)}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return response.json();
+}
+
+export async function fetchCampaignReport(campaignId: string): Promise<CampaignReport> {
+  const response = await fetch(`${API_URL}/campaign/${encodeURIComponent(campaignId)}/report`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return response.json();
 }
 
 async function readError(response: Response): Promise<string> {

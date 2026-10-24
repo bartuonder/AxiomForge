@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AgentTimeline } from "@/components/AgentTimeline";
 import { ApprovalDialog } from "@/components/ApprovalDialog";
@@ -96,6 +97,9 @@ export default function Home() {
         <p className="text-xs font-semibold tracking-[0.18em] text-[#1f6b4a] uppercase">AxiomForge</p>
         <h1 className="text-4xl text-[#1c1915]">Research console</h1>
         <p className="text-[#5c564e]">Literature, plan, experiment, verification, then the paper.</p>
+        <Link href="/campaigns" className="inline-block text-sm font-semibold text-[#1f6b4a]">
+          Replication campaigns
+        </Link>
       </header>
       <ResearchForm query={query} busy={busy || runLocked} onQueryChange={setQuery} onSubmit={() => void onStart()} />
       {error ? <p className="text-center text-sm text-[#9b3d2b]">{error}</p> : null}
