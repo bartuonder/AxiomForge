@@ -8,7 +8,7 @@ from app.agents.experiment import PROMPT_VERSION, SYSTEM_PROMPT, _task, requeste
 from app.agents.report import SYSTEM_PROMPT as REPORT_PROMPT
 from app.agents.report import _brief
 from app.agents.spec import validate_spec
-from app.datasets import DATASETS, dataset_menu, loader_code
+from app.datasets import DATASETS, core_keys, dataset_menu, loader_code
 from app.graph.verifier import LEAKAGE_PROMPT
 
 MODELS = requested_models("Compare SVM and KNN")
@@ -39,7 +39,7 @@ def test_the_task_of_a_spec_carries_the_block_of_its_dataset(dataset):
     assert loader_code(dataset) in task
     for other in DATASETS:
         if other != dataset:
-            assert DATASETS[other]["hf_id"] not in task
+            assert loader_code(other) not in task
 
 
 def test_a_task_without_a_spec_picks_the_block_from_the_prompt():
@@ -50,8 +50,9 @@ def test_a_task_without_a_spec_picks_the_block_from_the_prompt():
 
 
 def test_the_planner_sees_the_real_datasets_and_may_choose_among_them():
-    for key in DATASETS:
+    for key in core_keys():
         assert key in planner.SYSTEM_PROMPT
+    assert "tb_" not in planner.SYSTEM_PROMPT
     assert "choose the real dataset whose domain fits the query" in planner.SYSTEM_PROMPT
     assert "no baseline" not in planner.SYSTEM_PROMPT
     assert "default controls" in planner.SYSTEM_PROMPT

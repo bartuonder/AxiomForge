@@ -7,8 +7,12 @@ import pandas as pd
 import pytest
 
 from app.datasets import (
+    BENCHMARK_ID,
+    BENCHMARK_ROWS,
     DATASETS,
     SYNTHETIC_CALLS,
+    benchmark_keys,
+    core_keys,
     data_brief,
     dataset_code_error,
     dataset_keys,
@@ -54,9 +58,13 @@ def fake_frame(key, rows=None):
 def hub(monkeypatch):
     calls = []
 
-    def load_dataset(name, split=None):
-        calls.append((name, split))
-        key = next(candidate for candidate, entry in DATASETS.items() if entry["hf_id"] == name)
+    def load_dataset(name, config=None, split=None):
+        calls.append((name, config, split))
+        key = next(
+            candidate
+            for candidate, entry in DATASETS.items()
+            if entry["hf_id"] == name and entry.get("config") == config
+        )
         frame = fake_frame(key)
         return types.SimpleNamespace(to_pandas=lambda: frame)
 
@@ -71,18 +79,57 @@ def run(key):
 
 
 def test_the_registry_is_made_of_real_hub_ids():
-    assert len(KEYS) == 5
+    assert len(KEYS) == 14
     assert dataset_keys() == KEYS
-    assert len(set(hf_ids())) == 5
+    assert len({(entry["hf_id"], entry.get("config")) for entry in DATASETS.values()}) == 14
+    assert len(set(hf_ids())) == 6
     for entry in DATASETS.values():
         assert re.fullmatch(r"[\w.-]+/[\w.-]+", entry["hf_id"])
+
+
+def test_the_core_and_the_benchmark_groups_split_the_registry():
+    assert core_keys() == ["breast_cancer", "credit_default", "customer_churn", "adult_income", "credit_fraud"]
+    assert len(benchmark_keys()) == 9
+    assert set(core_keys()) | set(benchmark_keys()) == set(KEYS)
+    assert not set(core_keys()) & set(benchmark_keys())
+
+
+@pytest.mark.parametrize("key", benchmark_keys())
+def test_every_benchmark_entry_names_its_hub_configuration(key):
+    entry = DATASETS[key]
+    assert entry["hf_id"] == BENCHMARK_ID
+    assert re.fullmatch(r"clf_num_[\w-]+", entry["config"])
+    assert entry["max_rows"] == BENCHMARK_ROWS
+    assert "Grinsztajn" in entry["summary"]
+    assert f'load_dataset("{BENCHMARK_ID}", "{entry["config"]}", split="train")' in loader_code(key)
+
+
+def test_the_planner_menu_and_the_domain_pick_stay_on_the_core_group():
+    menu = dataset_menu()
+    assert all(f"- {key}:" in menu for key in core_keys())
+    assert "tb_" not in menu
+    for text in ("credit scoring delinquency", "California housing price", "gamma telescope", "benchmark", "electricity market"):
+        assert pick_dataset(text) in core_keys()
+
+
+def test_a_benchmark_key_is_a_valid_spec_dataset():
+    from app.agents.spec import validate_spec
+
+    spec = validate_spec(
+        {"statement": "RandomForest has a higher ROC-AUC than KNN", "dataset": "tb_credit",
+         "claim": {"kind": "performance", "metric": "roc_auc", "subject": "RandomForest", "other": "KNN"}},
+        ["RandomForest", "KNN"],
+    )
+    assert spec["dataset"] == "tb_credit"
 
 
 @pytest.mark.parametrize("key", KEYS)
 def test_a_block_has_no_comments_and_names_its_source(key):
     text = loader_code(key)
     assert "#" not in text
-    assert f'load_dataset("{DATASETS[key]["hf_id"]}", split="train")' in text
+    config = DATASETS[key].get("config")
+    source = f'"{DATASETS[key]["hf_id"]}", "{config}", ' if config else f'"{DATASETS[key]["hf_id"]}", '
+    assert f"load_dataset({source}split=\"train\")" in text
     compile(text, key, "exec")
 
 
@@ -94,7 +141,7 @@ def test_a_block_runs_and_prints_a_profile_the_parser_reads(key, hub, capsys):
     assert profile["samples"] == float(len(namespace["y"]))
     assert profile["features"] == float(namespace["X"].shape[1])
     assert 0.0 < profile["positive_ratio"] < 1.0
-    assert hub == [(DATASETS[key]["hf_id"], "train")]
+    assert hub == [(DATASETS[key]["hf_id"], DATASETS[key].get("config"), "train")]
 
 
 @pytest.mark.parametrize("key", KEYS)
@@ -139,9 +186,12 @@ def test_blank_total_charges_become_missing_values_not_errors(hub):
 
 def test_the_menu_and_the_description_name_every_set():
     menu = dataset_menu()
-    for key in KEYS:
+    for key in core_keys():
         assert f"- {key}:" in menu
+    for key in KEYS:
         assert DATASETS[key]["hf_id"] in describe(key)
+        if DATASETS[key].get("config"):
+            assert DATASETS[key]["config"] in describe(key)
 
 
 SCRIPT = loader_code("customer_churn") + MODELS_TAIL
@@ -214,3 +264,23 @@ def test_the_brief_pastes_the_block_and_forbids_generators():
     assert loader_code("adult_income") in brief
     assert "with_preprocessing" in brief
     assert "do not generate or simulate data" in brief
+
+
+VERIFIED_BENCHMARK_TARGETS = {
+    "tb_credit": ("clf_num_credit", "SeriousDlqin2yrs", 1),
+    "tb_california": ("clf_num_california", "price_above_median", 1),
+    "tb_electricity": ("clf_num_electricity", "class", "UP"),
+    "tb_magic": ("clf_num_MagicTelescope", "class", "h"),
+    "tb_bank": ("clf_num_bank-marketing", "Class", 2),
+    "tb_heloc": ("clf_num_heloc", "RiskPerformance", 1),
+    "tb_house16h": ("clf_num_house_16H", "binaryClass", "P"),
+    "tb_pol": ("clf_num_pol", "binaryClass", "P"),
+    "tb_eye": ("clf_num_eye_movements", "label", 1),
+}
+
+
+def test_the_benchmark_targets_are_the_ones_checked_in_the_real_sandbox():
+    assert set(VERIFIED_BENCHMARK_TARGETS) == set(benchmark_keys())
+    for key, (config, target, positive) in VERIFIED_BENCHMARK_TARGETS.items():
+        entry = DATASETS[key]
+        assert (entry["config"], entry["target"], entry["positive"]) == (config, target, positive)

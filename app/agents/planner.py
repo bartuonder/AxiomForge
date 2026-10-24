@@ -4,7 +4,7 @@ from openai import OpenAI
 
 from app.agents.spec import SpecError, allowed_params_text, validate_spec
 from app.config import OPENAI_API_KEY
-from app.datasets import dataset_keys, dataset_menu
+from app.datasets import core_keys, dataset_menu
 
 MODEL = "gpt-4o"
 MAX_PLAN_ATTEMPTS = 2
@@ -27,7 +27,7 @@ SYSTEM_PROMPT = (
     "claim (an object: kind is 'performance' or 'stability'; "
     "metric is roc_auc, pr_auc or f1 for a performance claim and roc_auc for a stability claim; "
     "subject is the model claimed to be higher or more stable; other is the model it is compared with), "
-    f"dataset (one of: {', '.join(dataset_keys())}; choose the real dataset whose domain fits the query), "
+    f"dataset (one of: {', '.join(core_keys())}; choose the real dataset whose domain fits the query), "
     "params (an object keyed by model name, each value an object of allowed parameter names to numbers or strings; "
     "use an empty object when you set no parameter). "
     "Each allowed parameter is listed with its library default. A value equal to that default is not a tuning, "

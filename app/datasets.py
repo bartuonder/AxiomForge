@@ -79,6 +79,35 @@ DATASETS: dict[str, dict[str, Any]] = {
     },
 }
 
+BENCHMARK_ID = "inria-soda/tabular-benchmark"
+BENCHMARK_ROWS = 6000
+
+BENCHMARK_POOL = (
+    ("tb_credit", "clf_num_credit", "SeriousDlqin2yrs", 1, "credit scoring, serious delinquency in two years, 10 numeric features"),
+    ("tb_california", "clf_num_california", "price_above_median", 1, "California housing, house price above the median, 8 numeric features"),
+    ("tb_electricity", "clf_num_electricity", "class", "UP", "electricity market, price movement up against down, 7 numeric features"),
+    ("tb_magic", "clf_num_MagicTelescope", "class", "h", "MAGIC gamma telescope, hadron against gamma shower, 10 numeric features"),
+    ("tb_bank", "clf_num_bank-marketing", "Class", 2, "bank marketing campaign, subscription outcome, 7 numeric features"),
+    ("tb_heloc", "clf_num_heloc", "RiskPerformance", 1, "HELOC home equity credit risk performance, 22 numeric features"),
+    ("tb_house16h", "clf_num_house_16H", "binaryClass", "P", "house 16H census prices, binary class, 16 numeric features"),
+    ("tb_pol", "clf_num_pol", "binaryClass", "P", "pol telecommunication data, binary class, 26 numeric features"),
+    ("tb_eye", "clf_num_eye_movements", "label", 1, "eye movements in reading, relevance label, 20 numeric features"),
+)
+
+for _key, _config, _target, _positive, _summary in BENCHMARK_POOL:
+    DATASETS[_key] = {
+        "hf_id": BENCHMARK_ID,
+        "config": _config,
+        "group": "benchmark",
+        "summary": f"Tabular benchmark of Grinsztajn et al. 2022, {_summary}; classes balanced 50/50 by the benchmark; {BENCHMARK_ROWS} rows sampled",
+        "topics": "benchmark",
+        "target": _target,
+        "positive": _positive,
+        "drop": [],
+        "clean": [],
+        "max_rows": BENCHMARK_ROWS,
+    }
+
 PREPROCESSING_LINES = (
     "from sklearn.base import clone",
     "from sklearn.compose import ColumnTransformer",
@@ -100,20 +129,29 @@ def dataset_keys() -> list[str]:
     return list(DATASETS)
 
 
+def core_keys() -> list[str]:
+    return [key for key, entry in DATASETS.items() if entry.get("group", "core") == "core"]
+
+
+def benchmark_keys() -> list[str]:
+    return [key for key, entry in DATASETS.items() if entry.get("group") == "benchmark"]
+
+
 def hf_ids() -> list[str]:
     return [str(entry["hf_id"]) for entry in DATASETS.values()]
 
 
 def dataset_menu() -> str:
     return "\n".join(
-        f"- {key}: {entry['summary']}. Fits queries about {entry['topics']}."
-        for key, entry in DATASETS.items()
+        f"- {key}: {DATASETS[key]['summary']}. Fits queries about {DATASETS[key]['topics']}."
+        for key in core_keys()
     )
 
 
 def describe(key: str) -> str:
     entry = DATASETS[key]
-    return f"Hugging Face dataset {entry['hf_id']}: {entry['summary']}"
+    where = f"{entry['hf_id']} ({entry['config']})" if entry.get("config") else entry["hf_id"]
+    return f"Hugging Face dataset {where}: {entry['summary']}"
 
 
 def loader_code(key: str) -> str:
@@ -121,7 +159,11 @@ def loader_code(key: str) -> str:
     lines = [
         "import pandas as pd",
         "from datasets import load_dataset",
-        f'frame = load_dataset("{entry["hf_id"]}", split="train").to_pandas()',
+        (
+            f'frame = load_dataset("{entry["hf_id"]}", "{entry["config"]}", split="train").to_pandas()'
+            if entry.get("config")
+            else f'frame = load_dataset("{entry["hf_id"]}", split="train").to_pandas()'
+        ),
     ]
     if entry["drop"]:
         columns = ", ".join(f'"{name}"' for name in entry["drop"])
@@ -194,7 +236,8 @@ DEFAULT_DATASET = "customer_churn"
 def pick_dataset(text: str) -> str:
     lowered = text.lower()
     best, best_score = DEFAULT_DATASET, 0
-    for key, entry in DATASETS.items():
+    for key in core_keys():
+        entry = DATASETS[key]
         words = [word.strip() for word in str(entry["topics"]).split(",")]
         score = sum(1 for word in words if re.search(rf"\b{re.escape(word)}", lowered))
         if score > best_score:
