@@ -10,11 +10,15 @@ from openai import OpenAIError
 from pydantic import BaseModel, Field
 
 from app.agents.experiment import QueryNamesTooFewModels
+from app.campaign import store as campaign_store
+from app.campaign.demos import demo_spec
+from app.campaign.service import queue_campaign, reject_campaign
+from app.campaign.spec import CampaignSpecError
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
 from app.graph.workflow import decide_plan, get_research, new_thread_id, revoke_approval
-from app.tasks import resume_research_task, run_research_task
+from app.tasks import resume_research_task, run_campaign_task, run_research_task
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("axiomforge")
@@ -35,6 +39,12 @@ class ExperimentRequest(BaseModel):
 
 class StartResearchRequest(BaseModel):
     query: str = Field(min_length=1)
+
+
+class StartCampaignRequest(BaseModel):
+    demo: str | None = None
+    spec: dict | None = None
+    datasets: list[str] | None = None
 
 
 class ApprovePlanRequest(BaseModel):
@@ -150,3 +160,51 @@ def approve_plan_endpoint(body: ApprovePlanRequest):
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/start_campaign")
+def start_campaign_endpoint(body: StartCampaignRequest):
+    if (body.demo is None) == (body.spec is None):
+        raise HTTPException(status_code=422, detail="give exactly one of demo and spec")
+    try:
+        spec = demo_spec(body.demo) if body.demo is not None else dict(body.spec)
+        if body.datasets is not None:
+            spec["datasets"] = body.datasets
+        campaign_id, spec = queue_campaign(spec)
+    except CampaignSpecError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        _enqueue(run_campaign_task, campaign_id, spec)
+    except HTTPException as exc:
+        reject_campaign(campaign_id, str(exc.detail))
+        raise
+    return {"campaign_id": campaign_id, "status": "queued"}
+
+
+@app.get("/campaigns")
+def campaigns_list():
+    return {"campaigns": campaign_store.list_campaigns()}
+
+
+def _campaign_state(campaign_id: str) -> dict:
+    try:
+        state = campaign_store.load_state(campaign_id)
+    except campaign_store.CampaignStoreError as exc:
+        raise HTTPException(status_code=400, detail="invalid campaign id") from exc
+    if state is None:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    return state
+
+
+@app.get("/campaign/{campaign_id}")
+def campaign_status(campaign_id: str):
+    return _campaign_state(campaign_id)
+
+
+@app.get("/campaign/{campaign_id}/report")
+def campaign_report(campaign_id: str):
+    _campaign_state(campaign_id)
+    markdown = campaign_store.load_report(campaign_id)
+    if markdown is None:
+        raise HTTPException(status_code=404, detail="report not ready")
+    return {"markdown": markdown, "ledger": campaign_store.load_ledger(campaign_id)}
