@@ -4,7 +4,7 @@ from pathlib import Path
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
-from app.graph.evidence import evidence_sentences, summary_sentences
+from app.graph.evidence import configuration_sentence, evidence_sentences, summary_sentences
 from app.graph.selection import primary_hypothesis
 from app.datasets import DATASETS, describe
 from app.graph.state import AgentState
@@ -96,6 +96,7 @@ SYSTEM_PROMPT = (
     "Statistical decision içindeki parameter_effects bir parametre ayarının varsayılana göre etkisidir; "
     "her satırı Evidence sentences içindeki cümleyle yaz. significant false ise parametrelerin etkisi olduğunu iddia etme. "
     "Kontrol grubunu model karşılaştırmasında ve hipotezde yer alan bir model gibi anlatma. "
+    "Methodology içinde 'Configuration sentence' cümlesini aynen kopyala; sorgudaki ayar talimatlarından o cümlede olmayanlar uygulanmadı ve o modelleri ayarlanmış (tuned) gibi anlatma. "
     "Bir modelin ayarlandığını (tuned) yalnız Experiment spec içinde params'ı olan modeller için yaz; sorgudaki ayar talimatı spec'e girmediyse "
     "o model ayarlanmadı ve bunu ayarlanmış gibi anlatma. "
     "Hiçbir parametre etkisi significant true değilse parametre ayarının sonucu etkilediğini, iyileştirdiğini veya sonuçlara etki ettiğini yazma. "
@@ -183,6 +184,7 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Statistical results (exact Python means, standard deviations, variances, and statistical_conclusion; copy these, do not choose a winner):\n{json.dumps(statistical_results, ensure_ascii=False)}\n"
         f"Statistical decision (structured verdict from Python; the paper must not contradict it):\n{json.dumps(statistical_decision, ensure_ascii=False)}\n"
         f"Evidence sentences (written by Python from the statistical decision; copy each one word for word into Results, in this order):\n{evidence}\n"
+        f"Configuration sentence (copy it word for word into the Methodology; only the models with parameters in it were configured, every other tuning instruction in the query was NOT applied and must not be described as done):\n- {configuration_sentence(experiment_spec)}\n"
         f"Abstract sentences (copy these word for word into the Abstract; they differ on purpose from the Conclusion ones):\n{abstract_lines}\n"
         f"Conclusion sentences (copy these word for word into the Conclusion; never put them in the Abstract):\n{conclusion_lines}\n"
         f"Final code:\n{state.get('current_experiment_code', '')}\n"

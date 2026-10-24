@@ -74,6 +74,24 @@ def leader_sentences(leader: dict[str, Any] | None) -> list[str]:
     return [sentence + "."]
 
 
+def configuration_sentence(spec: dict[str, Any] | None) -> str:
+    models = [str(model) for model in (spec or {}).get("models") or []]
+    if not models:
+        return ""
+    params = (spec or {}).get("params") or {}
+    tuned = [model for model in models if params.get(model)]
+    plain = [model for model in models if model not in tuned]
+    parts: list[str] = []
+    if tuned:
+        described = [
+            f"{model} ({', '.join(f'{name}={value!r}' for name, value in params[model].items())})" for model in tuned
+        ]
+        parts.append(f"{_names(described)} ran with the listed parameters")
+    if plain:
+        parts.append(f"{_names(plain)} ran with library default parameters")
+    return "; ".join(parts) + "."
+
+
 def _metric_list(keys: list[str]) -> str:
     return _names([METRIC_NAMES[key] for key in keys])
 
