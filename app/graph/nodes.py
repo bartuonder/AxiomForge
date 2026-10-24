@@ -25,7 +25,8 @@ from app.agents.consistency import (
     verification_issue,
 )
 from app.agents.experiment import MODEL, PROMPT_VERSION, requested_models
-from app.agents.literature import run_literature_agent
+from app.agents.campaign_planner import run_campaign_planner
+from app.agents.literature import format_papers, run_literature_search
 from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
 from app.experiments import execute_experiment
@@ -71,6 +72,18 @@ def approval_gate(state: AgentState) -> dict:
     return {}
 
 
+def route_after_literature(state: AgentState) -> str:
+    if state.get("mode") == "campaign":
+        return "campaign_planner_node"
+    return "planner_node"
+
+
+def route_after_approval(state: AgentState) -> str:
+    if state.get("mode") == "campaign":
+        return "campaign"
+    return "experiment"
+
+
 def route_after_verifier(state: AgentState) -> str:
     if state.get("critic_continue"):
         return "experiment_node"
@@ -85,10 +98,19 @@ def route_after_consistency(state: AgentState) -> str:
 
 def literature_node(state: AgentState) -> dict:
     logger.info("literature_node query=%s", state["query"])
-    literature_context = run_literature_agent(state["query"])
+    sources = run_literature_search(state["query"])
+    literature_context = format_papers(sources)
     for index, item in enumerate(literature_context, start=1):
         logger.info("literature_context %s=%s", index, item)
-    return {"literature_context": literature_context}
+    return {"literature_context": literature_context, "literature_sources": sources}
+
+
+def campaign_planner_node(state: AgentState) -> dict:
+    logger.info("campaign_planner_node query=%s", state["query"])
+    candidates = run_campaign_planner(state["query"], list(state.get("literature_sources") or []))
+    for index, item in enumerate(candidates, start=1):
+        logger.info("campaign candidate %s=%s estimate=%s", index, item["spec"]["title"], item["estimate"])
+    return {"campaign_specs": candidates}
 
 
 def planner_node(state: AgentState) -> dict:

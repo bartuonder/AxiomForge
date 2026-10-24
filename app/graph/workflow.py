@@ -11,12 +11,15 @@ from app.config import DATABASE_URL
 from app.graph.errors import describe_error, read_error, record_error
 from app.graph.nodes import (
     approval_gate,
+    campaign_planner_node,
     consistency_checker_node,
     experiment_node,
     literature_node,
     planner_node,
     report_node,
+    route_after_approval,
     route_after_consistency,
+    route_after_literature,
     route_after_verifier,
     verifier_node,
 )
@@ -26,6 +29,7 @@ from app.graph.state import AgentState
 logger = logging.getLogger("axiomforge")
 
 FINISHED_STATUSES = {"completed", "needs_review"}
+MODES = ("experiment", "campaign")
 _STEP_ORDER = [
     "literature_node",
     "planner_node",
@@ -34,21 +38,42 @@ _STEP_ORDER = [
     "report_node",
     "consistency_checker_node",
 ]
+_CAMPAIGN_STEP_ORDER = [
+    "literature_node",
+    "campaign_planner_node",
+    "campaign_node",
+    "meta_report_node",
+    "meta_consistency_node",
+]
+_CAMPAIGN_STEP_OF = {
+    "campaign_dispatch_node": "campaign_node",
+    "campaign_collect_node": "campaign_node",
+}
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(AgentState)
     graph.add_node("literature_node", literature_node)
     graph.add_node("planner_node", planner_node)
+    graph.add_node("campaign_planner_node", campaign_planner_node)
     graph.add_node("experiment_node", experiment_node)
     graph.add_node("verifier_node", verifier_node)
     graph.add_node("report_node", report_node)
     graph.add_node("consistency_checker_node", consistency_checker_node)
     graph.add_edge(START, "literature_node")
     graph.add_node("approval_gate", approval_gate)
-    graph.add_edge("literature_node", "planner_node")
+    graph.add_conditional_edges(
+        "literature_node",
+        route_after_literature,
+        {"planner_node": "planner_node", "campaign_planner_node": "campaign_planner_node"},
+    )
     graph.add_edge("planner_node", "approval_gate")
-    graph.add_edge("approval_gate", "experiment_node")
+    graph.add_edge("campaign_planner_node", "approval_gate")
+    graph.add_conditional_edges(
+        "approval_gate",
+        route_after_approval,
+        {"experiment": "experiment_node", "campaign": END},
+    )
     graph.add_edge("experiment_node", "verifier_node")
     graph.add_conditional_edges(
         "verifier_node",
@@ -77,9 +102,20 @@ def _open_graph():
     return PostgresSaver.from_conn_string(DATABASE_URL)
 
 
-def empty_research_state(query: str) -> AgentState:
+def empty_research_state(query: str, mode: str = "experiment") -> AgentState:
     return {
         "query": query,
+        "mode": mode,
+        "literature_sources": [],
+        "campaign_specs": [],
+        "selected_campaign": 0,
+        "campaign_spec": {},
+        "campaign_id": "",
+        "campaign_status": "",
+        "campaign_analysis": {},
+        "campaign_ledger": [],
+        "campaign_issues": [],
+        "campaign_mlflow_run_id": "",
         "literature_context": [],
         "hypotheses": [],
         "experiment_specs": [],
@@ -107,9 +143,9 @@ def empty_research_state(query: str) -> AgentState:
     }
 
 
-def run_until_pause(thread_id: str, query: str) -> None:
+def run_until_pause(thread_id: str, query: str, mode: str = "experiment") -> None:
     config = {"configurable": {"thread_id": thread_id, "checkpoint_ns": ""}}
-    fresh = empty_research_state(query)
+    fresh = empty_research_state(query, mode)
     logger.info("start_research thread_id=%s", thread_id)
     logger.info(
         "start_research reset literature=%s hypotheses=%s code=%s stats=%s models=%s tested=%s",
@@ -137,8 +173,11 @@ def run_until_pause(thread_id: str, query: str) -> None:
         record_error(thread_id, describe_error(exc))
 
 
-def new_thread_id(query: str) -> str:
-    require_models(requested_models(query))
+def new_thread_id(query: str, mode: str = "experiment") -> str:
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of: {', '.join(MODES)}")
+    if mode == "experiment":
+        require_models(requested_models(query))
     return str(uuid.uuid4())
 
 
@@ -153,12 +192,17 @@ def get_research(thread_id: str) -> dict:
     status = _research_status(values, next_nodes, error)
     return {
         "thread_id": thread_id,
+        "mode": values.get("mode") or "experiment",
         "status": status,
         "next": next_nodes,
         "active_step": _active_step(values, next_nodes, status),
         "hypotheses": list(values.get("hypotheses") or []),
         "experiment_specs": list(values.get("experiment_specs") or []),
         "selected_hypothesis": selected_index(values),
+        "campaign_specs": list(values.get("campaign_specs") or []),
+        "selected_campaign": _selected_campaign(values),
+        "campaign_id": values.get("campaign_id") or "",
+        "campaign_status": values.get("campaign_status") or "",
         "approval_status": values.get("approval_status") or "",
         "verification_status": values.get("verification_status") or "",
         "verifier_feedback": values.get("verifier_feedback") or "",
@@ -169,6 +213,12 @@ def get_research(thread_id: str) -> dict:
         "error": error,
         "steps": _steps(values, next_nodes, status),
     }
+
+
+def _selected_campaign(values: dict) -> int:
+    candidates = values.get("campaign_specs") or []
+    index = values.get("selected_campaign", 0) or 0
+    return index if isinstance(index, int) and 0 <= index < len(candidates) else 0
 
 
 def _instability(values: dict) -> dict:
@@ -191,7 +241,7 @@ def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
         return "rejected"
     if (
         "approval_gate" in next_nodes
-        and values.get("hypotheses")
+        and (values.get("hypotheses") or values.get("campaign_specs"))
         and values.get("approval_status") != "approved"
     ):
         return "paused"
@@ -200,7 +250,28 @@ def _research_status(values: dict, next_nodes: list[str], error: str) -> str:
     return "running"
 
 
+def _campaign_active_step(values: dict, next_nodes: list[str], status: str) -> str:
+    if status in FINISHED_STATUSES:
+        return "meta_consistency_node"
+    if status in {"paused", "rejected"}:
+        return "campaign_planner_node"
+    for name in ("meta_consistency_node", "meta_report_node", "campaign_collect_node", "campaign_dispatch_node", "campaign_planner_node", "literature_node"):
+        if name in next_nodes:
+            return _CAMPAIGN_STEP_OF.get(name, name)
+    if values.get("paper_markdown"):
+        return "meta_report_node"
+    if values.get("campaign_analysis"):
+        return "meta_report_node"
+    if values.get("campaign_id") or values.get("approval_status") == "approved":
+        return "campaign_node"
+    if values.get("campaign_specs"):
+        return "campaign_planner_node"
+    return "literature_node"
+
+
 def _active_step(values: dict, next_nodes: list[str], status: str) -> str:
+    if values.get("mode") == "campaign":
+        return _campaign_active_step(values, next_nodes, status)
     if status in FINISHED_STATUSES:
         return "consistency_checker_node"
     if status in {"paused", "rejected"}:
@@ -228,7 +299,30 @@ def _active_step(values: dict, next_nodes: list[str], status: str) -> str:
     return "literature_node"
 
 
+def _campaign_steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, str]]:
+    done = {
+        "literature_node": bool(values.get("literature_context")),
+        "campaign_planner_node": bool(values.get("campaign_specs")),
+        "campaign_node": bool(values.get("campaign_analysis")),
+        "meta_report_node": bool(values.get("paper_markdown")) and not values.get("consistency_continue"),
+        "meta_consistency_node": values.get("research_status") in {"Completed", "NeedsReview"},
+    }
+    active = _active_step(values, next_nodes, status)
+    steps = []
+    for name in _CAMPAIGN_STEP_ORDER:
+        if status in FINISHED_STATUSES or done[name]:
+            phase = "done"
+        elif status not in {"rejected", "failed"} and name == active:
+            phase = "active"
+        else:
+            phase = "pending"
+        steps.append({"id": name, "phase": phase})
+    return steps
+
+
 def _steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, str]]:
+    if values.get("mode") == "campaign":
+        return _campaign_steps(values, next_nodes, status)
     done = {
         "literature_node": bool(values.get("literature_context")),
         "planner_node": bool(values.get("hypotheses")),
@@ -266,7 +360,9 @@ def decide_plan(thread_id: str, decision: str, selected: int | None = None) -> d
             raise RuntimeError("research thread is not waiting for approval")
         if snapshot.values.get("approval_status"):
             raise RuntimeError("research thread was already decided")
-        hypotheses = list(snapshot.values.get("hypotheses", []))
+        campaign = snapshot.values.get("mode") == "campaign"
+        candidates = list(snapshot.values.get("campaign_specs") or []) if campaign else []
+        hypotheses = [str(item["spec"]["title"]) for item in candidates] if campaign else list(snapshot.values.get("hypotheses", []))
         logger.info("decide_plan thread_id=%s decision=%s", thread_id, normalized)
         for index, item in enumerate(hypotheses, start=1):
             logger.info("approve hypothesis %s=%s", index, item)
@@ -280,6 +376,18 @@ def decide_plan(thread_id: str, decision: str, selected: int | None = None) -> d
                 "hypotheses": hypotheses,
             }
         choice = validate_selection(len(hypotheses), selected)
+        if campaign:
+            compiled.update_state(
+                config,
+                {"approval_status": "approved", "selected_campaign": choice, "campaign_spec": candidates[choice]["spec"]},
+            )
+            return {
+                "thread_id": thread_id,
+                "status": "running",
+                "approval_status": "approved",
+                "selected_campaign": choice,
+                "hypotheses": hypotheses,
+            }
         compiled.update_state(config, {"approval_status": "approved", "selected_hypothesis": choice})
     return {
         "thread_id": thread_id,

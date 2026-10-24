@@ -114,8 +114,12 @@ def search_plan(model_keys: list[str], topics: list[str]) -> list[list[str]]:
     return unique[:MAX_SEARCHES]
 
 
+def format_papers(papers: list[dict[str, str]]) -> list[str]:
+    return [f"{paper['title']}: {paper['abstract']}" for paper in papers]
+
+
 def run_literature_agent(query: str) -> list[str]:
-    return [f"{paper['title']}: {paper['abstract']}" for paper in run_literature_search(query)]
+    return format_papers(run_literature_search(query))
 
 
 def run_literature_search(query: str) -> list[dict[str, str]]:

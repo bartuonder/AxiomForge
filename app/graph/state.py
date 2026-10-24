@@ -27,3 +27,14 @@ class AgentState(TypedDict):
     consistency_rounds: int
     consistency_continue: bool
     research_status: str
+    mode: str
+    literature_sources: list[dict[str, str]]
+    campaign_specs: list[dict[str, Any]]
+    selected_campaign: int
+    campaign_spec: dict[str, Any]
+    campaign_id: str
+    campaign_status: str
+    campaign_analysis: dict[str, Any]
+    campaign_ledger: list[dict[str, Any]]
+    campaign_issues: list[str]
+    campaign_mlflow_run_id: str

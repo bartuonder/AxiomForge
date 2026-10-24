@@ -5,8 +5,8 @@ from app.graph.workflow import resume_research, run_until_pause
 
 
 @celery_app.task(name="axiomforge.run_research", ignore_result=True)
-def run_research_task(thread_id: str, query: str) -> None:
-    run_until_pause(thread_id, query)
+def run_research_task(thread_id: str, query: str, mode: str = "experiment") -> None:
+    run_until_pause(thread_id, query, mode)
 
 
 @celery_app.task(name="axiomforge.resume_research", ignore_result=True)
