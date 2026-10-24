@@ -15,9 +15,10 @@ logger = logging.getLogger("axiomforge")
 
 MODEL = "gpt-4o"
 CANDIDATES = 3
-MAX_PLAN_ATTEMPTS = 2
+MAX_PLAN_ATTEMPTS = 3
 MIN_QUOTE_CHARS = 20
 MAX_CLAIMS = 2
+QUOTE_EDGES = " \t\n\"'“”‘’.,;:!?…"
 SHAPE_ERROR = "the answer must be a JSON object with a candidates list; use unsupported only together with an empty candidates list"
 
 SYSTEM_PROMPT = (
@@ -39,6 +40,9 @@ SYSTEM_PROMPT = (
     "Never invent a claim that the sources and the query do not state. Candidates may differ in the claim, the model groups or the metrics. "
     "When the user query itself states a comparison claim, even one it attributes to a paper that is not among the sources, "
     "propose that claim with source_index 0 and quote the query; prefer a source paper only when its abstract states the claim. "
+    "The system does not need the attributed paper: it tests the stated claim and will not credit it to any paper, "
+    "so irrelevant sources are no reason to answer unsupported. "
+    "Use unsupported only when neither the sources nor the query state any comparison between models on tabular classification. "
     "If the sources are not about comparing models on tabular classification, or contain no comparison claim, "
     "return an empty candidates list and explain why in unsupported. "
     "The key candidates is required in every answer; fill unsupported only when candidates is an empty list. "
@@ -67,6 +71,8 @@ def _claim(raw: Any, origins: dict[str, str], mapped_notes: list[str], models: l
     if not isinstance(raw, dict):
         raise PlanningError("each claim must be an object")
     quote = raw.get("source_quote")
+    if isinstance(quote, str):
+        quote = quote.strip(QUOTE_EDGES)
     if not isinstance(quote, str) or len(_normal(quote)) < MIN_QUOTE_CHARS:
         raise PlanningError(f"a claim needs a source_quote of at least {MIN_QUOTE_CHARS} characters")
     origin = next((name for name, text in origins.items() if _normal(quote) in text), None)
@@ -168,6 +174,7 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
         )
     valid: list[dict[str, Any]] = []
     errors: list[str] = []
+    refusal = ""
     for attempt in range(MAX_PLAN_ATTEMPTS):
         feedback = "" if not errors else "\n\nThese candidates of your previous answer were rejected, propose replacements:\n- " + "\n- ".join(errors)
         content = _complete(prompt + feedback)
@@ -177,6 +184,8 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
             raise RuntimeError("campaign planner returned invalid JSON") from exc
         if not isinstance(payload, dict) or not isinstance(payload.get("candidates"), list):
             errors = [SHAPE_ERROR]
+            reason = payload.get("unsupported") if isinstance(payload, dict) else None
+            refusal = reason.strip() if isinstance(reason, str) else ""
             continue
         if not payload["candidates"]:
             reason = payload.get("unsupported")
@@ -195,6 +204,8 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
             break
     if not valid:
         if errors == [SHAPE_ERROR]:
+            if refusal:
+                raise CampaignUnsupported(refusal)
             raise RuntimeError("campaign planner did not return candidates")
         raise RuntimeError("campaign planner returned no valid campaign: " + "; ".join(errors))
     chosen = valid[:CANDIDATES]

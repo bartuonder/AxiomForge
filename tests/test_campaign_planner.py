@@ -116,7 +116,7 @@ def test_invalid_json_and_a_wrong_shape_are_reported(llm):
     replies.append("not json")
     with pytest.raises(RuntimeError, match="invalid JSON"):
         run_campaign_planner(QUERY, SOURCES)
-    for wrong in (json.dumps({"candidates": "nope"}), json.dumps([1, 2]), json.dumps({"unsupported": "a reason only"})):
+    for wrong in (json.dumps({"candidates": "nope"}), json.dumps([1, 2])):
         for _ in range(MAX_PLAN_ATTEMPTS):
             replies.append(wrong)
         with pytest.raises(RuntimeError, match="did not return candidates"):
@@ -145,16 +145,16 @@ def test_a_quote_is_matched_ignoring_case_and_whitespace(llm):
 def test_a_short_or_missing_quote_is_refused(llm):
     replies, _ = llm
     for bad in ("trees win", "", None, 5):
-        replies.append(answer(candidate(claims=[claim(source_quote=bad)])))
-        replies.append(answer(candidate(claims=[claim(source_quote=bad)])))
+        for _ in range(MAX_PLAN_ATTEMPTS):
+            replies.append(answer(candidate(claims=[claim(source_quote=bad)])))
         with pytest.raises(RuntimeError, match="no valid campaign"):
             run_campaign_planner(QUERY, SOURCES)
 
 
 def test_a_quote_from_another_source_does_not_count(llm):
     replies, _ = llm
-    replies.append(answer(candidate(source_index=2)))
-    replies.append(answer(candidate(source_index=2)))
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(answer(candidate(source_index=2)))
     with pytest.raises(RuntimeError, match="does not appear in the source text"):
         run_campaign_planner(QUERY, SOURCES)
 
@@ -181,8 +181,8 @@ def test_a_claim_taken_from_the_query_has_no_source_paper(llm):
 
 def test_a_query_claim_must_be_quoted_from_the_query(llm):
     replies, _ = llm
-    replies.append(answer(candidate(source_index=0)))
-    replies.append(answer(candidate(source_index=0)))
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(answer(candidate(source_index=0)))
     with pytest.raises(RuntimeError, match="does not appear in the source text"):
         run_campaign_planner(QUERY, SOURCES)
 
@@ -190,16 +190,16 @@ def test_a_query_claim_must_be_quoted_from_the_query(llm):
 @pytest.mark.parametrize("index", [3, -1, "1", None, 1.0, True])
 def test_a_bad_source_index_is_refused(llm, index):
     replies, _ = llm
-    replies.append(answer(candidate(source_index=index)))
-    replies.append(answer(candidate(source_index=index)))
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(answer(candidate(source_index=index)))
     with pytest.raises(RuntimeError, match="source_index must be a whole number from 0 to 2"):
         run_campaign_planner(QUERY, SOURCES)
 
 
 def test_a_model_the_engine_cannot_run_is_named_and_never_guessed(llm):
     replies, _ = llm
-    replies.append(answer(candidate(claims=[claim(subject=["TabNet", "RandomForest"])])))
-    replies.append(answer(candidate(claims=[claim(subject=["TabNet", "RandomForest"])])))
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(answer(candidate(claims=[claim(subject=["TabNet", "RandomForest"])])))
     with pytest.raises(RuntimeError, match="cannot be run by the campaign engine: TabNet"):
         run_campaign_planner(QUERY, SOURCES)
 
@@ -334,7 +334,8 @@ def test_every_attempt_failing_reports_all_errors_after_the_attempt_limit(llm):
 def test_a_rejected_candidate_never_makes_the_good_ones_fail(llm):
     replies, _ = llm
     replies.append(answer(candidate(title="Good"), candidate(pool="nope")))
-    replies.append(answer(candidate(pool="nope")))
+    for _ in range(MAX_PLAN_ATTEMPTS - 1):
+        replies.append(answer(candidate(pool="nope")))
     plan = run_campaign_planner(QUERY, SOURCES)
     assert [item["spec"]["title"] for item in plan] == ["Good"]
 
@@ -420,7 +421,8 @@ def test_the_feedback_tells_the_model_what_to_do_with_the_rejections(llm):
 def test_the_final_error_lists_only_the_last_attempt(llm):
     replies, _ = llm
     replies.append(answer(candidate(pool="nope")))
-    replies.append(answer(candidate(claims=[claim(metrics=["accuracy"])])))
+    for _ in range(MAX_PLAN_ATTEMPTS - 1):
+        replies.append(answer(candidate(claims=[claim(metrics=["accuracy"])])))
     with pytest.raises(RuntimeError) as caught:
         run_campaign_planner(QUERY, SOURCES)
     assert "metrics must come from" in str(caught.value) and "pool must be one of" not in str(caught.value)
@@ -492,3 +494,57 @@ def test_two_claims_from_the_query_share_an_origin_and_are_accepted(llm):
     replies.append(answer(candidate(source_index=0, claims=[first, second])))
     plan = run_campaign_planner(QUERY, SOURCES)
     assert [item["source"] for item in plan[0]["evidence"]] == ["user query", "user query"]
+
+
+def test_the_planner_tries_three_times(llm):
+    assert MAX_PLAN_ATTEMPTS == 3
+
+
+@pytest.mark.parametrize(
+    "decorated",
+    [QUOTE_ONE + ".", f'"{QUOTE_ONE}"', QUOTE_ONE + "...", QUOTE_ONE + "…", f"“{QUOTE_ONE}”", f"  {QUOTE_ONE};  ", f"'{QUOTE_ONE}!'"],
+)
+def test_punctuation_around_a_quote_does_not_make_it_fail(llm, decorated):
+    replies, _ = llm
+    replies.append(answer(candidate(claims=[claim(source_quote=decorated)])))
+    plan = run_campaign_planner(QUERY, SOURCES)
+    assert plan[0]["evidence"][0]["quote"] == QUOTE_ONE
+
+
+def test_punctuation_does_not_make_a_short_quote_long_enough(llm):
+    replies, _ = llm
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(answer(candidate(claims=[claim(source_quote="tree-based models........................")])))
+    with pytest.raises(RuntimeError, match="source_quote of at least 20 characters"):
+        run_campaign_planner(QUERY, SOURCES)
+
+
+def test_a_model_that_only_refuses_gets_three_chances_and_its_reason_is_kept(llm):
+    replies, prompts = llm
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(json.dumps({"unsupported": "The paper is not among the sources."}))
+    with pytest.raises(CampaignUnsupported, match="The paper is not among the sources."):
+        run_campaign_planner(QUERY, SOURCES)
+    assert len(prompts) == MAX_PLAN_ATTEMPTS and replies == []
+
+
+def test_a_refusal_followed_by_candidates_is_accepted(llm):
+    replies, _ = llm
+    replies.append(json.dumps({"unsupported": "no list"}))
+    replies.append(three())
+    assert len(run_campaign_planner(QUERY, SOURCES)) == 3
+
+
+def test_a_blank_refusal_is_not_a_reason(llm):
+    replies, _ = llm
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(json.dumps({"unsupported": "   "}))
+    with pytest.raises(RuntimeError, match="did not return candidates") as caught:
+        run_campaign_planner(QUERY, SOURCES)
+    assert not isinstance(caught.value, CampaignUnsupported)
+
+
+def test_the_prompt_says_irrelevant_sources_are_no_reason_to_refuse():
+    prompt = planner.SYSTEM_PROMPT
+    assert "irrelevant sources are no reason to answer unsupported" in prompt
+    assert "Use unsupported only when neither the sources nor the query state any comparison" in prompt
