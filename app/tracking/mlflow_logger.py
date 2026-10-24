@@ -190,6 +190,10 @@ def log_verified_comparison(
         mlflow.set_tag("outcome", str(decision.get("outcome", "none")))
         mlflow.set_tag("winner", str(decision.get("winner", "")))
         mlflow.set_tag("hypothesis_verdict", str((decision.get("hypothesis") or {}).get("verdict", "untested")))
+        overall = decision.get("overall") or {}
+        mlflow.set_tag("overall_best", str(overall.get("model") or "none"))
+        for metric, leader in (overall.get("leaders") or {}).items():
+            mlflow.set_tag(f"leader_{metric}", str(leader))
         if spec:
             mlflow.log_param("spec_dataset", str(spec.get("dataset", "")))
             mlflow.log_param("spec_params", json.dumps(spec.get("params", {}), ensure_ascii=False)[:500])

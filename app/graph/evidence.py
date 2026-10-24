@@ -55,6 +55,12 @@ def effect_sentences(effects: list[dict[str, Any]] | None) -> list[str]:
     return sentences
 
 
+def _leader_evidence(decision: dict[str, Any]) -> list[str]:
+    leaders = decision.get("leaders") or ([decision["leader"]] if decision.get("leader") else [])
+    sentences = [sentence for leader in leaders for sentence in leader_sentences(leader)]
+    return sentences + overall_variants(decision.get("overall"))[0]
+
+
 def _names(models: list[str]) -> str:
     if len(models) <= 1:
         return "".join(models)
@@ -72,6 +78,55 @@ def leader_sentences(leader: dict[str, Any] | None) -> list[str]:
     if behind:
         sentence += f", but its lead over {_names(behind)} is not statistically significant"
     return [sentence + "."]
+
+
+def _metric_names(keys: list[str]) -> str:
+    return _names([METRIC_NAMES[key] for key in keys])
+
+
+def overall_variants(overall: dict[str, Any] | None) -> tuple[list[str], list[str]]:
+    if not overall:
+        return [], []
+    leaders = overall.get("leaders") or {}
+    if not overall.get("model"):
+        pieces = [f"{METRIC_NAMES[metric]} to {leaders[metric]}" for metric in METRIC_NAMES if metric in leaders]
+        first = (
+            "No single model led overall: " + ", ".join(pieces[:-1]) + (" and " if len(pieces) > 1 else "") + pieces[-1] + "."
+        )
+        second = (
+            "The three metrics did not agree on one best model: "
+            + _names(
+                [f"{leaders[metric]} had the highest mean {METRIC_NAMES[metric]}" for metric in METRIC_NAMES if metric in leaders]
+            )
+            + "."
+        )
+        return [first], [second]
+    model = overall["model"]
+    names = _metric_names(list(overall["metrics"]))
+    rank = f"average rank {float(overall['average_rank']):.2f} of {int(overall['models'])}"
+    clear = [metric for metric in overall["metrics"] if not overall["not_significant"].get(metric)]
+    groups: dict[tuple[str, ...], list[str]] = {}
+    for metric in overall["metrics"]:
+        rivals = tuple(overall["not_significant"].get(metric) or [])
+        if rivals:
+            groups.setdefault(rivals, []).append(metric)
+    held: list[str] = []
+    cleared: list[str] = []
+    if clear:
+        held.append(f"a clear lead over every other model on {_metric_list(clear)}")
+        cleared.append(f"clear against every rival on {_metric_list(clear)}")
+    for rivals, keys in groups.items():
+        held.append(f"no established lead over {_names(list(rivals))} on {_metric_list(keys)}")
+        cleared.append(f"not established against {_names(list(rivals))} on {_metric_list(keys)}")
+    first = [
+        f"Overall, {model} was the best-performing model across {names} ({rank}).",
+        "It held " + ", but ".join([held[0], ", ".join(held[1:])] if len(held) > 1 and clear else [" and ".join(held)]) + ".",
+    ]
+    second = [
+        f"Taking {names} together, {model} came out ahead of the field ({rank}).",
+        "Its advantage was " + ", but ".join([cleared[0], ", ".join(cleared[1:])] if len(cleared) > 1 and clear else [" and ".join(cleared)]) + ".",
+    ]
+    return first, second
 
 
 def configuration_sentence(spec: dict[str, Any] | None) -> str:
@@ -102,7 +157,11 @@ def summary_sentences(decision: dict[str, Any] | None) -> dict[str, list[str]]:
     conclusion: list[str] = []
     leader = decision.get("leader")
     plain = leader_sentences(leader)
-    if plain:
+    overall_abstract, overall_conclusion = overall_variants(decision.get("overall"))
+    if overall_abstract:
+        abstract.extend(overall_abstract)
+        conclusion.extend(overall_conclusion)
+    elif plain:
         metric = METRIC_NAMES[str(leader["metric"])]
         text = (
             f"Averaged over the ten splits, the strongest {metric} ({float(leader['mean']):.4f}) came from {leader['model']}"
@@ -175,7 +234,7 @@ def evidence_sentences(decision: dict[str, Any] | None) -> list[str]:
     decision = decision or {}
     return (
         hypothesis_sentences(decision.get("hypothesis"))
-        + leader_sentences(decision.get("leader"))
+        + _leader_evidence(decision)
         + performance_sentences(decision.get("performance"))
         + effect_sentences(decision.get("parameter_effects"))
         + instability_sentences(decision.get("instability"))

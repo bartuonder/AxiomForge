@@ -40,7 +40,9 @@ from app.graph.verifier import (
     instability_text,
     judge_data_leakage,
     leader_summary,
+    leaders_summary,
     metric_summary,
+    overall_summary,
     parameter_effects,
     performance_comparisons,
     rewrite_seeds,
@@ -286,7 +288,11 @@ def _gate_issues(state: AgentState) -> list[str]:
     issues.extend(untuned_model_issues(paper, spec))
     issues.extend(unfounded_instability_issues(paper, decision.get("instability"), spec.get("models")))
     issues.extend(method_issues(paper, int(decision.get("n_splits") or 0)))
-    issues.extend(summary_completeness_issues(paper, decision.get("leader"), decision.get("parameter_effects")))
+    issues.extend(
+        summary_completeness_issues(
+            paper, decision.get("leader"), decision.get("parameter_effects"), decision.get("overall")
+        )
+    )
     issues.extend(repetition_issues(paper))
     issues.extend(tuning_claim_issues(paper, decision.get("parameter_effects"), spec))
     issues.extend(table_issues(paper, statistical_results))
@@ -386,7 +392,9 @@ def verifier_node(state: AgentState) -> dict:
     logger.info("verifier instability=%s", decision["instability"])
     decision["performance"] = performance_comparisons(main_runs, samples)
     decision["parameter_effects"] = parameter_effects(collected, samples, spec.get("params"))
+    decision["leaders"] = leaders_summary(statistical_results, decision["performance"])
     decision["leader"] = leader_summary(statistical_results, decision["performance"])
+    decision["overall"] = overall_summary(statistical_results, decision["performance"])
     logger.info("verifier parameter_effects=%s", decision["parameter_effects"])
     claim = spec.get("claim")
     decision["hypothesis"] = hypothesis_verdict(claim, decision)

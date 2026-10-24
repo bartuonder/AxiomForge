@@ -235,6 +235,17 @@ REPETITION_NOTICE = (
     'Abstract ve Conclusion aynı cümleyi tekrar etmemeli ve her bölümde yalnız bir kez söylenmeli: "{sentence}". '
     "Her bölüm yalnız kendi 'sentences' listesindeki cümleyi kullanmalı; Abstract ve Conclusion listeleri kasten farklıdır."
 )
+_OVERALL_CUE = re.compile(r"\b(?:best|ahead|lead|leading|top|strongest)\b", re.IGNORECASE)
+_OVERALL_SCOPE = re.compile(r"\b(?:overall|across|together|combined)\b", re.IGNORECASE)
+_NO_SINGLE_MODEL = re.compile(r"\bno\s+single\s+model\b|\bdid\s+not\s+agree\b|\bno\s+one\s+model\b", re.IGNORECASE)
+OVERALL_MISSING_NOTICE = (
+    "{section} bölümü genel olarak en iyi modeli ({model}, üç metriğin bileşkesi) açıkça yazmıyor. "
+    "Brief'teki '{section} sentences' listesinde bu bölüm için hazırlanmış cümleyi aynen kopyala."
+)
+OVERALL_UNDECIDED_NOTICE = (
+    "{section} bölümü üç metriğin tek bir genel en iyi modelde birleşmediğini yazmıyor. "
+    "Brief'teki '{section} sentences' listesinde bu bölüm için hazırlanmış cümleyi aynen kopyala."
+)
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '
     'iddia ediyor: "{clause}". Bu karşılaştırma için yalnızca "No significant difference" cümlesini kullan.'
@@ -798,18 +809,34 @@ def method_issues(paper: str, n_splits: int) -> list[str]:
     return issues
 
 
-def summary_completeness_issues(paper: str, leader: dict | None, effects: list[dict] | None) -> list[str]:
+def summary_completeness_issues(
+    paper: str,
+    leader: dict | None,
+    effects: list[dict] | None,
+    overall: dict | None = None,
+) -> list[str]:
     significant: dict[str, list[str]] = {}
     for item in effects or []:
         if item.get("significant") and str(item.get("metric")) in _METRIC_LABELS:
             significant.setdefault(str(item["model"]), []).append(str(item["metric"]))
-    if not leader and not significant:
+    if not leader and not significant and not overall:
         return []
     issues: list[str] = []
     for title in ("Abstract", "Conclusion"):
         section = _exact_section(paper, title) or ""
         sentences = _prose_sentences(section)
-        if leader:
+        if overall:
+            if overall.get("model"):
+                squashed = _squash(str(overall["model"]))
+                found = any(
+                    squashed in _squash(sentence) and _OVERALL_SCOPE.search(sentence) and _OVERALL_CUE.search(sentence)
+                    for sentence in sentences
+                )
+                if not found:
+                    issues.append(OVERALL_MISSING_NOTICE.format(section=title, model=overall["model"]))
+            elif not any(_NO_SINGLE_MODEL.search(sentence) for sentence in sentences):
+                issues.append(OVERALL_UNDECIDED_NOTICE.format(section=title))
+        elif leader:
             squashed = _squash(str(leader["model"]))
             label = _METRIC_LABELS.get(str(leader.get("metric", "roc_auc")), _METRIC_LABELS["roc_auc"])
             found = any(

@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 from openai import OpenAI
+from scipy.stats import rankdata
 
 from app.config import OPENAI_API_KEY
 from app.graph.stats import MIN_SPLITS, corrected_resampled_t, holm_adjust, pitman_morgan_p
@@ -281,28 +282,87 @@ def hypothesis_verdict(claim: dict[str, str] | None, decision: dict[str, Any]) -
     return result
 
 
-def leader_summary(
-    summary: dict[str, dict[str, float] | str],
-    performance: list[dict[str, Any]] | None,
-) -> dict[str, Any] | None:
-    key = f"{CONCLUSION_METRIC}_mean"
-    means = {
+def _metric_means(summary: dict[str, dict[str, float] | str], metric: str) -> dict[str, float]:
+    key = f"{metric}_mean"
+    return {
         name: float(record[key])
         for name, record in summary.items()
         if isinstance(record, dict) and not is_baseline(name) and key in record
     }
+
+
+def _not_ahead_of(
+    model: str,
+    rivals: list[str],
+    metric: str,
+    performance: list[dict[str, Any]] | None,
+) -> list[str]:
+    behind: list[str] = []
+    for rival in rivals:
+        if rival == model:
+            continue
+        row = _pair(performance or [], model, rival, metric)
+        sign = 1.0 if row is not None and row["a"] == model else -1.0
+        if row is None or not row.get("significant") or sign * float(row["mean_difference"]) <= 0:
+            behind.append(rival)
+    return behind
+
+
+def leader_summary(
+    summary: dict[str, dict[str, float] | str],
+    performance: list[dict[str, Any]] | None,
+    metric: str = CONCLUSION_METRIC,
+) -> dict[str, Any] | None:
+    means = _metric_means(summary, metric)
     if len(means) < 2:
         return None
     leader = max(means, key=lambda name: means[name])
-    behind: list[str] = []
-    for rival in means:
-        if rival == leader:
-            continue
-        row = _pair(performance or [], leader, rival, CONCLUSION_METRIC)
-        sign = 1.0 if row is not None and row["a"] == leader else -1.0
-        if row is None or not row.get("significant") or sign * float(row["mean_difference"]) <= 0:
-            behind.append(rival)
-    return {"model": leader, "metric": CONCLUSION_METRIC, "mean": means[leader], "not_significant_against": behind}
+    return {
+        "model": leader,
+        "metric": metric,
+        "mean": means[leader],
+        "not_significant_against": _not_ahead_of(leader, list(means), metric, performance),
+    }
+
+
+def leaders_summary(
+    summary: dict[str, dict[str, float] | str],
+    performance: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    leaders = [leader_summary(summary, performance, metric) for metric in PERFORMANCE_METRICS]
+    return [leader for leader in leaders if leader is not None]
+
+
+def overall_summary(
+    summary: dict[str, dict[str, float] | str],
+    performance: list[dict[str, Any]] | None,
+) -> dict[str, Any] | None:
+    per_metric = {metric: _metric_means(summary, metric) for metric in PERFORMANCE_METRICS}
+    models = list(per_metric[PERFORMANCE_METRICS[0]])
+    if len(models) < 2 or any(set(means) != set(models) for means in per_metric.values()):
+        return None
+    ranks = {model: [] for model in models}
+    for metric in PERFORMANCE_METRICS:
+        ordered = rankdata([-per_metric[metric][model] for model in models], method="average")
+        for model, rank in zip(models, ordered):
+            ranks[model].append(float(rank))
+    average = {model: float(np.mean(values)) for model, values in ranks.items()}
+    best_rank = min(average.values())
+    best = [model for model in models if abs(average[model] - best_rank) < 1e-9]
+    leaders = {metric: max(per_metric[metric], key=lambda name: per_metric[metric][name]) for metric in PERFORMANCE_METRICS}
+    if len(best) != 1:
+        return {"model": None, "leaders": leaders, "models": len(models)}
+    model = best[0]
+    return {
+        "model": model,
+        "average_rank": average[model],
+        "models": len(models),
+        "metrics": list(PERFORMANCE_METRICS),
+        "leaders": leaders,
+        "not_significant": {
+            metric: _not_ahead_of(model, models, metric, performance) for metric in PERFORMANCE_METRICS
+        },
+    }
 
 
 def conclusion_sentence(decision: dict[str, Any]) -> str:

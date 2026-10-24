@@ -64,7 +64,7 @@ SYSTEM_PROMPT = (
     "Performans farkını higher veya lower ile anlat, better kullanma. "
     "Methodology içinde değerlendirme yöntemini tam şöyle anlat: '10 repeated stratified train/test splits' (yalnız bölme tohumu değişir). "
     "k-fold, cross-validation, CV, bootstrap ve leave-one-out sözcüklerini hiçbir yerde kullanma, çünkü yöntem bunlardan biri değildir. "
-    "En iyi ortalama ROC-AUC'li modeli ve anlamlı (significant true) her parametre etkisini hem Abstract hem Conclusion içinde an. "
+    "Genel olarak en iyi modeli (ROC-AUC, PR-AUC ve F1 sıralamalarının bileşkesi; Evidence sentences'ta 'Overall') ve anlamlı (significant true) her parametre etkisini hem Abstract hem Conclusion içinde an. "
     "Bunun için Abstract içine 'Abstract sentences' bölümündeki cümleleri, Conclusion içine 'Conclusion sentences' bölümündeki cümleleri aynen kopyala; "
     "iki listenin cümleleri aynı bulguları kasten farklı sözcüklerle söyler, birini diğer bölüme koyma. "
     "Abstract ve Conclusion aynı cümleyi tekrar etmesin ve her bölümde 'the hypothesis was ...' ifadesi yalnız bir kez geçsin. "
