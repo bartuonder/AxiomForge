@@ -153,7 +153,7 @@ def test_blank_dataset_keys_are_ignored():
 def test_the_worker_count_is_passed_on_and_defaults_to_the_runner_default(monkeypatch):
     seen = []
 
-    def fake(spec, campaign_id, execute, workers):
+    def fake(spec, campaign_id, execute, workers, tracker=None):
         seen.append(workers)
         return {"id": "abc", "status": "completed", "datasets": {}}
 
@@ -161,3 +161,17 @@ def test_the_worker_count_is_passed_on_and_defaults_to_the_runner_default(monkey
     call("run", "--demo", "grinsztajn-2022")
     call("run", "--demo", "grinsztajn-2022", "--workers", "5")
     assert seen == [cli.DEFAULT_WORKERS, 5]
+
+
+def test_mlflow_tracking_is_off_by_default_and_on_with_the_flag(monkeypatch):
+    seen = []
+
+    def fake(spec, campaign_id, execute, workers, tracker=None):
+        seen.append(tracker)
+        return {"id": "abc", "status": "completed", "datasets": {}, "mlflow_run_id": "run-9" if tracker else ""}
+
+    monkeypatch.setattr(cli, "execute_campaign", fake)
+    code, text = call("run", "--demo", "grinsztajn-2022")
+    assert seen == [None] and "mlflow run" not in text
+    code, text = call("run", "--demo", "grinsztajn-2022", "--mlflow")
+    assert seen[1] is cli.log_campaign and "mlflow run: run-9" in text

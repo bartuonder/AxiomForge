@@ -243,3 +243,56 @@ def test_a_rejected_campaign_keeps_its_datasets_and_records_the_reason():
 def test_rejecting_an_unknown_campaign_does_nothing(root):
     service.reject_campaign("ghost", "whatever")
     assert not root.exists()
+
+
+def test_without_a_tracker_nothing_is_logged_and_no_run_id_is_stored():
+    state = service.execute_campaign(SPEC, "abc", healthy, workers=2)
+    assert "mlflow_run_id" not in state
+
+
+def test_the_tracker_gets_the_finished_campaign_and_its_run_id_is_stored():
+    seen = []
+
+    def tracker(campaign_id, spec, outcome, analysis, markdown, ledger, status):
+        seen.append((campaign_id, spec["title"], sorted(outcome["datasets"]), analysis["claims"][0]["verdict"], markdown.startswith("# "), ledger[0]["id"], status))
+        return "run-123"
+
+    state = service.execute_campaign(SPEC, "abc", healthy, workers=2, tracker=tracker)
+    assert seen == [("abc", SPEC["title"], sorted(KEYS), "replicated", True, "E1", "completed")]
+    assert state["mlflow_run_id"] == "run-123" and store.load_state("abc")["mlflow_run_id"] == "run-123"
+
+
+def test_the_tracker_sees_the_review_status(monkeypatch):
+    monkeypatch.setattr(service, "report_issues", lambda markdown, ledger: ["E9 is cited but not in the ledger"])
+    statuses = []
+    state = service.execute_campaign(SPEC, "abc", healthy, workers=2, tracker=lambda *args: statuses.append(args[-1]) or "r")
+    assert statuses == ["needs_review"] and state["status"] == "needs_review"
+
+
+def test_the_tracker_runs_after_the_artifacts_are_stored():
+    seen = []
+
+    def tracker(*args):
+        seen.append(store.load_report("abc") is not None)
+        return "r"
+
+    service.execute_campaign(SPEC, "abc", healthy, workers=2, tracker=tracker)
+    assert seen == [True]
+
+
+def test_a_failing_tracker_does_not_fail_the_campaign_and_leaves_an_empty_run_id(caplog):
+    def broken(*args):
+        raise ConnectionError("mlflow is down")
+
+    with caplog.at_level("ERROR", logger="axiomforge"):
+        state = service.execute_campaign(SPEC, "abc", healthy, workers=2, tracker=broken)
+    assert state["status"] == "completed" and state["mlflow_run_id"] == ""
+    assert any("campaign abc: MLflow logging failed" in record.getMessage() and record.exc_info for record in caplog.records)
+    assert store.load_report("abc") is not None
+
+
+def test_a_campaign_that_fails_before_reporting_is_not_tracked(monkeypatch):
+    calls = []
+    monkeypatch.setattr(service, "render_report", lambda spec, outcome, analysis: 1 / 0)
+    state = service.execute_campaign(SPEC, "abc", healthy, workers=2, tracker=lambda *args: calls.append(args) or "r")
+    assert state["status"] == "failed" and calls == [] and "mlflow_run_id" not in state

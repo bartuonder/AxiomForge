@@ -1,4 +1,5 @@
 from app.campaign.service import execute_campaign
+from app.campaign.tracking import log_campaign
 from app.celery_app import celery_app
 from app.graph.workflow import resume_research, run_until_pause
 
@@ -15,4 +16,4 @@ def resume_research_task(thread_id: str) -> None:
 
 @celery_app.task(name="axiomforge.run_campaign", ignore_result=True)
 def run_campaign_task(campaign_id: str, spec: dict) -> None:
-    execute_campaign(spec, campaign_id)
+    execute_campaign(spec, campaign_id, tracker=log_campaign)

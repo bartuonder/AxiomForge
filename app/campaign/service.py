@@ -45,6 +45,16 @@ def reject_campaign(campaign_id: str, reason: str) -> None:
         store.save_state(campaign_id, state | {"status": "failed", "error": reason, "finished": store.now()})
 
 
+def _track(tracker: Callable[..., str] | None, campaign_id: str, *arguments: Any) -> str:
+    if tracker is None:
+        return ""
+    try:
+        return tracker(campaign_id, *arguments)
+    except Exception:
+        logger.exception("campaign %s: MLflow logging failed", campaign_id)
+        return ""
+
+
 def execute_campaign(
     raw_spec: Any,
     campaign_id: str | None = None,
@@ -52,6 +62,7 @@ def execute_campaign(
     workers: int = DEFAULT_WORKERS,
     seeds: tuple[int, ...] = SPLIT_SEEDS,
     attempts: int = MAX_ATTEMPTS,
+    tracker: Callable[..., str] | None = None,
 ) -> dict[str, Any]:
     spec = validate_campaign(raw_spec)
     campaign_id = campaign_id or store.new_campaign_id()
@@ -71,6 +82,8 @@ def execute_campaign(
         issues = report_issues(markdown, ledger)
         scripts = {dataset: record["script"] for dataset, record in outcome["datasets"].items()}
         store.save_artifacts(campaign_id, markdown, ledger, analysis, scripts)
+        status = "needs_review" if issues else "completed"
+        run_id = _track(tracker, campaign_id, spec, outcome, analysis, markdown, ledger, status)
     except Exception as exc:
         logger.exception("campaign %s failed", campaign_id)
         with lock:
@@ -79,12 +92,14 @@ def execute_campaign(
         return state
     with lock:
         state.update(
-            status="needs_review" if issues else "completed",
+            status=status,
             finished=store.now(),
             issues=issues,
             verdicts=_verdicts(analysis),
             finished_datasets=len(outcome["datasets"]),
             failed_datasets=len(outcome["failed"]),
         )
+        if tracker is not None:
+            state["mlflow_run_id"] = run_id
         store.save_state(campaign_id, state)
     return state

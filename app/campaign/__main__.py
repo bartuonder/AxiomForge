@@ -9,6 +9,7 @@ from app.campaign.demos import demo_names, demo_spec
 from app.campaign.runner import DEFAULT_WORKERS
 from app.campaign.service import execute_campaign
 from app.campaign.spec import CampaignSpecError
+from app.campaign.tracking import log_campaign
 from app.sandbox.e2b_runner import run_classification
 
 EXIT_OK = 0
@@ -26,6 +27,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--datasets", help="comma separated dataset keys that replace the specification's datasets")
     run.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="datasets run in parallel")
     run.add_argument("--id", help="campaign id; a new one is generated when omitted")
+    run.add_argument("--mlflow", action="store_true", help="also record the campaign in MLflow")
     commands.add_parser("list", help="list stored campaigns")
     commands.add_parser("demos", help="list the ready campaigns")
     show = commands.add_parser("show", help="print the report of a stored campaign")
@@ -57,6 +59,8 @@ def _describe(state: dict[str, Any]) -> list[str]:
         lines.append(f"  issue: {issue}")
     if state.get("error"):
         lines.append(f"  error: {state['error']}")
+    if state.get("mlflow_run_id"):
+        lines.append(f"mlflow run: {state['mlflow_run_id']}")
     if state["status"] in {"completed", "needs_review"}:
         lines.append(f"report: {store.campaign_dir(state['id']) / 'report.md'}")
     return lines
@@ -85,7 +89,8 @@ def main(argv: list[str] | None = None, execute: Callable[[str, str], str] = run
         print(report, file=out)
         return EXIT_OK
     try:
-        state = execute_campaign(_load_spec(arguments), arguments.id, execute, arguments.workers)
+        tracker = log_campaign if arguments.mlflow else None
+        state = execute_campaign(_load_spec(arguments), arguments.id, execute, arguments.workers, tracker=tracker)
     except (CampaignSpecError, store.CampaignStoreError) as exc:
         print(f"invalid campaign: {exc}", file=out)
         return EXIT_USAGE

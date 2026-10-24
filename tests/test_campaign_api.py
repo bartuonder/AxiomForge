@@ -118,7 +118,7 @@ def test_stored_campaigns_are_listed(client):
 
 def test_the_celery_task_executes_the_campaign_under_the_queued_id(monkeypatch):
     seen = []
-    monkeypatch.setattr(tasks, "execute_campaign", lambda spec, campaign_id: seen.append((spec, campaign_id)))
+    monkeypatch.setattr(tasks, "execute_campaign", lambda spec, campaign_id, tracker: seen.append((spec, campaign_id, tracker)))
     tasks.run_campaign_task("abc", {"title": "x"})
-    assert seen == [({"title": "x"}, "abc")]
+    assert seen == [({"title": "x"}, "abc", tasks.log_campaign)]
     assert tasks.run_campaign_task.name == "axiomforge.run_campaign"
