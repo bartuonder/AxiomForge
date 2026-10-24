@@ -60,6 +60,16 @@ Altıncı ve yedinci gerçek koşular (threadler `5fcf65e4-c75c-42af-a1ac-4776b1
 
 Sekizinci-on dördüncü gerçek koşular (Koşu 8-14) yeni makale kapılarını gerçek döngüde sınadı. Koşu 8 (dört model, `adult_income`): kapı iki yeniden yazmada geçti; yazıcı RF ve LR'yi sorguya uyarak "ayarlandı" diye yazdı ve toplu üstünlük iddiası kurdu, yakalandı, ama makale "10-fold cross-validation" uyduruyordu ve özet sorgunun "en iyi model" sorusunu cevaplamıyordu (`method_issues`, `summary_completeness_issues`, `repetition_issues`, `031abd4`). Koşu 9 (RF + LR, `breast_cancer`): yeni üç kapı ilk taslakta tetiklenmedi, bir yeniden yazmayla `Completed`. Koşu 10 (dört model, anlamlı KNN etkisi): `NeedsReview`; özet eksiksizliği (lider ve etki iki bölümde de yazılmalı) ile tekrar kontrolü (aynı cümle iki bölümde olmamalı) birbiriyle çelişti, yazıcı aynı cümleleri kopyaladı (`f33fd84`: Abstract ve Conclusion için kasten farklı iki hazır cümle listesi). Koşu 11 OpenAI kredisi bittiği için ilk LLM çağrısında `failed` oldu (`insufficient_quota`); kod hatası değil. Koşu 12: tur 0'da yalnız 1 sorun kaldı ama yazıcı RF ve LR'yi "ayarlandı" diye yazmaya devam etti, `NeedsReview` (`7f650c9`: hazır yapılandırma cümlesi). Koşu 13 (aynı sorgu): kapı tur 0'da geçti, `Completed`, 0 yeniden yazma. Ardından `f5966e5`: doğrulayıcı her metrik için lideri ve ROC-AUC, PR-AUC, F1 sıralama ortalamasına göre genel en iyi modeli hesaplıyor; Abstract ve Conclusion için genel en iyi model cümleleri hazır geliyor. Koşu 14 (`1fb974d7-b0d7-4452-a29b-226ac8aecaba`, Koşu 13 ile aynı sorgu ve parametreler, planlayıcı bu sefer hipotez 1'i kararlılık iddiası olarak yazdı) genel en iyi model özelliğinin canlı doğrulamasıdır: kapı tur 0'da geçti, 0 yeniden yazma, `Completed`, yaklaşık 2,6 dakika. Doğrulayıcı genel en iyi modeli HistGradientBoosting olarak buldu (ortalama sıra 1.00 / 4; PR-AUC'de tüm rakiplerine karşı kanıtlı, ROC-AUC ve F1'de LR'ye karşı kanıtlı değil). Abstract ve Conclusion hazır cümleleri taşıdı (yazar yalnız birer Oxford virgülü ekledi), KNN'nin anlamlı etkisi (ROC-AUC +0.022, PR-AUC +0.042) ikisinde de vardı, Methodology yapılandırma cümlesini aynen kopyaladı ve yöntemi `10 repeated stratified train/test splits` diye anlattı. Dört yeni kontrol (yöntem, özet eksiksizliği, tekrar, uydurma kararsızlık) 0 uyarı verdi. Bu, tek koşudur; Koşu 10-13 gibi planlayıcı ve yazıcı davranışı koşudan koşuya değişebilir.
 
+Strateji kararı: kullanıcının isteği üzerine proje, yayımlanmış bir akademik ML karşılaştırma iddiasını çok veri setinde yeniden sınayan bir replikasyon ajanına doğru genişletildi (Faz 12). Önceki durumun eleştirisi: tek veri setinde doğrulanmış karşılaştırma otomasyonu, soru uzayı dar, literatür sığ, kapalı döngü yok, genelleme yok, LLM çoğunlukla biçimlendiriyor, regex kapıları kırılgan, ajan kıyaslaması yok. Faz 12 bunlardan çok veri seti genellemesini ve izlenebilir kanıtı ele alır; literatür derinliği ve kapalı döngü açık kalır.
+
+Faz 12, `app/campaign/` altında LLM'siz bir motordur: `spec` (belirtim doğrulaması), `protocol` (veri seti başına deterministik betik), `runner` (paralel sandbox, yeniden deneme, eksiksizlik denetimi), `stats` (veri seti birimli Wilcoxon, Holm, Friedman, iddia kararı), `analysis`, `ledger` (E1... kimlikli kanıt defteri, betik SHA-256 özeti), `report` (deterministik rapor, her sayısal satırda `[E#]` ve `report_issues` denetimi), `store` (`reports/campaigns/{id}/` altında atomik kayıt), `service` (`execute_campaign`, `queue_campaign`, `reject_campaign`), `demos` ve `__main__` (komut satırı). Veri havuzu `app/datasets.py` içinde 14 sete çıktı: `core` grubu (5 set, planlayıcı yalnız bunu görür) ve `benchmark` grubu (`inria-soda/tabular-benchmark` içinden 9 sayısal sınıflandırma seti: tb_credit, tb_california, tb_electricity, tb_magic, tb_bank, tb_heloc, tb_house16h, tb_pol, tb_eye; 6000 satırlık sabit tohumlu dengeli örnek). Hedef sütunlar ve pozitif sınıflar gerçek sandbox'ta doğrulandı ve `VERIFIED_BENCHMARK_TARGETS` testiyle sabitlendi. Uçlar `POST /start_campaign`, `GET /campaigns`, `GET /campaign/{id}`, `GET /campaign/{id}/report` ve Celery görevi `axiomforge.run_campaign`. Komut satırı: `python -m app.campaign run --demo grinsztajn-2022` (ayrıca `list`, `show ID`, `demos`, `--datasets`, `--workers`, `--id`). Kampanya servisleri (Redis, Postgres, MLflow) gerektirmez; yalnız `E2B_API_KEY` ister. Testlerde `tests/conftest.py` E2B anahtarını boşaltır, böylece hiçbir test gerçek sandbox'a gidemez (bir mutasyon taraması bir kez gerçek E2B'ye gitmişti, bu yüzden eklendi).
+
+Karar: kesin iki yönlü Wilcoxon p < 0,05 için en az 6 sıfırdan farklı veri seti farkı ister (5 sette en küçük p 0,0625). Holm düzeltmesi üç ölçüt üzerinden yapıldığı için 6 veri setiyle iddia `inconclusive` kalır; 9 sette geçer. Bu yüzden demo varsayılanı dokuz setin tamamıdır.
+
+Koşu 15 (`demo-grinsztajn-1`, Grinsztajn ve ark. 2022, arXiv 2207.08815; RandomForest, HistGradientBoosting, MLP, LogisticRegression; varsayılan hiperparametreler; dokuz benchmark seti; yalnız E2B, LLM yok) yaklaşık 4,5 dakikada `completed` bitti. Veri setleri 40-95 sn sürdü, yeniden deneme olmadı, izlenebilirlik sorunu çıkmadı. C1 (ağaçlar > MLP) ve C2 (ağaçlar > lineer) üç ölçütte de `replicated`, Holm düzeltmeli p = 0,0117. ROC-AUC Friedman sıraları: HistGradientBoosting 1,22, RandomForest 1,89, MLP 3,00, LogisticRegression 3,89. tb_eye'da MLP ağaçlardan belirgin geride; tb_pol'de MLP PR-AUC'de en iyiydi. Makaleden sapmalar raporda yazılıdır: hiperparametre araması yok, 6000 satırlık örnek, sklearn MLP (ResNet ve FT-Transformer yok), dokuz sayısal set, ağaç modeli olarak yalnız RandomForest ve HistGradientBoosting. Koşu raporun protokol bölümünde bir yanlış ifade çıkardı (parametre verilmemişken "yapılandırılmış model kontrolle koşar" diyordu); düzeltildi (`e1d2ad6`).
+
+Açık işler: Faz 12 için MLflow kaydı yok; konsolda kampanya görünümü yok (yalnız API ve komut satırı); `highest` ve `best` gibi üstünlük sözcükleri makale kapısında hâlâ denetlenmiyor; OpenAI kredisi ön kontrolü yok; `overall` yokken eski ROC-AUC lider kuralı duruyor. Öneri: ikinci bir iddia (örneğin başka bir makale) ve literatürden iddia çıkarma adımı.
+
 Yeni iş için kullanıcının mesajı beklenir.
 
 Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
@@ -87,6 +97,8 @@ cd frontend
 npm install
 npm run dev
 ```
+
+Kampanya komut satırı yalnız `E2B_API_KEY` ister, Redis, Postgres ve MLflow gerekmez: `.\.venv\Scripts\python.exe -m app.campaign run --demo grinsztajn-2022 --id demo-grinsztajn-1`. Çıktı `reports/campaigns/demo-grinsztajn-1/` altına yazılır.
 
 Konsol `http://localhost:3000` (`127.0.0.1:3000` adresinde Next dev sunucusu istemci kodunu çalıştırmaz). API `http://127.0.0.1:8000`. MLflow `http://127.0.0.1:5000`. Windows üzerinde Celery `--pool=threads` ile çalışır, `--pool=solo` tek görev yürütür. Postgres imajı `pgvector/pgvector:pg16` olur. Redis `redis://localhost:6379/0`.
 
@@ -138,6 +150,10 @@ Faz 9. `experiment-v8`. Parametre verilen her model `Model__default` kontrol gir
 
 Faz 10. `experiment-v9`. Veri sentetik değil, `app/datasets.py` kaydındaki beş doğrulanmış Hugging Face veri setinden biridir (`breast_cancer`, `credit_default`, `customer_churn`, `adult_income`, `credit_fraud`). Python her set için bir veri bloğu üretir, ajan bloğu aynen yapıştırır, AST denetimi (`dataset_code_error`) bunu zorunlu kılar ve sentetik yükleyicileri reddeder. Ön işleme `with_preprocessing` ile her modelin `Pipeline`'ında eğitim bölümüne uydurulur. Sandbox her koşudan önce `datasets` paketini kurar. Faz 5 ve Faz 7'deki `make_classification` anlatımı artık geçerli değildir.
 
+Faz 11. Makale kapısı ve hazır cümleler (`app/graph/evidence.py`, `app/agents/consistency.py`): LLM'siz kontroller kararı verir, LLM hakem danışmandır. Ayrıntı `AI_CONTEXT.md` ve `README.md` içindedir.
+
+Faz 12. Replikasyon kampanyası (`app/campaign/`). Yayımlanmış bir iddia çok veri setinde LLM'siz sınanır, kanıt defteri ve izlenebilir rapor üretilir. Ayrıntı yukarıda ve `README.md` içindedir.
+
 ## Kodun durduğu yerler
 
 | Konu | Dosya |
@@ -161,6 +177,9 @@ Faz 10. `experiment-v9`. Veri sentetik değil, `app/datasets.py` kaydındaki be�
 | Metrik ayrıştırma ve MLflow | `app/tracking/mlflow_logger.py` |
 | Sandbox | `app/sandbox/e2b_runner.py` |
 | Hafıza | `app/memory/rag_memory.py` |
+| Kampanya motoru | `app/campaign/` (`service.py` giriş noktası, `__main__.py` komut satırı) |
+| Kampanya uçları ve görevi | `app/main.py` (`/start_campaign`, `/campaigns`, `/campaign/{id}`) ve `app/tasks.py` (`run_campaign_task`) |
+| Kampanya çıktıları | `reports/campaigns/{id}/` (gitte yok) |
 | Konsol | `frontend/app/page.tsx` |
 | Adımlar | `frontend/lib/types.ts` |
 
