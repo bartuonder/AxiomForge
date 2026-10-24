@@ -10,7 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 from app.agents.experiment import require_models, requested_models
 from app.campaign import store as campaign_store
 from app.config import DATABASE_URL
-from app.graph.campaign_nodes import FINAL_STATUSES as CAMPAIGN_FINAL, campaign_collect_node, campaign_dispatch_node, meta_report_node
+from app.graph.campaign_nodes import FINAL_STATUSES as CAMPAIGN_FINAL, campaign_collect_node, campaign_dispatch_node, meta_consistency_node, meta_report_node, route_after_meta_consistency
 from app.graph.errors import describe_error, read_error, record_error
 from app.graph.nodes import (
     approval_gate,
@@ -63,6 +63,7 @@ def build_graph() -> StateGraph:
     graph.add_node("campaign_dispatch_node", campaign_dispatch_node)
     graph.add_node("campaign_collect_node", campaign_collect_node)
     graph.add_node("meta_report_node", meta_report_node)
+    graph.add_node("meta_consistency_node", meta_consistency_node)
     graph.add_node("experiment_node", experiment_node)
     graph.add_node("verifier_node", verifier_node)
     graph.add_node("report_node", report_node)
@@ -83,7 +84,12 @@ def build_graph() -> StateGraph:
     )
     graph.add_edge("campaign_dispatch_node", "campaign_collect_node")
     graph.add_edge("campaign_collect_node", "meta_report_node")
-    graph.add_edge("meta_report_node", END)
+    graph.add_edge("meta_report_node", "meta_consistency_node")
+    graph.add_conditional_edges(
+        "meta_consistency_node",
+        route_after_meta_consistency,
+        {"meta_report_node": "meta_report_node", "end": END},
+    )
     graph.add_edge("experiment_node", "verifier_node")
     graph.add_conditional_edges(
         "verifier_node",
