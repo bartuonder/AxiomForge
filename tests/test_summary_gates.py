@@ -414,5 +414,5 @@ def test_the_verifier_stores_the_leader(monkeypatch):
 def test_the_writer_is_told_the_three_rules():
     assert "10 repeated stratified train/test splits" in SYSTEM_PROMPT
     assert "k-fold, cross-validation, CV, bootstrap ve leave-one-out sözcüklerini hiçbir yerde kullanma" in SYSTEM_PROMPT
-    assert "had the highest mean ROC-AUC" in SYSTEM_PROMPT
+    assert "Abstract içine 'Abstract sentences' bölümündeki cümleleri, Conclusion içine 'Conclusion sentences' bölümündeki cümleleri aynen kopyala" in SYSTEM_PROMPT
     assert "Abstract ve Conclusion aynı cümleyi tekrar etmesin" in SYSTEM_PROMPT

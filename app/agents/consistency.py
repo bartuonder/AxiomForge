@@ -225,15 +225,15 @@ METHOD_MISSING_NOTICE = (
 _BEST_CUE = re.compile(r"\b(?:highest|best|top|strongest|leading|greatest|largest)\b", re.IGNORECASE)
 LEADER_MISSING_NOTICE = (
     "{section} bölümü en iyi ortalama ROC-AUC'ye sahip modeli ({model}, {mean:.4f}) açıkça yazmıyor. "
-    "Evidence sentences içindeki 'had the highest mean ROC-AUC' bilgisini bu bölümde yaz."
+    "Brief'teki '{section} sentences' listesinde bu bölüm için hazırlanmış cümleyi aynen kopyala."
 )
 EFFECT_SUMMARY_MISSING_NOTICE = (
     "{section} bölümü {model} için anlamlı bulunan parametre etkisini ({metrics}) anmıyor. "
-    "Modeli, 'default parameters' karşılaştırmasını ve metriği bu bölümde yaz."
+    "Brief'teki '{section} sentences' listesinde bu bölüm için hazırlanmış cümleyi aynen kopyala."
 )
 REPETITION_NOTICE = (
     'Abstract ve Conclusion aynı cümleyi tekrar etmemeli ve her bölümde yalnız bir kez söylenmeli: "{sentence}". '
-    "Aynı bulguyu Conclusion'da farklı sözcüklerle yaz."
+    "Her bölüm yalnız kendi 'sentences' listesindeki cümleyi kullanmalı; Abstract ve Conclusion listeleri kasten farklıdır."
 )
 UNSUPPORTED_DIFFERENCE_NOTICE = (
     '{metric} için {a} ile {b} arasındaki fark anlamlı değil (significant false) ama makale bir üstünlük '

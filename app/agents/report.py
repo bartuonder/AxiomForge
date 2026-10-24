@@ -4,7 +4,7 @@ from pathlib import Path
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY
-from app.graph.evidence import evidence_sentences
+from app.graph.evidence import evidence_sentences, summary_sentences
 from app.graph.selection import primary_hypothesis
 from app.datasets import DATASETS, describe
 from app.graph.state import AgentState
@@ -64,9 +64,10 @@ SYSTEM_PROMPT = (
     "Performans farkını higher veya lower ile anlat, better kullanma. "
     "Methodology içinde değerlendirme yöntemini tam şöyle anlat: '10 repeated stratified train/test splits' (yalnız bölme tohumu değişir). "
     "k-fold, cross-validation, CV, bootstrap ve leave-one-out sözcüklerini hiçbir yerde kullanma, çünkü yöntem bunlardan biri değildir. "
-    "Abstract ve Conclusion içinde Evidence sentences'taki 'had the highest mean ROC-AUC' cümlesinin modelini ve ortalamasını yaz; "
-    "bir parametre etkisi significant true ise (Evidence sentences'ta 'with the listed parameters has a higher/lower mean') modeli, 'default parameters' karşılaştırmasını ve metriği Abstract ve Conclusion içinde de an. "
-    "Abstract ve Conclusion aynı cümleyi tekrar etmesin ve her bölümde 'the hypothesis was ...' ifadesi yalnız bir kez geçsin; Conclusion'da aynı bulguyu farklı sözcüklerle yaz. "
+    "En iyi ortalama ROC-AUC'li modeli ve anlamlı (significant true) her parametre etkisini hem Abstract hem Conclusion içinde an. "
+    "Bunun için Abstract içine 'Abstract sentences' bölümündeki cümleleri, Conclusion içine 'Conclusion sentences' bölümündeki cümleleri aynen kopyala; "
+    "iki listenin cümleleri aynı bulguları kasten farklı sözcüklerle söyler, birini diğer bölüme koyma. "
+    "Abstract ve Conclusion aynı cümleyi tekrar etmesin ve her bölümde 'the hypothesis was ...' ifadesi yalnız bir kez geçsin. "
     "İkiden çok model varsa 'the other models', 'all models', 'the rest' gibi toplu ifadelerle üstünlük veya düşüklük iddia etme; "
     "bir modelin her rakibine karşı satırlar significant true ve aynı yöndeyse bile farkları Evidence sentences'taki gibi çift çift yaz. "
     "Statistical decision içindeki instability alanı bir bulgudur, hata değildir. "
@@ -149,6 +150,9 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
     statistical_results = state.get("statistical_results") or {}
     statistical_decision = state.get("statistical_decision") or {}
     evidence = "\n".join(f"- {sentence}" for sentence in evidence_sentences(statistical_decision))
+    summaries = summary_sentences(statistical_decision)
+    abstract_lines = "\n".join(f"- {sentence}" for sentence in summaries["Abstract"])
+    conclusion_lines = "\n".join(f"- {sentence}" for sentence in summaries["Conclusion"])
     failures = [
         {"error_log": item.get("error_log", "")}
         for item in past_experiments
@@ -179,6 +183,8 @@ def _brief(state: AgentState, past_experiments: list[dict], run_id: str) -> str:
         f"Statistical results (exact Python means, standard deviations, variances, and statistical_conclusion; copy these, do not choose a winner):\n{json.dumps(statistical_results, ensure_ascii=False)}\n"
         f"Statistical decision (structured verdict from Python; the paper must not contradict it):\n{json.dumps(statistical_decision, ensure_ascii=False)}\n"
         f"Evidence sentences (written by Python from the statistical decision; copy each one word for word into Results, in this order):\n{evidence}\n"
+        f"Abstract sentences (copy these word for word into the Abstract; they differ on purpose from the Conclusion ones):\n{abstract_lines}\n"
+        f"Conclusion sentences (copy these word for word into the Conclusion; never put them in the Abstract):\n{conclusion_lines}\n"
         f"Final code:\n{state.get('current_experiment_code', '')}\n"
         f"RAG memory failures:\n{json.dumps(failures, ensure_ascii=False)}\n"
         f"Claim review:\n{state.get('consistency_feedback', '')}\n"

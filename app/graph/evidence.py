@@ -74,6 +74,48 @@ def leader_sentences(leader: dict[str, Any] | None) -> list[str]:
     return [sentence + "."]
 
 
+def _metric_list(keys: list[str]) -> str:
+    return _names([METRIC_NAMES[key] for key in keys])
+
+
+def summary_sentences(decision: dict[str, Any] | None) -> dict[str, list[str]]:
+    decision = decision or {}
+    abstract: list[str] = []
+    conclusion: list[str] = []
+    leader = decision.get("leader")
+    plain = leader_sentences(leader)
+    if plain:
+        metric = METRIC_NAMES[str(leader["metric"])]
+        text = (
+            f"Averaged over the ten splits, the strongest {metric} ({float(leader['mean']):.4f}) came from {leader['model']}"
+        )
+        behind = [str(name) for name in leader.get("not_significant_against") or []]
+        if behind:
+            text += f", although no statistically significant lead over {_names(behind)} was established"
+        abstract.append(plain[0])
+        conclusion.append(text + ".")
+    grouped: dict[str, dict[bool, list[str]]] = {}
+    for item in decision.get("parameter_effects") or []:
+        key = str(item.get("metric"))
+        if not item.get("significant") or key not in METRIC_NAMES:
+            continue
+        higher = float(item["mean_difference"]) > 0
+        grouped.setdefault(str(item["model"]), {True: [], False: []})[higher].append(key)
+    for model, directions in grouped.items():
+        for higher, keys in directions.items():
+            if not keys:
+                continue
+            metrics = _metric_list(keys)
+            abstract.append(
+                f"{model} with the listed parameters had a {'higher' if higher else 'lower'} mean {metrics} "
+                f"than {model} with default parameters."
+            )
+            conclusion.append(
+                f"Compared with default parameters, the listed parameters {'raised' if higher else 'lowered'} {model}'s {metrics}."
+            )
+    return {"Abstract": abstract, "Conclusion": conclusion}
+
+
 def hypothesis_sentences(hypothesis: dict[str, Any] | None) -> list[str]:
     verdict = str((hypothesis or {}).get("verdict", ""))
     if verdict == "untested":
