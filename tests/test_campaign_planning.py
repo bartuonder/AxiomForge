@@ -329,3 +329,18 @@ class TestSurvivors:
     def test_the_selected_datasets_reach_the_spec(self):
         spec = assemble_spec("T", MODELS, [{**CLAIM, "metrics": ["roc_auc"]}], SOURCE, dataset_count=7)
         assert spec["datasets"] == benchmark_keys()[:7]
+
+
+class TestCalibration:
+    def test_gradient_boosting_is_slower_than_the_other_models(self):
+        fast = estimate_cost({"models": ["RandomForest", "HistGradientBoosting", "MLP"], "datasets": ["a"]})
+        slow = estimate_cost({"models": ["RandomForest", "GradientBoosting", "MLP"], "datasets": ["a"]})
+        assert slow["seconds_per_dataset"] - fast["seconds_per_dataset"] == planning.SLOW_MODEL_SECONDS["GradientBoosting"] == 18
+
+    def test_the_live_campaign_is_within_a_fifth_of_the_estimate(self):
+        cost = estimate_cost({"models": ["RandomForest", "GradientBoosting", "MLP"], "datasets": list("abcdefghi")})
+        assert cost["seconds_per_dataset"] == 80 and cost["estimated_seconds"] == 240
+        assert abs(cost["estimated_seconds"] - 270) / 270 < 0.2
+
+    def test_the_deviation_note_speaks_of_the_original_study(self):
+        assert any("evaluation protocol of the original study" in note for note in deviation_notes(benchmark_keys(), {}, []))

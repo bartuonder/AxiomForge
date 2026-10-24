@@ -12,6 +12,7 @@ MAX_PLAN_DATASETS = 10
 POOLS = ("benchmark", "core", "all")
 SECONDS_BASE = 20
 SECONDS_PER_MODEL = 14
+SLOW_MODEL_SECONDS = {"GradientBoosting": 18}
 
 _MLP_NOTE = "{name} was represented by scikit-learn's MLPClassifier."
 _LINEAR_NOTE = "{name} was represented by scikit-learn's LogisticRegression."
@@ -118,7 +119,7 @@ def deviation_notes(datasets: list[str], params: dict[str, Any], mapped: list[st
         notes.append("The listed parameters are single configurations chosen in advance, not the result of a hyperparameter search.")
     else:
         notes.append("No hyperparameter search: every model ran with library default parameters.")
-    notes.append("Each dataset was evaluated with 80/20 stratified splits repeated over ten seeds instead of the evaluation protocol of the source.")
+    notes.append("Each dataset was evaluated with 80/20 stratified splits repeated over ten seeds instead of the evaluation protocol of the original study.")
     benchmark = set(benchmark_keys())
     if any(key in benchmark for key in datasets):
         notes.append(
@@ -159,7 +160,7 @@ def assemble_spec(
 
 def estimate_cost(spec: dict[str, Any], workers: int = DEFAULT_WORKERS, attempts: int = MAX_ATTEMPTS) -> dict[str, int]:
     runs = len(spec["models"]) + len(spec.get("params") or {})
-    per_dataset = SECONDS_BASE + SECONDS_PER_MODEL * runs
+    per_dataset = SECONDS_BASE + SECONDS_PER_MODEL * runs + sum(SLOW_MODEL_SECONDS.get(model, 0) for model in spec["models"])
     datasets = len(spec["datasets"])
     waves = math.ceil(datasets / max(1, workers))
     return {
