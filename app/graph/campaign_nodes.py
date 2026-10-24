@@ -1,7 +1,9 @@
 import logging
+from pathlib import Path
 
 from langchain_core.runnables import RunnableConfig
 
+from app.agents.meta_report import write_meta_paper
 from app.campaign import store
 from app.campaign.service import campaign_id_for, queue_once, reject_campaign
 from app.graph.state import AgentState
@@ -61,3 +63,13 @@ def campaign_collect_node(state: AgentState) -> dict:
         "campaign_issues": list(campaign.get("issues") or []),
         "campaign_mlflow_run_id": str(campaign.get("mlflow_run_id") or ""),
     }
+
+
+def meta_report_node(state: AgentState, config: RunnableConfig) -> dict:
+    configurable = config.get("configurable", {}) if isinstance(config, dict) else {}
+    run_id = str(configurable.get("thread_id") or "run")
+    if state.get("consistency_feedback"):
+        logger.info("meta_report_node rewrite round=%s review=%s", state.get("consistency_rounds", 0), state.get("consistency_feedback", ""))
+    path = write_meta_paper(state, run_id)
+    logger.info("meta report saved path=%s", path)
+    return {"paper_markdown": Path(path).read_text(encoding="utf-8"), "consistency_continue": False}

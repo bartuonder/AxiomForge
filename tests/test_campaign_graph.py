@@ -131,6 +131,7 @@ def run_graph(monkeypatch):
     monkeypatch.setattr(workflow, "campaign_planner_node", fake("campaign_planner", {"campaign_specs": CANDIDATES}))
     monkeypatch.setattr(workflow, "campaign_dispatch_node", fake("dispatch", {"campaign_id": "abc", "campaign_status": "queued"}))
     monkeypatch.setattr(workflow, "campaign_collect_node", fake("collect", {"campaign_analysis": {"claims": []}, "campaign_status": "completed"}))
+    monkeypatch.setattr(workflow, "meta_report_node", fake("meta_report", {"paper_markdown": "meta paper"}))
     monkeypatch.setattr(workflow, "experiment_node", fake("experiment", {"current_experiment_code": "x"}))
     monkeypatch.setattr(workflow, "verifier_node", fake("verifier", {"verification_status": "Passed"}))
     monkeypatch.setattr(workflow, "report_node", fake("report", {"paper_markdown": "paper"}))
@@ -176,16 +177,17 @@ class TestTopology:
         assert calls == ["literature", "campaign_planner", "dispatch"]
         assert compiled.get_state(config).next == ("campaign_collect_node",)
 
-    def test_the_resume_collects_and_ends_the_graph(self, run_graph):
+    def test_the_resume_collects_writes_the_meta_report_and_ends_the_graph(self, run_graph):
         compiled, calls = run_graph
         config = self.config("c")
         compiled.invoke(empty_research_state("Replicate the paper", "campaign"), config)
         compiled.update_state(config, {"approval_status": "approved"})
         compiled.invoke(None, config)
         compiled.invoke(None, config)
-        assert calls == ["literature", "campaign_planner", "dispatch", "collect"]
+        assert calls == ["literature", "campaign_planner", "dispatch", "collect", "meta_report"]
         snapshot = compiled.get_state(config)
         assert snapshot.next == () and snapshot.values["campaign_analysis"] == {"claims": []}
+        assert snapshot.values["paper_markdown"] == "meta paper"
 
     def test_a_campaign_never_touches_the_single_dataset_nodes(self, run_graph):
         compiled, calls = run_graph
@@ -195,6 +197,7 @@ class TestTopology:
         compiled.invoke(None, config)
         compiled.invoke(None, config)
         assert not {"planner", "experiment", "verifier", "report", "consistency"} & set(calls)
+        assert calls[-1] == "meta_report"
 
     def test_an_experiment_never_touches_the_campaign_nodes(self, run_graph):
         compiled, calls = run_graph
@@ -202,7 +205,7 @@ class TestTopology:
         compiled.invoke(empty_research_state("Compare SVM and KNN"), config)
         compiled.update_state(config, {"approval_status": "approved"})
         compiled.invoke(None, config)
-        assert not {"campaign_planner", "dispatch", "collect"} & set(calls)
+        assert not {"campaign_planner", "dispatch", "collect", "meta_report"} & set(calls)
 
     def test_the_single_dataset_planner_is_skipped_in_campaign_mode(self, run_graph):
         compiled, calls = run_graph
