@@ -115,6 +115,10 @@ def search_plan(model_keys: list[str], topics: list[str]) -> list[list[str]]:
 
 
 def run_literature_agent(query: str) -> list[str]:
+    return [f"{paper['title']}: {paper['abstract']}" for paper in run_literature_search(query)]
+
+
+def run_literature_search(query: str) -> list[dict[str, str]]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -133,7 +137,7 @@ def run_literature_agent(query: str) -> list[str]:
         logger.info("literature relevance=%.3f kept=%s title=%s", score, (score, paper) in kept, paper["title"])
     if not kept:
         raise RuntimeError("arxiv returned no relevant papers")
-    return [f"{paper['title']}: {paper['abstract']}" for _, paper in kept]
+    return [{"title": paper["title"], "abstract": paper["abstract"], "url": paper.get("url", "")} for _, paper in kept]
 
 
 def _topics(client: OpenAI, query: str) -> list[str]:

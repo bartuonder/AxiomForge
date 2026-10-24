@@ -1,3 +1,4 @@
+import re
 from xml.etree import ElementTree
 
 import httpx
@@ -39,10 +40,15 @@ def _fetch(search_query: str, limit: int) -> list[dict[str, str]]:
         abstract = _text(entry.find(f"{ATOM}summary"))
         if not title:
             continue
-        papers.append({"title": title, "abstract": abstract})
+        papers.append({"title": title, "abstract": abstract, "url": _abs_url(_text(entry.find(f"{ATOM}id")))})
         if len(papers) == limit:
             break
     return papers
+
+
+def _abs_url(identifier: str) -> str:
+    match = re.search(r"arxiv\.org/abs/(.+?)(?:v\d+)?$", identifier)
+    return f"https://arxiv.org/abs/{match.group(1)}" if match else ""
 
 
 def _text(node: ElementTree.Element | None) -> str:
