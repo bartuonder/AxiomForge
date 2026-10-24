@@ -1,6 +1,6 @@
 # AxiomForge
 
-On iki katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü, Faz 4 rapor ajanı ve Next.js konsolu, Faz 5 bilimsel sıkılık, Faz 6 iddia doğrulama, Faz 7 deney tasarımı ve oturum izolasyonu, Faz 8 model seçimi ve istatistiksel karar kapısı, Faz 9 kontrol grubu, Faz 10 gerçek veri, Faz 11 makale kapısı ve hazır cümleler.
+On üç katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü, Faz 4 rapor ajanı ve Next.js konsolu, Faz 5 bilimsel sıkılık, Faz 6 iddia doğrulama, Faz 7 deney tasarımı ve oturum izolasyonu, Faz 8 model seçimi ve istatistiksel karar kapısı, Faz 9 kontrol grubu, Faz 10 gerçek veri, Faz 11 makale kapısı ve hazır cümleler, Faz 12 replikasyon kampanyası.
 
 Başka bir bilgisayarda veya yeni bir oturumda devam etmek için önce `CONTINUATION.md` okunur.
 
@@ -28,6 +28,8 @@ Faz 10 gerçek veridir. Sistem artık sentetik veri üretmez ve `sklearn.dataset
 
 Faz 11 makale kapısı ve hazır cümlelerdir. Yazıcının serbest yazdığı yerlerde canlı koşular tekrar eden hatalar gösterdi (sorgudaki talimatın spec yerine aktarılması, uydurma yöntem, kararsızlık, toplu üstünlük); bunlar LLM'siz kontrollerle yakalanır ve olabildiğince Python'ın ürettiği hazır cümlelerle önlenir. Doğrulayıcı her metrik için lideri ve ROC-AUC, PR-AUC, F1 sıralama ortalamasına göre genel en iyi modeli hesaplar (`leaders`, `overall`). Makale k-fold, cross-validation gibi bir yöntem anlatamaz ve Methodology'de `10 repeated stratified train/test splits` yazmalıdır. Abstract ve Conclusion genel en iyi modeli ve anlamlı parametre etkilerini kasten farklı iki hazır cümle listesiyle yazar ve aynı cümleyi tekrar edemez. Methodology'ye hangi modellerin ayarlandığını söyleyen hazır bir yapılandırma cümlesi girer; spec'te parametresi olmayan model ayarlanmış gibi anlatılamaz. Sorgudaki ayar ifadeleri literatür aramasına girmez (alan LLM'den, modeller Python'dan, en çok iki ifadeli aramalar). Planlayıcı her parametrenin kütüphane varsayılanını görür. Gerçek koşularda (Koşu 8-14) kapı bazen ilk turda geçti (Koşu 13 ve 14), iki kez de yeni kuralların çelişkisi ve yazıcının talimat aktarması yüzünden `NeedsReview` oldu (Koşu 10 ve 12); sonuncu koşuda hazır cümleler doğru aktarıldı. Ayrıntılar `AI_CONTEXT.md` içindedir.
 
+Faz 12 replikasyon kampanyasıdır ve LLM çağırmaz. Tek bir hipotezi tek veri setinde sınamak yerine yayımlanmış bir iddiayı birçok veri setinde yeniden sınar; her sayının izi bir kanıt kaydına bağlıdır. Kod `app/campaign/` altındadır. `spec.py` kampanya belirtimini doğrular: başlık, en az iki model, parametreler (kütüphane varsayılanına eşit değer reddedilir), veri setleri (varsayılan dokuz `benchmark` setinin tamamı), `subject` ve `other` model gruplarıyla iddialar, ölçütler ve kaynak makale ile makaleden sapmaları. `protocol.py` her veri seti için betiği şablondan üretir (LLM yok): standart veri bloğu, `Model__default` kontrolleri, on tohumlu katmanlı bölme ve aynı `model=...` satırları. `runner.py` veri setlerini paralel sandbox'larda (varsayılan üç) çalıştırır, her biri en çok iki deneme alır ve çıktının eksiksizliği denetlenir; bir veri setinin düşmesi diğerlerini durdurmaz. `stats.py` her veri setini birim sayar: model başına bölme ortalaması, model ailesi için en iyi üye, kesin iki yönlü Wilcoxon işaretli sıra testi (en az 6 sıfırdan farklı fark; 5 veri setiyle en küçük p 0,0625'tir), Holm düzeltmesi, Friedman testi (en az 3 model ve 5 veri seti) ve karar: `replicated`, `partially_replicated`, `reversed`, `inconclusive`, `not_testable`. `analysis.py` bunları toplar ve parametre etkisini veri setleri arasında yapılandırılmış ile varsayılan seri üzerinden sınar. `ledger.py` her sonuca kararlı bir kimlik (E1, E2, ...), kaynağı ve onu üreten betiğin SHA-256 özetini verir. `report.py` raporu deterministik yazar ve her sayısal satıra `[E#]` atfı koyar; `report_issues` bilinmeyen atıfları, atıfsız sayısal satırları ve hiç atıf almamış kanıt kayıtlarını yakalar. `store.py` durumu ve çıktıları `reports/campaigns/{id}/` altına atomik yazar (`state.json`, `report.md`, `ledger.json`, `analysis.json`, `scripts/`). `service.py` bütünü yürütür: doğrula, çalıştır, analiz et, rapor yaz, izlenebilirliği denetle, kaydet. Durum `queued`, `running`, `completed`, `needs_review` (izlenebilirlik sorunu var) veya `failed` olur. `demos.py` hazır kampanyaları taşır; `grinsztajn-2022`, Grinsztajn ve ark. (NeurIPS 2022, arXiv 2207.08815) makalesinin iddiasını sınar: ağaç tabanlı modeller (RandomForest, HistGradientBoosting) MLP'den ve lojistik regresyondan iyidir. Sapmaları raporun Protocol bölümünde yazılıdır: hiperparametre araması yok, 6000 satırlık dengeli örnek, sklearn MLP, dokuz sayısal veri seti. Gerçek koşuda (Koşu 15, `demo-grinsztajn-1`, yaklaşık 4,5 dakika, yalnız E2B) dokuz veri setinin hepsi bitti ve iki iddia da `replicated` çıktı (Holm düzeltmeli p = 0,0117, ROC-AUC medyan farkı MLP'ye karşı +0,013, lojistik regresyona karşı +0,058). Komut satırı: `python -m app.campaign run --demo grinsztajn-2022 [--datasets a,b] [--workers N] [--id X]`, `list`, `show ID`, `demos`. Uçlar `POST /start_campaign`, `GET /campaigns`, `GET /campaign/{id}` ve `GET /campaign/{id}/report` olarak aşağıda anlatılır.
+
 ## Ne var
 
 - FastAPI uygulaması
@@ -37,6 +39,7 @@ Faz 11 makale kapısı ve hazır cümlelerdir. Yazıcının serbest yazdığı y
 - Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
 - MLflow: grafta doğrulamadan sonra tek bir üst run açılır. Veri profili, her modelin doğrulanmış ortalama, standart sapma ve varyansı ve karar etiketleri üst run'a, her bölme `seed` ve `split_index` ile iç içe run'a yazılır
 - LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor → iddia kontrolü
+- Replikasyon kampanyası (`app/campaign/`): yayımlanmış bir iddiayı çok veri setinde LLM'siz sınar, kanıt defteri ve her sayısal satırda `[E#]` atfı olan bir rapor üretir; Celery görevi, API uçları ve komut satırıyla çalışır
 - Doğrulayıcı: on tohum, NumPy ortalama, sapma ve varyans, Pitman-Morgan ve düzeltilmiş t-testleri, parametre etkisi (yapılandırılmış ve varsayılan seri), `statistical_conclusion`, sızıntı analizi ve en fazla 2 eleştiri turu
 - Rapor ajanı: makale İngilizcedir, Results ve Conclusion `statistical_decision` yönünde yazılır
 - İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir. Doğrulama `Failed` iken özette bunu söylemeyen makale de LLM'siz reddedilir. Kararsızlık bulgusu varken özette `high variance across splits` yoksa veya işaretli model bir cümlede anlatılmıyorsa da reddedilir. `Passed` doğrulamayı sonuçların güvenilir olduğunun kanıtı gibi anlatan makale (doğrulamayla aynı cümlede `reliable`, `robust`, `trustworthy`, `credible`, `guarantee`) ve anlamlı bir performans farkını (ROC-AUC, PR-AUC, F1) ya da etki büyüklüğünü yazmayan makale de reddedilir. Abstract ve Conclusion'da hipotezin kararını (`the hypothesis was supported`, `contradicted` veya `inconclusive`) söylemeyen makale de reddedilir. Sonuç tablosundaki her hücre doğrulanmış ortalama ± standart sapmayla uyuşmalıdır (yazılan son basamağın yarısı kadar toleransla), tablo yoksa makale reddedilir. Parametre verilen modellerde anlamlı bir parametre etkisi yazılmamış ya da yanlış yönde yazılmışsa, anlamlı olmayan etki fark gibi anlatılmışsa ve doğrulama `Passed` iken makale ön işlemeyi (ölçekleme, standardizasyon gibi) bölmeden önce ya da tüm veri üzerinde yapılmış gibi anlatıyorsa da reddedilir. Spesifikasyonda parametresi olmayan bir modelin ayarlandığını söyleyen makale ve hiçbir parametre etkisi anlamlı değilken parametre ayarının sonucu etkilediğini söyleyen makale de reddedilir. Bir modeli "diğer tüm modellere" karşı üstün gösteren ama her rakibe karşı anlamlı olmayan makale ve doğrulayıcı kararsızlık bulmamışken kararsızlık ya da yüksek varyans iddia eden makale de reddedilir. Planlayıcı her parametrenin kütüphane varsayılanını görür; varsayılana eşit bir değer ayar sayılmaz ve spesifikasyon doğrulamasında reddedilir (son planlama denemesinde sessizce çıkarılır). Makale k-fold, cross-validation, CV veya bootstrap gibi bir yöntem anlatırsa ya da Methodology'de tekrarlı bölmeyi anlatmazsa, Abstract ve Conclusion genel olarak en iyi modeli ve anlamlı parametre etkilerini yazmazsa ya da bu iki bölüm aynı cümleyi tekrar ederse de reddedilir. Yazıcıya bu bilgilerin hazır cümleleri verilir: Abstract ve Conclusion için kasten farklı iki liste, Methodology için yapılandırma cümlesi. LLM hakem artık kapı değil danışmandır: yalnız bu LLM'siz kontroller `Completed` ya da `NeedsReview` kararını verir, hakemin notları `referee_notes` alanında tutulur ve sonuç sayfasında ayrı bir blokta gösterilir. En fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
@@ -63,7 +66,18 @@ app/
   agents/report.py           atölye makalesi yazan ajan
   agents/consistency.py      makale sayıları ile istatistik sözlüğünü karşılaştıran hakem
   tools/arxiv.py             arXiv arama aracı
-  tasks.py                   Celery görevleri: araştırmayı başlat ve onaydan sonra sürdür
+  tasks.py                   Celery görevleri: araştırmayı başlat, onaydan sonra sürdür ve kampanya çalıştır
+  campaign/spec.py           kampanya belirtimi doğrulaması
+  campaign/protocol.py       veri seti başına deterministik betik şablonu
+  campaign/runner.py         paralel sandbox koşusu, yeniden deneme, eksiksizlik denetimi
+  campaign/stats.py          veri seti birimli Wilcoxon, Holm, Friedman ve iddia kararı
+  campaign/analysis.py       kampanya analizi ve veri setleri arası parametre etkisi
+  campaign/ledger.py         kanıt defteri (kimlik, kaynak, betik özeti)
+  campaign/report.py         deterministik rapor ve izlenebilirlik denetimi
+  campaign/store.py          durum ve çıktıların atomik kaydı (reports/campaigns)
+  campaign/service.py        kampanyayı uçtan uca yürüten servis
+  campaign/demos.py          hazır kampanyalar (grinsztajn-2022)
+  campaign/__main__.py       python -m app.campaign komut satırı
   graph/state.py             AgentState
   graph/nodes.py             literatür, plan, deney, doğrulayıcı, rapor ve iddia düğümleri
   graph/verifier.py          on tohum, sapma, yapısal karar ve sızıntı kararı
@@ -240,6 +254,20 @@ Duraklayan yanıt:
 Hipotezler FastAPI logunda `paused hypothesis` satırları olarak da görünür.
 
 `GET /research/{thread_id}` durumu `starting`, `running`, `paused`, `rejected`, `completed`, `needs_review` veya `failed` olarak döner. Onay öncesi ya da sonrası bir düğüm hata verirse mesaj PostgreSQL'deki `research_errors` tablosuna yazılır, durum `failed` olur ve mesaj `error` alanında görünür. `needs_review` makalenin iddia kontrolünden geçemediğini gösterir; sebep `consistency_feedback` alanındadır. Yanıt ayrıca `referee_notes` (LLM hakemin danışman notları, durumu belirlemez), `verification_status` ile birlikte `verifier_feedback` (doğrulama reddinin sebebi) ve `instability` alanını taşır: `{unstable, std_threshold, flagged: [{model, metric, std}]}`. Sonuç sayfası (`/result/{thread_id}`) bu alanlarla üç satırlık bir kontrol paneli gösterir: doğrulama geçti veya reddedildi (sebebiyle), eşiği aşan varyans bulgusu, iddia kontrolünün sonucu. Araştırma sürerken sayfa her 2 saniyede durumu okur ve hangi adımda olduğunu yazar. Araştırma `completed`, `needs_review`, `failed` veya `rejected` olunca yoklama durur ve rapor bir kez okunur.
+
+### `POST /start_campaign`
+
+Gövde `demo` (hazır kampanya adı) ya da `spec` (kampanya belirtimi) alanlarından tam birini taşır; `datasets` verilirse belirtimdeki veri setlerinin yerine geçer:
+
+```json
+{"demo": "grinsztajn-2022", "datasets": ["tb_credit", "tb_pol"]}
+```
+
+Belirtim eşzamanlı doğrulanır; geçersizse `422` döner ve hiçbir şey saklanmaz. Geçerliyse durum `queued` olarak yazılır, `run_campaign` görevi kuyruğa atılır ve `{"campaign_id": "...", "status": "queued"}` döner. Kuyruk kapalıysa `503` döner ve kayıt `failed` olur. Kampanya LLM çağırmaz, yalnız E2B kullanır.
+
+### `GET /campaigns`, `GET /campaign/{campaign_id}`, `GET /campaign/{campaign_id}/report`
+
+`/campaigns` saklanan kampanya kimliklerini sıralı döner. `/campaign/{id}` durumu döner: `status`, her veri setinin `status`, `attempts`, `seconds`, `error` alanları, bitince `verdicts` (iddia kimliği, cümle ve karar), `issues`, `finished_datasets` ve `failed_datasets`. Geçersiz kimlik `400`, bilinmeyen kampanya `404` döner. `/campaign/{id}/report` rapor hazırsa `{"markdown": ..., "ledger": [...]}` döner, değilse `404 report not ready`.
 
 ### `POST /approve_plan`
 
