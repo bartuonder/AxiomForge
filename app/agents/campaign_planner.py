@@ -1,0 +1,171 @@
+import json
+import logging
+from typing import Any
+
+from openai import OpenAI
+
+from app.campaign.planning import POOLS, PlanningError, assemble_spec, estimate_cost, map_models
+from app.campaign.protocol import ESTIMATORS
+from app.campaign.spec import CampaignSpecError
+from app.campaign.stats import METRICS
+from app.config import OPENAI_API_KEY
+
+logger = logging.getLogger("axiomforge")
+
+MODEL = "gpt-4o"
+CANDIDATES = 3
+MAX_PLAN_ATTEMPTS = 2
+MIN_QUOTE_CHARS = 20
+MAX_CLAIMS = 2
+
+SYSTEM_PROMPT = (
+    "You are a replication planner. You read paper abstracts and a user query and turn their comparison claims "
+    "into replication campaigns. A campaign trains the same models on 5 to 10 binary classification datasets of tabular data "
+    "and tests the claim across datasets. "
+    f"Propose exactly {CANDIDATES} different candidate campaigns. "
+    "Each candidate is a JSON object with: "
+    "title (a short name), "
+    "source_index (the number of the source paper the claims come from, or 0 when the claims come from the user query itself), "
+    "pool (benchmark for the nine tabular benchmark datasets, or all for the benchmark plus the core datasets), "
+    f"claims (at most {MAX_CLAIMS}), each with: statement (one sentence), "
+    f"metrics (a list from: {', '.join(METRICS)}), "
+    "subject (a list of model names that are claimed to score higher), "
+    "other (a list of model names they are compared with), "
+    "source_quote (an exact quote of at least 20 characters copied from the source abstract or the user query that states or implies the claim). "
+    "Use the model names as the source writes them; the system maps them to runnable estimators. "
+    f"Runnable estimators: {', '.join(sorted(ESTIMATORS))}. "
+    "Never invent a claim that the sources and the query do not state. Candidates may differ in the claim, the model groups or the metrics. "
+    "If the sources are not about comparing models on tabular classification, or contain no comparison claim, "
+    "return an empty candidates list and explain why in unsupported. "
+    'Return only JSON: {"unsupported": "", "candidates": [{"title": "...", "source_index": 1, "pool": "benchmark", '
+    '"claims": [{"statement": "...", "metrics": ["roc_auc"], "subject": ["..."], "other": ["..."], "source_quote": "..."}]}]}.'
+)
+
+
+class CampaignUnsupported(RuntimeError):
+    pass
+
+
+def _normal(text: str) -> str:
+    return " ".join(str(text).lower().split())
+
+
+def _names(value: Any, label: str) -> list[str]:
+    if isinstance(value, str):
+        value = [value]
+    if not isinstance(value, list) or not value or not all(isinstance(item, str) and item.strip() for item in value):
+        raise PlanningError(f"claim {label} must be a model name or a list of model names")
+    return value
+
+
+def _claim(raw: Any, texts: list[str], mapped_notes: list[str], models: list[str]) -> tuple[dict[str, Any], str]:
+    if not isinstance(raw, dict):
+        raise PlanningError("each claim must be an object")
+    quote = raw.get("source_quote")
+    if not isinstance(quote, str) or len(_normal(quote)) < MIN_QUOTE_CHARS:
+        raise PlanningError(f"a claim needs a source_quote of at least {MIN_QUOTE_CHARS} characters")
+    if not any(_normal(quote) in text for text in texts):
+        raise PlanningError(f"the quote {quote[:60]!r} does not appear in the source text")
+    groups: dict[str, list[str]] = {}
+    for label in ("subject", "other"):
+        mapped, notes, unmapped = map_models(_names(raw.get(label), label))
+        if unmapped:
+            raise PlanningError("these models cannot be run by the campaign engine: " + ", ".join(unmapped))
+        groups[label] = mapped
+        for name in mapped:
+            if name not in models:
+                models.append(name)
+        for note in notes:
+            if note not in mapped_notes:
+                mapped_notes.append(note)
+    metrics = raw.get("metrics")
+    claim = {"statement": raw.get("statement"), "metrics": metrics, "subject": groups["subject"], "other": groups["other"]}
+    return claim, quote.strip()
+
+
+def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise PlanningError("each candidate must be an object")
+    index = raw.get("source_index")
+    if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index <= len(sources):
+        raise PlanningError(f"source_index must be a whole number from 0 to {len(sources)}")
+    if index == 0:
+        texts, source = [_normal(query)], {}
+    else:
+        paper = sources[index - 1]
+        texts = [_normal(f"{paper['title']} {paper['abstract']}")]
+        source = {"title": paper["title"], **({"url": paper["url"]} if paper.get("url") else {})}
+    raw_claims = raw.get("claims")
+    if not isinstance(raw_claims, list) or not 1 <= len(raw_claims) <= MAX_CLAIMS:
+        raise PlanningError(f"a candidate needs one to {MAX_CLAIMS} claims")
+    pool = raw.get("pool") or "benchmark"
+    if pool not in POOLS:
+        raise PlanningError(f"pool must be one of: {', '.join(POOLS)}")
+    models: list[str] = []
+    notes: list[str] = []
+    claims: list[dict[str, Any]] = []
+    quotes: list[str] = []
+    for item in raw_claims:
+        claim, quote = _claim(item, texts, notes, models)
+        claims.append(claim)
+        quotes.append(quote)
+    spec = assemble_spec(str(raw.get("title") or "").strip(), models, claims, source, pool=pool, mapped_notes=notes)
+    evidence = [
+        {"claim": claim["id"], "quote": quote, "source": source.get("title", "user query")}
+        for claim, quote in zip(spec["claims"], quotes)
+    ]
+    return {"spec": spec, "estimate": estimate_cost(spec), "evidence": evidence}
+
+
+def _complete(user: str) -> str:
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    response = client.chat.completions.create(
+        model=MODEL,
+        temperature=0,
+        response_format={"type": "json_object"},
+        messages=[{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user}],
+    )
+    return response.choices[0].message.content or ""
+
+
+def _signature(candidate: dict[str, Any]) -> tuple:
+    return tuple(
+        (claim["statement"], tuple(claim["metrics"]), tuple(claim["subject"]), tuple(claim["other"]))
+        for claim in candidate["spec"]["claims"]
+    )
+
+
+def run_campaign_planner(query: str, sources: list[dict[str, str]]) -> list[dict[str, Any]]:
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OPENAI_API_KEY is missing")
+    listing = "\n\n".join(f"[{number}] {paper['title']}: {paper['abstract']}" for number, paper in enumerate(sources, start=1))
+    prompt = f"User query:\n{query}\n\nSources:\n{listing or 'No source paper was found.'}"
+    valid: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for attempt in range(MAX_PLAN_ATTEMPTS):
+        feedback = "" if not errors else "\n\nThese candidates of your previous answer were rejected, propose replacements:\n- " + "\n- ".join(errors)
+        content = _complete(prompt + feedback)
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("campaign planner returned invalid JSON") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("candidates"), list):
+            raise RuntimeError("campaign planner did not return candidates")
+        if not payload["candidates"]:
+            reason = payload.get("unsupported")
+            raise CampaignUnsupported(str(reason).strip() if isinstance(reason, str) and reason.strip() else "the sources contain no claim a campaign can test")
+        errors = []
+        for number, raw in enumerate(payload["candidates"][:CANDIDATES], start=1):
+            try:
+                candidate = _candidate(raw, query, sources)
+            except (PlanningError, CampaignSpecError) as exc:
+                errors.append(f"candidate {number}: {exc}")
+                logger.info("campaign planner rejected candidate %s: %s", number, exc)
+                continue
+            if _signature(candidate) not in {_signature(item) for item in valid}:
+                valid.append(candidate)
+        if len(valid) >= CANDIDATES or not errors:
+            break
+    if not valid:
+        raise RuntimeError("campaign planner returned no valid campaign: " + "; ".join(errors))
+    return valid[:CANDIDATES]
