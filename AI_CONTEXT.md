@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı (24 Ekim 2026): son kod commit'i `ccb6ee1` (kampanya uçları ve Celery görevi), ardından README, CONTINUATION ve GRAPH doküman commit'leri. Çalışma ağacı temiz, 1387 pytest testi geçiyor. Yerel dal origin/main'in önünde (push yalnız kullanıcı isteyince). Bu turda Faz 12 (replikasyon kampanyası) eklendi, bkz. 3.12. Frontend değişmedi.
+Durum anı (24 Ekim 2026): son kod commit'i kampanya paneli (`be90517`). 20 commit `e3d381f`'e kadar pushlandı; sonrası (MLflow kaydı, özet listesi, konsol paneli ve dokümanlar) yerelde. 1414 pytest testi geçiyor. Bu turda Faz 12 (replikasyon kampanyası) eklendi, bkz. 3.12. Frontend değişmedi.
 
 ## 1. Proje
 
@@ -163,7 +163,7 @@ cd frontend; npm run dev
 
 ### 3.9 Test altyapısı
 
-1387 test, yaklaşık 35 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
+1414 test, yaklaşık 75 saniye (MLflow testleri yavaş), hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
 
 ### 3.10 Gerçek koşular
 
@@ -221,6 +221,8 @@ Amaç: yayımlanmış bir akademik ML karşılaştırma iddiasını çok veri se
 | `demos.py` | `grinsztajn-2022` (RandomForest, HistGradientBoosting, MLP, LogisticRegression; C1 ağaçlar > MLP, C2 ağaçlar > lineer; metrikler roc_auc, pr_auc, f1; 5 sapma notu) |
 | `__main__.py` | `python -m app.campaign run|list|show|demos`; çıkış kodları 0 tamam, 1 tamamlanmadı veya `needs_review`, 2 kullanım hatası |
 
+MLflow: `tracking.py` `log_campaign` (deney `axiomforge-campaigns`, üst run `Campaign Run {id}`, etiketler `run_type`, `status`, `verdict/C1`, `leader_{metrik}`, `overall_best`; metrikler `friedman/{metrik}/...`, `wilcoxon/{metrik}/{a}__vs__{b}/...`, `claim/{id}/{metrik}/...`, `effect/...`; artefaktlar `report.md`, `ledger.json`; veri seti başına iç içe run). `execute_campaign(..., tracker=...)` isteğe bağlıdır: Celery görevi `log_campaign` verir, CLI yalnız `--mlflow` ile. Konsol: `/campaigns` ve `/campaign/{id}` (`remark-gfm` ile rapor tabloları, `LedgerTable`). `GET /campaigns` `items` ile özet döner (`service.campaign_summary`).
+
 Uçlar: `POST /start_campaign` (`demo` ya da `spec`, isteğe bağlı `datasets`), `GET /campaigns`, `GET /campaign/{id}`, `GET /campaign/{id}/report`; Celery görevi `axiomforge.run_campaign`.
 
 Veri havuzu: `app/datasets.py` 14 sete çıktı. `core` (5 set, planlayıcı yalnız bunu görür) ve `benchmark` (tb_credit, tb_california, tb_electricity, tb_magic, tb_bank, tb_heloc, tb_house16h, tb_pol, tb_eye; `inria-soda/tabular-benchmark`, yapılandırma adları `clf_num_*`, 6000 satırlık sabit tohumlu dengeli örnek). Hedefler ve pozitif sınıflar gerçek sandbox'ta doğrulandı, `VERIFIED_BENCHMARK_TARGETS` testiyle sabit.
@@ -275,7 +277,7 @@ Test sağlamlığı: her modül mutasyonla sınandı (hayatta kalanlara test ekl
 
 ### 4.2 Açık sorunlar (öncelik sırasıyla)
 
-0. **Faz 12 sonrası açıklar.** Kampanya için MLflow kaydı yok; konsolda kampanya görünümü yok (yalnız API ve komut satırı); işçi kampanya sürerken ölürse durum `running` kalır; yalnız bir hazır iddia var (Grinsztajn 2022), iddiayı makaleden çıkaran literatür adımı yok; ölçütler yalnız roc_auc, pr_auc, f1; yalnız ikili sınıflandırma ve sklearn/xgboost/lightgbm/catboost tahmin edicileri; hiperparametre araması yok, bu yüzden makalenin "tuned" iddialarını birebir sınamaz (sapma olarak raporda yazılı); kampanyalar arası karşılaştırma ve geçmiş kampanyaların hafızaya yazılması yok.
+0. **Faz 12 sonrası açıklar.** MLflow kaydı canlı sunucuya denenmedi (yalnız SQLite testi; Docker'daki MLflow'un artefakt yolu istemciden yazılamazsa artefaktlar sessizce atlanır, metrikler kalır); konsolda kampanya başlatma düğmesi yok (liste ve ayrıntı var); işçi kampanya sürerken ölürse durum `running` kalır; yalnız bir hazır iddia var (Grinsztajn 2022), iddiayı makaleden çıkaran literatür adımı yok; ölçütler yalnız roc_auc, pr_auc, f1; yalnız ikili sınıflandırma ve sklearn/xgboost/lightgbm/catboost tahmin edicileri; hiperparametre araması yok, bu yüzden makalenin "tuned" iddialarını birebir sınamaz (sapma olarak raporda yazılı); kampanyalar arası karşılaştırma ve geçmiş kampanyaların hafızaya yazılması yok.
 
 1. **Anlamsız fark denetimi kısmen çözüldü.** `unsupported_difference_issues` artık anlamlı olmayan bir çift için üstünlük iddiasını yakalıyor. Kalan boşluklar: yalnız bir model adı geçen cümleler ("Random Forest has the highest mean PR-AUC") ve `highest`, `best` gibi çift belirtmeyen ifadeler kontrol edilmiyor. Anlamlı bir satırın *yönü* (makale doğru modeli üstün gösteriyor mu) de kontrol edilmiyor. Toplu ifadeler ("the other models") artık `collective_claim_issues` ile denetleniyor, ama `highest`/`best` gibi üstünlük sıfatları hâlâ denetlenmiyor. Gerçek bir koşuda yazıcının bu kontrolü tetikleyip tetiklemediği henüz görülmedi.
 2. **Claim hâlâ yapılandırma çiftinin kararıdır.** Kontrol grubu parametrelerin etkisini ayrıca ölçüyor ama hipotez kararı (`supported`/`contradicted`) yapılandırılmış iki model arasındadır, "model sınıfı" için değil. Makale de kararı böyle yazmalı, bu henüz denetlenmiyor. Parametre değeri varsayılana eşitse (ör. LR `C=1.0`) etki sıfırdır ve `p=1` çıkar, planlayıcı bunu ayırt etmez. Etki ailesi 6 satırdır (model × 3 metrik), kontrol grubu sandbox süresini ve MLflow run sayısını artırır (4 model × 10 bölme).
@@ -321,9 +323,9 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 
 ## 6. Yarın için önerilen sıra
 
-0. Faz 12 sonrası: kampanyayı konsolda göster (liste, durum, rapor), kampanya için MLflow kaydı ekle, ikinci bir hazır replikasyon (başka bir makale) yaz, hiperparametre araması ekleyip makaleye daha yakın bir koşu yap. Önce kullanıcının önceliğini sor.
+0. Faz 12 sonrası: kampanyayı canlı MLflow sunucusuyla bir kez doğrula, konsola başlatma düğmesi ekle, ikinci bir hazır replikasyon (başka bir makale) yaz, hiperparametre araması ekleyip makaleye daha yakın bir koşu yap. Önce kullanıcının önceliğini sor.
 
-1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (1387 geçmeli).
+1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (1414 geçmeli).
 2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). ~~Konfigürasyon karışıklığı~~ Seçenek B ile yapıldı. ~~Üçüncü gerçek koşu~~ yapıldı (sızıntı yolu). İstenirse anlamlı satırın yönünün denetimi, tek model adlı cümleler ve claim kararının "yapılandırma çifti" olarak yazıldığının denetimi eklenebilir.
 3. Hazır cümle yaklaşımıyla (genel en iyi model dahil, `f5966e5`) farklı veri setlerinde ve model sayılarında tekrar canlı koşular (Koşu 13 ve 14 aynı sorgu, ikisi de ilk turda geçti; planlayıcı koşudan koşuya hafifçe değişiyor) ve kalan yollar: `Failed` doğrulama makalesi, sandbox çökmesi, diğer veri setlerinde (`breast_cancer`, `credit_default`, `adult_income`, `credit_fraud`) tam koşu. Maliyet onayı iste.
 4. `POST /approve_plan` doğrulama hatasını `422` yap (4.2 madde 15).
