@@ -377,3 +377,27 @@ class TestSecondPass:
             return head.replace(f'"{TITLE}"', "the source") + "## Introduction" + rest
 
         assert not any("source title" in issue for issue in issues(mutate=only_methodology))
+
+
+class TestLiveRunLessons:
+    @pytest.mark.parametrize("text", ["The F1 score of MLP differed.", "Claim C1 held while C12 is unknown.", "On tb_house16h the gap was small.", "ROC-AUC and PR-AUC are fine."])
+    def test_names_that_contain_digits_are_not_numbers(self, text):
+        assert not any("must contain no digits" in issue for issue in issues({**PROSE, "discussion": DISCUSSION + " " + text}))
+
+    @pytest.mark.parametrize("text", ["The gap was 12 points.", "It scored 0.91.", "F10 is not a metric.", "C is a letter but 2 is not.", "The tb_pol set had 4 features."])
+    def test_real_numbers_are_still_reported(self, text):
+        assert any("must contain no digits" in issue for issue in issues({**PROSE, "discussion": DISCUSSION + " " + text}))
+
+    def test_the_digit_examples_do_not_include_the_exempt_names(self):
+        found = issues({**PROSE, "discussion": "F1 and C1 and tb_house16h and 7 and 3.5."})
+        assert "The Discussion must contain no digits, but it contains: 7, 3.5." in found
+
+    @pytest.mark.parametrize("word", ["significantly", "significant", "Significance", "significance"])
+    def test_significance_wording_is_reserved_for_the_results(self, word):
+        for section in ("introduction", "discussion"):
+            found = issues({**PROSE, section: f"{PROSE[section]} It {word} differs."})
+            assert any(f"The {section.capitalize()} uses statistical wording" in issue for issue in found)
+
+    def test_insignificant_is_a_different_word_and_the_results_may_use_significance(self):
+        assert not any("statistical wording" in issue for issue in issues({**PROSE, "discussion": DISCUSSION + " The gap looks insignificant here."}))
+        assert not any("statistical wording" in issue for issue in issues())

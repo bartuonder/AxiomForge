@@ -13,6 +13,7 @@ MAX_EXAMPLES = 3
 NEGATION_WINDOW = 25
 
 _DIGITS = re.compile(r"\d+(?:[.,]\d+)?")
+_SIGNIFICANCE = re.compile(r"\bsignifican\w*\b", re.IGNORECASE)
 _FORBIDDEN_CERTAINTY = re.compile(r"\b(confirm\w*|refut\w*|prov(?:e|es|ed|en)|disprov\w*|demonstrat\w*)\b", re.IGNORECASE)
 _VERDICT_WORDS = re.compile(r"\b(replicat\w*|contradict\w*|inconclusive)\b", re.IGNORECASE)
 _CAUSAL = re.compile(r"\b(because|due to|owing to|caused by|explained by|the reason|results? from|driven by|leads? to|thanks to|as a result of)\b", re.IGNORECASE)
@@ -21,6 +22,7 @@ _ABSOLUTE = re.compile(r"\b(always|never|universally|in general|generally speaki
 _NEGATIONS = ("not ", "n't", "fail", "unable", "cannot", "no ")
 _QUOTED = re.compile(r'"([^"]{20,})"')
 _DATASET_NAME = re.compile(r"\b(?:tb_[a-z0-9]+|" + "|".join(re.escape(key) for key in sorted(DATASETS, key=len, reverse=True)) + r")\b")
+_NAMED_DIGITS = re.compile(r"\bF1\b|\bC\d+\b|" + _DATASET_NAME.pattern)
 
 
 def _sentences(text: str) -> list[str]:
@@ -35,7 +37,7 @@ def _model_pattern(key: str) -> re.Pattern[str]:
 def _digit_issues(sections: dict[str, str]) -> list[str]:
     issues = []
     for name in LLM_SECTIONS:
-        found = _DIGITS.findall(sections.get(name, ""))
+        found = _DIGITS.findall(_NAMED_DIGITS.sub("", sections.get(name, "")))
         if found:
             issues.append(f"The {name} must contain no digits, but it contains: {', '.join(found[:MAX_EXAMPLES])}.")
     return issues
@@ -47,6 +49,15 @@ def _certainty_issues(sections: dict[str, str]) -> list[str]:
         for match in _FORBIDDEN_CERTAINTY.finditer(sections.get(name, "")):
             issues.append(f"The {name} uses the word {match.group(0)!r}; use only the given verdict words and hedged wording.")
             break
+    return issues
+
+
+def _significance_issues(sections: dict[str, str]) -> list[str]:
+    issues = []
+    for name in LLM_SECTIONS:
+        match = _SIGNIFICANCE.search(sections.get(name, ""))
+        if match:
+            issues.append(f"The {name} uses statistical wording ({match.group(0)!r}); only the Results state significance.")
     return issues
 
 
@@ -150,6 +161,7 @@ def meta_issues(
     issues = report_issues(paper, ledger, CHECKED_SECTIONS)
     issues += _digit_issues(sections)
     issues += _certainty_issues(sections)
+    issues += _significance_issues(sections)
     issues += _verdict_issues(sections, analysis)
     issues += _speculation_issues(sections)
     issues += _generalisation_issues(sections)
