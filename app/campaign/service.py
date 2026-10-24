@@ -32,6 +32,20 @@ def _initial_state(campaign_id: str, spec: dict[str, Any], status: str) -> dict[
     }
 
 
+def campaign_summary(state: dict[str, Any]) -> dict[str, Any]:
+    statuses = [item.get("status") for item in state.get("datasets", {}).values()]
+    return {
+        "id": state["id"],
+        "title": state.get("title", ""),
+        "status": state["status"],
+        "updated": state.get("updated", ""),
+        "datasets": len(statuses),
+        "finished": statuses.count("finished"),
+        "failed": statuses.count("failed"),
+        "verdicts": [{"id": item["id"], "verdict": item["verdict"]} for item in state.get("verdicts", [])],
+    }
+
+
 def queue_campaign(raw_spec: Any) -> tuple[str, dict[str, Any]]:
     spec = validate_campaign(raw_spec)
     campaign_id = store.new_campaign_id()

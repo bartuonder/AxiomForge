@@ -109,11 +109,28 @@ def test_a_finished_campaign_gives_its_report_and_ledger(client):
     assert client.get(f"/campaign/{campaign_id}/report").json() == {"markdown": "# Report\n", "ledger": [{"id": "E1", "kind": "dataset"}]}
 
 
-def test_stored_campaigns_are_listed(client):
-    assert client.get("/campaigns").json() == {"campaigns": []}
+def test_stored_campaigns_are_listed_newest_first_with_a_summary(client, monkeypatch):
+    assert client.get("/campaigns").json() == {"campaigns": [], "items": []}
+    calls = []
+
+    def clock():
+        calls.append(1)
+        return f"2026-10-24T{10 + len(calls):02d}:00:00+00:00"
+
+    monkeypatch.setattr(store, "now", clock)
     first, _ = service.queue_campaign(demo_spec("grinsztajn-2022"))
     second, _ = service.queue_campaign(demo_spec("grinsztajn-2022"))
-    assert client.get("/campaigns").json() == {"campaigns": sorted([first, second])}
+    body = client.get("/campaigns").json()
+    assert body["campaigns"] == sorted([first, second])
+    assert [item["id"] for item in body["items"]] == [second, first]
+    assert body["items"][0]["status"] == "queued" and body["items"][0]["datasets"] == 9
+    assert body["items"][0]["updated"] > body["items"][1]["updated"]
+
+
+def test_a_folder_without_a_state_is_left_out_of_the_summaries(client, root):
+    campaign_id, _ = service.queue_campaign(demo_spec("grinsztajn-2022"))
+    (root / "empty").mkdir()
+    assert [item["id"] for item in client.get("/campaigns").json()["items"]] == [campaign_id]
 
 
 def test_the_celery_task_executes_the_campaign_under_the_queued_id(monkeypatch):

@@ -296,3 +296,33 @@ def test_a_campaign_that_fails_before_reporting_is_not_tracked(monkeypatch):
     monkeypatch.setattr(service, "render_report", lambda spec, outcome, analysis: 1 / 0)
     state = service.execute_campaign(SPEC, "abc", healthy, workers=2, tracker=lambda *args: calls.append(args) or "r")
     assert state["status"] == "failed" and calls == [] and "mlflow_run_id" not in state
+
+
+def test_the_summary_counts_datasets_and_keeps_the_verdicts():
+    state = {
+        "id": "abc",
+        "title": "T",
+        "status": "completed",
+        "updated": "2026-10-24T10:00:00+00:00",
+        "datasets": {"a": {"status": "finished"}, "b": {"status": "failed"}, "c": {"status": "finished"}, "d": {"status": "running"}},
+        "verdicts": [{"id": "C1", "statement": "long statement", "verdict": "replicated"}],
+        "issues": ["x"],
+    }
+    assert service.campaign_summary(state) == {
+        "id": "abc",
+        "title": "T",
+        "status": "completed",
+        "updated": "2026-10-24T10:00:00+00:00",
+        "datasets": 4,
+        "finished": 2,
+        "failed": 1,
+        "verdicts": [{"id": "C1", "verdict": "replicated"}],
+    }
+
+
+def test_the_summary_of_a_queued_campaign_has_no_verdicts_and_no_progress():
+    campaign_id, _ = service.queue_campaign(SPEC)
+    summary = service.campaign_summary(store.load_state(campaign_id))
+    assert summary["status"] == "queued" and summary["datasets"] == 6
+    assert summary["finished"] == 0 and summary["failed"] == 0 and summary["verdicts"] == []
+    assert summary["title"] == SPEC["title"] and summary["updated"].endswith("+00:00")

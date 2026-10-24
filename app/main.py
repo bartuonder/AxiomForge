@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from app.agents.experiment import QueryNamesTooFewModels
 from app.campaign import store as campaign_store
 from app.campaign.demos import demo_spec
-from app.campaign.service import queue_campaign, reject_campaign
+from app.campaign.service import campaign_summary, queue_campaign, reject_campaign
 from app.campaign.spec import CampaignSpecError
 from app.celery_app import celery_app
 from app.config import REDIS_URL
@@ -183,7 +183,10 @@ def start_campaign_endpoint(body: StartCampaignRequest):
 
 @app.get("/campaigns")
 def campaigns_list():
-    return {"campaigns": campaign_store.list_campaigns()}
+    ids = campaign_store.list_campaigns()
+    states = [state for state in (campaign_store.load_state(campaign_id) for campaign_id in ids) if state]
+    items = sorted((campaign_summary(state) for state in states), key=lambda item: item["updated"], reverse=True)
+    return {"campaigns": ids, "items": items}
 
 
 def _campaign_state(campaign_id: str) -> dict:
