@@ -3,6 +3,7 @@ from typing import Any
 
 import mlflow
 
+from app.campaign.meta_evidence import metric_leaders, overall_leader
 from app.config import MLFLOW_TRACKING_URI
 from app.tracking.mlflow_logger import _allow_unicode_logs
 
@@ -10,24 +11,6 @@ logger = logging.getLogger("axiomforge")
 
 EXPERIMENT = "axiomforge-campaigns"
 TEXT_LIMIT = 5000
-
-
-def metric_leaders(analysis: dict[str, Any]) -> dict[str, str]:
-    leaders: dict[str, str] = {}
-    for metric, result in (analysis.get("friedman") or {}).items():
-        ranks = result.get("mean_ranks") or {}
-        if ranks:
-            leaders[metric] = min(ranks, key=lambda model: (ranks[model], model))
-    return leaders
-
-
-def overall_leader(analysis: dict[str, Any]) -> str | None:
-    tables = [result["mean_ranks"] for result in (analysis.get("friedman") or {}).values() if result.get("mean_ranks")]
-    if not tables:
-        return None
-    models = sorted(tables[0])
-    average = {model: sum(table[model] for table in tables) / len(tables) for model in models}
-    return min(models, key=lambda model: (average[model], model))
 
 
 def _log_analysis(analysis: dict[str, Any]) -> None:
