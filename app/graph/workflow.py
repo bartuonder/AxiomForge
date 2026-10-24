@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -7,7 +8,9 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.experiment import require_models, requested_models
+from app.campaign import store as campaign_store
 from app.config import DATABASE_URL
+from app.graph.campaign_nodes import FINAL_STATUSES as CAMPAIGN_FINAL, campaign_collect_node, campaign_dispatch_node
 from app.graph.errors import describe_error, read_error, record_error
 from app.graph.nodes import (
     approval_gate,
@@ -30,6 +33,7 @@ logger = logging.getLogger("axiomforge")
 
 FINISHED_STATUSES = {"completed", "needs_review"}
 MODES = ("experiment", "campaign")
+STALE_CAMPAIGN_SECONDS = 1200
 _STEP_ORDER = [
     "literature_node",
     "planner_node",
@@ -56,6 +60,8 @@ def build_graph() -> StateGraph:
     graph.add_node("literature_node", literature_node)
     graph.add_node("planner_node", planner_node)
     graph.add_node("campaign_planner_node", campaign_planner_node)
+    graph.add_node("campaign_dispatch_node", campaign_dispatch_node)
+    graph.add_node("campaign_collect_node", campaign_collect_node)
     graph.add_node("experiment_node", experiment_node)
     graph.add_node("verifier_node", verifier_node)
     graph.add_node("report_node", report_node)
@@ -72,8 +78,10 @@ def build_graph() -> StateGraph:
     graph.add_conditional_edges(
         "approval_gate",
         route_after_approval,
-        {"experiment": "experiment_node", "campaign": END},
+        {"experiment": "experiment_node", "campaign": "campaign_dispatch_node"},
     )
+    graph.add_edge("campaign_dispatch_node", "campaign_collect_node")
+    graph.add_edge("campaign_collect_node", END)
     graph.add_edge("experiment_node", "verifier_node")
     graph.add_conditional_edges(
         "verifier_node",
@@ -92,7 +100,7 @@ def build_graph() -> StateGraph:
 def _compile(checkpointer: PostgresSaver) -> CompiledStateGraph:
     return build_graph().compile(
         checkpointer=checkpointer,
-        interrupt_before=["approval_gate"],
+        interrupt_before=["approval_gate", "campaign_collect_node"],
     )
 
 
@@ -188,6 +196,7 @@ def get_research(thread_id: str) -> dict:
         compiled = _compile(checkpointer)
         snapshot = compiled.get_state(config)
     values = dict(snapshot.values or {})
+    error = error or _stale_campaign_error(values)
     next_nodes = [str(node) for node in (snapshot.next or ())]
     status = _research_status(values, next_nodes, error)
     return {
@@ -213,6 +222,29 @@ def get_research(thread_id: str) -> dict:
         "error": error,
         "steps": _steps(values, next_nodes, status),
     }
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _stale_campaign_error(values: dict) -> str:
+    if values.get("mode") != "campaign" or not values.get("campaign_id") or values.get("campaign_analysis"):
+        return ""
+    try:
+        campaign = campaign_store.load_state(str(values["campaign_id"]))
+    except (campaign_store.CampaignStoreError, OSError, ValueError):
+        return ""
+    if not campaign or campaign.get("status") not in {"queued", "running"}:
+        return ""
+    try:
+        updated = datetime.fromisoformat(str(campaign.get("updated")))
+    except ValueError:
+        return ""
+    idle = (_now() - updated).total_seconds()
+    if idle <= STALE_CAMPAIGN_SECONDS:
+        return ""
+    return f"the campaign has reported no progress for {int(idle // 60)} minutes; its worker may have stopped"
 
 
 def _selected_campaign(values: dict) -> int:
@@ -415,3 +447,21 @@ def resume_research(thread_id: str) -> None:
     except Exception as exc:
         logger.exception("research failed thread_id=%s", thread_id)
         record_error(thread_id, describe_error(exc))
+
+
+def resume_campaign(thread_id: str) -> str:
+    config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
+    with _open_graph() as checkpointer:
+        compiled = _compile(checkpointer)
+        snapshot = compiled.get_state(config)
+    values = dict(snapshot.values or {})
+    if values.get("campaign_analysis"):
+        return "done"
+    if tuple(snapshot.next or ()) != ("campaign_collect_node",):
+        return "waiting"
+    campaign_id = str(values.get("campaign_id") or "")
+    campaign = campaign_store.load_state(campaign_id) if campaign_id else None
+    if campaign is None or campaign.get("status") not in CAMPAIGN_FINAL:
+        return "waiting"
+    resume_research(thread_id)
+    return "resumed"

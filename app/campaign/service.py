@@ -1,3 +1,5 @@
+import hashlib
+import json
 import logging
 import threading
 from typing import Any, Callable
@@ -51,6 +53,19 @@ def queue_campaign(raw_spec: Any) -> tuple[str, dict[str, Any]]:
     campaign_id = store.new_campaign_id()
     store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued") | {"queued": store.now()})
     return campaign_id, spec
+
+
+def campaign_id_for(thread_id: str, spec: dict[str, Any]) -> str:
+    canonical = json.dumps(spec, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return "g-" + hashlib.sha256(f"{thread_id}\n{canonical}".encode("utf-8")).hexdigest()[:32]
+
+
+def queue_once(campaign_id: str, raw_spec: Any) -> tuple[dict[str, Any], bool]:
+    spec = validate_campaign(raw_spec)
+    if store.load_state(campaign_id) is not None:
+        return spec, False
+    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued") | {"queued": store.now()})
+    return spec, True
 
 
 def reject_campaign(campaign_id: str, reason: str) -> None:

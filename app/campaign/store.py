@@ -90,6 +90,11 @@ def save_artifacts(
         _write(folder / "scripts" / f"{dataset}.py", script)
 
 
+def load_analysis(campaign_id: str) -> dict[str, Any] | None:
+    path = campaign_dir(campaign_id) / "analysis.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
 def load_report(campaign_id: str) -> str | None:
     path = campaign_dir(campaign_id) / "report.md"
     return path.read_text(encoding="utf-8") if path.exists() else None
