@@ -14,7 +14,7 @@ NEGATION_WINDOW = 25
 
 _DIGITS = re.compile(r"\d+(?:[.,]\d+)?")
 _SIGNIFICANCE = re.compile(r"\bsignifican\w*\b", re.IGNORECASE)
-_FORBIDDEN_CERTAINTY = re.compile(r"\b(confirm\w*|refut\w*|prov(?:e|es|ed|en)|disprov\w*|demonstrat\w*)\b", re.IGNORECASE)
+_FORBIDDEN_CERTAINTY = re.compile(r"\b(confirm\w*|refut\w*|prov(?:e|es|ed|en)|disprov\w*|demonstrat\w*|supports|supported)\b", re.IGNORECASE)
 _VERDICT_WORDS = re.compile(r"\b(replicat\w*|contradict\w*|inconclusive)\b", re.IGNORECASE)
 _CAUSAL = re.compile(r"\b(because|due to|owing to|caused by|explained by|the reason|results? from|driven by|leads? to|thanks to|as a result of)\b", re.IGNORECASE)
 _HEDGE = re.compile(r"\b(may|might|could|possibly|perhaps|plausibly|potentially|probably|we speculate|it is possible|a possible|one possible)\b", re.IGNORECASE)
@@ -57,7 +57,7 @@ def _significance_issues(sections: dict[str, str]) -> list[str]:
     for name in LLM_SECTIONS:
         match = _SIGNIFICANCE.search(sections.get(name, ""))
         if match:
-            issues.append(f"The {name} uses statistical wording ({match.group(0)!r}); only the Results state significance.")
+            issues.append(f"The {name} uses statistical wording ({match.group(0)!r}); only the Results state significance, so compare with plain words such as larger, smaller, ahead or behind.")
     return issues
 
 

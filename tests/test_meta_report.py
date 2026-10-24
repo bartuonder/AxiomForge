@@ -328,7 +328,7 @@ class TestProse:
 
     def test_each_section_has_its_own_rules(self):
         assert "use no digits at all; " in meta_report.INTRODUCTION_RULES
-        assert "never use the words replicated, contradicted, confirmed, supported or refuted" in meta_report.INTRODUCTION_RULES
+        assert "never use the words replicated, contradicted, confirmed, supported, supports, refuted, significant or significantly" in meta_report.INTRODUCTION_RULES
         assert "use no digits at all, so write no numbers, p-values or scores" in meta_report.DISCUSSION_RULES
         assert "mention only models and datasets that appear in the facts" in meta_report.DISCUSSION_RULES
         assert "do not introduce a verdict that the facts do not state" in meta_report.DISCUSSION_RULES
@@ -337,7 +337,7 @@ class TestProse:
 
     def test_the_prompt_forbids_numbers_verdict_words_and_unhedged_causes(self):
         prompt = meta_report.SYSTEM_PROMPT
-        assert "use no digits at all" in prompt and "never use the words replicated, contradicted, confirmed, supported or refuted" in prompt
+        assert "use no digits at all" in prompt and "never use the words replicated, contradicted, confirmed, supported, supports, refuted, significant or significantly" in prompt
         assert "hedged wording" in prompt and "never present a cause as a fact" in prompt
         assert "never generalise beyond the datasets named in the facts" in prompt and "mention a source only by its exact title" in prompt
 
@@ -446,3 +446,11 @@ class TestClaimSources:
         meta_report.write_prose("q", [self.OTHER, *SOURCES], {**SPEC, "source": {}}, analysis, ledger)
         assert "Fairness of language models." not in prompts[0] and "Trees remain state of the art." not in prompts[0]
         assert "they come from the user query" in prompts[0]
+
+
+class TestPromptRules:
+    def test_both_sections_are_told_not_to_use_significance_or_support_words(self):
+        assert "significant or significantly" in meta_report.INTRODUCTION_RULES and "supports" in meta_report.INTRODUCTION_RULES
+        assert "never use the words significant, significantly, supported, supports, confirmed or proved" in meta_report.DISCUSSION_RULES
+        assert "significance is reported only in the Results" in meta_report.DISCUSSION_RULES
+        assert "plain words such as larger, smaller, ahead or behind" in meta_report.DISCUSSION_RULES

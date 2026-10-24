@@ -401,3 +401,18 @@ class TestLiveRunLessons:
     def test_insignificant_is_a_different_word_and_the_results_may_use_significance(self):
         assert not any("statistical wording" in issue for issue in issues({**PROSE, "discussion": DISCUSSION + " The gap looks insignificant here."}))
         assert not any("statistical wording" in issue for issue in issues())
+
+
+class TestSupportWords:
+    @pytest.mark.parametrize("word", ["supported", "supports", "Supported"])
+    def test_supported_is_a_verdict_word_the_prose_may_not_borrow(self, word):
+        for section in ("introduction", "discussion"):
+            found = issues({**PROSE, section: f"{PROSE[section]} The claim was {word} by the data."})
+            assert any(f"The {section.capitalize()} uses the word {word!r}" in issue for issue in found)
+
+    def test_a_noun_or_other_form_is_not_flagged(self):
+        assert not any("uses the word" in issue for issue in issues({**PROSE, "discussion": DISCUSSION + " Supporting facts and a supporter exist."}))
+
+    def test_the_significance_message_tells_the_writer_what_to_say_instead(self):
+        found = issues({**PROSE, "discussion": DISCUSSION + " It differs significantly."})
+        assert any("compare with plain words such as larger, smaller, ahead or behind" in issue for issue in found)

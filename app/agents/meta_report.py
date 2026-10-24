@@ -20,7 +20,7 @@ INTRODUCTION_RULES = (
     "Write two or three short paragraphs: the research question, what the sources say about it, "
     "why testing a claim across many datasets matters, and which claims are tested. "
     "Hard rules: state no result, no verdict and no number; use no digits at all; "
-    "never use the words replicated, contradicted, confirmed, supported or refuted; "
+    "never use the words replicated, contradicted, confirmed, supported, supports, refuted, significant or significantly; "
     "mention a source only by its exact title in quotation marks; do not invent sources, authors or facts that the abstracts do not contain."
 )
 DISCUSSION_RULES = (
@@ -31,7 +31,9 @@ DISCUSSION_RULES = (
     "any explanation of why a result looks as it does is a speculation and must use hedged wording "
     "such as may, might, could, possibly or we speculate; never present a cause as a fact; "
     "never generalise beyond the datasets named in the facts; mention only models and datasets that appear in the facts; "
-    "do not introduce a verdict that the facts do not state. "
+    "do not introduce a verdict that the facts do not state; "
+    "never use the words significant, significantly, supported, supports, confirmed or proved, because significance is reported only in the Results, "
+    "and compare with plain words such as larger, smaller, ahead or behind. "
     "If no facts are given, return an empty discussion."
 )
 SYSTEM_PROMPT = (
