@@ -66,9 +66,40 @@ function claimsRow(snapshot: ResearchSnapshot): StatusRow {
   return { key: "claims", tone: "wait", title: "Claim check pending" };
 }
 
+function campaignRow(snapshot: ResearchSnapshot): StatusRow {
+  if (snapshot.campaign_status === "completed") {
+    return { key: "campaign", tone: "good", title: "Campaign finished and its report passed the traceability check" };
+  }
+  if (snapshot.campaign_status === "needs_review") {
+    return { key: "campaign", tone: "warn", title: "Campaign finished, but its own report check found problems" };
+  }
+  if (snapshot.campaign_status) {
+    return { key: "campaign", tone: "wait", title: `Campaign ${snapshot.campaign_status}` };
+  }
+  return { key: "campaign", tone: "wait", title: "Campaign not collected yet" };
+}
+
+function metaClaimsRow(snapshot: ResearchSnapshot): StatusRow {
+  if (snapshot.research_status === "Completed") {
+    return { key: "claims", tone: "good", title: "The report matches the campaign evidence" };
+  }
+  if (snapshot.research_status === "NeedsReview") {
+    return {
+      key: "claims",
+      tone: "warn",
+      title: "Needs review: the report check still found problems after two rewrites",
+      detail: snapshot.consistency_feedback,
+    };
+  }
+  return { key: "claims", tone: "wait", title: "Report check pending" };
+}
+
 export function ResearchStatus({ snapshot }: ResearchStatusProps) {
   const stability = stabilityRow(snapshot);
-  const rows = [verificationRow(snapshot), ...(stability ? [stability] : []), claimsRow(snapshot)];
+  const rows =
+    snapshot.mode === "campaign"
+      ? [campaignRow(snapshot), metaClaimsRow(snapshot)]
+      : [verificationRow(snapshot), ...(stability ? [stability] : []), claimsRow(snapshot)];
   const notes = snapshot.referee_notes ?? [];
   return (
     <>

@@ -24,8 +24,52 @@ export type ExperimentSpec = {
   params: Record<string, Record<string, string | number | null>>;
 };
 
+export type ResearchMode = "experiment" | "campaign";
+
+export type CampaignClaim = {
+  id: string;
+  statement: string;
+  metrics: string[];
+  subject: string[];
+  other: string[];
+};
+
+export type CampaignPlanSpec = {
+  title: string;
+  models: string[];
+  datasets: string[];
+  claims: CampaignClaim[];
+  source?: { title?: string; url?: string; deviations?: string[] };
+};
+
+export type CampaignEstimate = {
+  datasets: number;
+  model_runs: number;
+  sandboxes: number;
+  max_sandboxes: number;
+  estimated_seconds: number;
+  worst_case_seconds: number;
+};
+
+export type CampaignEvidence = {
+  claim: string;
+  quote: string;
+  source: string;
+};
+
+export type CampaignCandidate = {
+  spec: CampaignPlanSpec;
+  estimate: CampaignEstimate;
+  evidence: CampaignEvidence[];
+};
+
 export type ResearchSnapshot = {
   thread_id: string;
+  mode?: ResearchMode;
+  campaign_specs?: CampaignCandidate[];
+  selected_campaign?: number;
+  campaign_id?: string;
+  campaign_status?: string;
   status: "starting" | "running" | "paused" | "rejected" | "completed" | "needs_review" | "failed";
   next: string[];
   active_step: string;
@@ -100,6 +144,10 @@ export const STEP_LABELS: Record<string, string> = {
   verifier_node: "Verifier",
   report_node: "Report",
   consistency_checker_node: "Claims",
+  campaign_planner_node: "Campaign plan",
+  campaign_node: "Campaign",
+  meta_report_node: "Meta report",
+  meta_consistency_node: "Claims",
 };
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";

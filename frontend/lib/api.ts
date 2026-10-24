@@ -3,14 +3,15 @@ import {
   type CampaignReport,
   type CampaignState,
   type CampaignSummary,
+  type ResearchMode,
   type ResearchSnapshot,
 } from "@/lib/types";
 
-export async function startResearch(query: string): Promise<{ thread_id: string }> {
+export async function startResearch(query: string, mode: ResearchMode): Promise<{ thread_id: string }> {
   const response = await fetch(`${API_URL}/start_research`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, mode }),
   });
   if (!response.ok) {
     throw new Error(await readError(response));
