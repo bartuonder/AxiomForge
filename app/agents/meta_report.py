@@ -73,7 +73,7 @@ def abstract(spec: dict[str, Any], analysis: dict[str, Any], ledger: list[dict[s
         f"It compares {models} with {len(SPLIT_SEEDS)} repeated stratified splits per dataset and tests every claim across datasets with exact signed-rank and Friedman tests."
     ]
     if (spec.get("source") or {}).get("deviations"):
-        lines.append("The protocol differs from the source in documented ways, listed in the Methodology.")
+        lines.append("The protocol differs from the original study in documented ways, listed in the Methodology.")
     lines.append(" ".join(verdict_sentences(analysis, ledger)))
     lines.extend(leader_sentence(analysis, ledger))
     return "\n\n".join(lines)
@@ -94,8 +94,14 @@ def results(sections: dict[str, str], analysis: dict[str, Any], ledger: list[dic
     return "\n\n".join(part for part in parts if part)
 
 
+def claim_sources(spec: dict[str, Any], sources: list[dict[str, str]]) -> list[dict[str, str]]:
+    title = (spec.get("source") or {}).get("title")
+    return [paper for paper in sources if title and paper["title"] == title]
+
+
 def _brief(query: str, sources: list[dict[str, str]], spec: dict[str, Any], facts: list[str], feedback: str) -> str:
-    listing = "\n\n".join(f'"{paper["title"]}": {paper["abstract"]}' for paper in sources) or "No source paper was found."
+    own = claim_sources(spec, sources)
+    listing = "\n\n".join(f'"{paper["title"]}": {paper["abstract"]}' for paper in own) or "No source paper states these claims; they come from the user query."
     claims = "\n".join(f"- {claim['id']}: {claim['statement']}" for claim in spec["claims"])
     text = f"User query:\n{query}\n\nSource abstracts:\n{listing}\n\nClaims under test:\n{claims}\n\nFacts for the discussion:\n"
     text += "\n".join(f"- {fact}" for fact in facts) if facts else "(none)"

@@ -129,3 +129,13 @@ def test_missing_state_fields_do_not_crash_the_node(monkeypatch):
 def test_the_route_follows_the_continue_flag(flag, expected):
     assert route_after_meta_consistency({"consistency_continue": flag}) == expected
     assert route_after_meta_consistency({}) == "end"
+
+
+def test_the_gate_only_gets_the_source_paper_of_the_claims(monkeypatch):
+    seen = []
+    monkeypatch.setattr(campaign_nodes, "meta_issues", lambda *args: seen.append(args[-1]) or [])
+    other = {"title": "An unrelated paper", "abstract": "x", "url": ""}
+    meta_consistency_node(state(CLEAN, literature_sources=[other, *SOURCES]))
+    assert seen == [SOURCES]
+    meta_consistency_node(state(CLEAN, literature_sources=[other], campaign_spec={**SPEC, "source": {}}))
+    assert seen[1] == []

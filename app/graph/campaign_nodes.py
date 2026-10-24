@@ -4,7 +4,7 @@ from pathlib import Path
 from langchain_core.runnables import RunnableConfig
 
 from app.agents.consistency_meta import meta_issues
-from app.agents.meta_report import write_meta_paper
+from app.agents.meta_report import claim_sources, write_meta_paper
 from app.campaign import store
 from app.campaign.memory import remember_campaign
 from app.campaign.service import campaign_id_for, queue_once, reject_campaign
@@ -95,7 +95,7 @@ def meta_consistency_node(state: AgentState) -> dict:
         state.get("campaign_spec") or {},
         state.get("campaign_analysis") or {},
         list(state.get("campaign_ledger") or []),
-        list(state.get("literature_sources") or []),
+        claim_sources(state.get("campaign_spec") or {}, list(state.get("literature_sources") or [])),
     )
     for issue in issues:
         logger.info("meta consistency issue=%s", issue)

@@ -118,12 +118,12 @@ class TestAbstract:
     def test_documented_deviations_are_pointed_to_without_numbers(self):
         analysis, ledger, _ = world()
         text = meta_report.abstract(SPEC, analysis, ledger)
-        assert "The protocol differs from the source in documented ways, listed in the Methodology." in text
+        assert "The protocol differs from the original study in documented ways, listed in the Methodology." in text
 
     def test_without_deviations_the_pointer_is_left_out(self):
         spec = {**SPEC, "source": {"title": SOURCE["title"]}}
         analysis, ledger, _ = world(spec=spec)
-        assert "differs from the source" not in meta_report.abstract(spec, analysis, ledger)
+        assert "differs from" not in meta_report.abstract(spec, analysis, ledger)
 
     def test_without_a_source_the_claims_are_just_the_stated_ones(self):
         spec = {**SPEC, "source": {}}
@@ -261,7 +261,7 @@ class TestProse:
         replies.append(prose_reply())
         analysis, ledger, _ = world()
         meta_report.write_prose("q", [], SPEC, analysis, ledger)
-        assert "No source paper was found." in prompts[0]
+        assert "No source paper states these claims; they come from the user query." in prompts[0]
 
     def test_a_missing_key_stops_before_any_call(self, monkeypatch):
         monkeypatch.setattr(meta_report, "OPENAI_API_KEY", "")
@@ -396,7 +396,7 @@ class TestWriteMetaPaper:
         state = self.state()
         del state["literature_sources"]
         meta_report.write_meta_paper(state, "thread-1")
-        assert "No source paper was found." in prompts[0]
+        assert "No source paper states these claims; they come from the user query." in prompts[0]
 
 
 class TestNode:
@@ -416,3 +416,33 @@ class TestNode:
         campaign_nodes.meta_report_node({}, {})
         campaign_nodes.meta_report_node({}, None)
         assert seen == ["run", "run"]
+
+
+class TestClaimSources:
+    OTHER = {"title": "An unrelated paper about fairness", "abstract": "Fairness of language models.", "url": ""}
+
+    def test_only_the_paper_the_claims_come_from_is_kept(self):
+        assert meta_report.claim_sources(SPEC, [self.OTHER, *SOURCES]) == SOURCES
+
+    def test_claims_from_the_query_have_no_source_paper(self):
+        assert meta_report.claim_sources({**SPEC, "source": {}}, [self.OTHER, *SOURCES]) == []
+        assert meta_report.claim_sources({**SPEC, "source": {"deviations": ["x"]}}, SOURCES) == []
+        assert meta_report.claim_sources({}, SOURCES) == []
+
+    def test_a_title_that_matches_no_paper_keeps_nothing(self):
+        assert meta_report.claim_sources({**SPEC, "source": {"title": "Another title"}}, SOURCES) == []
+
+    def test_the_introduction_brief_never_shows_an_unrelated_abstract(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        analysis, ledger, _ = world()
+        meta_report.write_prose("q", [self.OTHER, *SOURCES], SPEC, analysis, ledger)
+        assert "Fairness of language models." not in prompts[0] and "Trees remain state of the art." in prompts[0]
+
+    def test_a_claim_from_the_query_shows_no_abstract_at_all(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        analysis, ledger, _ = world()
+        meta_report.write_prose("q", [self.OTHER, *SOURCES], {**SPEC, "source": {}}, analysis, ledger)
+        assert "Fairness of language models." not in prompts[0] and "Trees remain state of the art." not in prompts[0]
+        assert "they come from the user query" in prompts[0]
