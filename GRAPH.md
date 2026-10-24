@@ -80,6 +80,25 @@ MLflow kaydı doğrulayıcıda bir kez açılır. `Passed` ise `Verified` üst r
 | `consistency_continue` | Bir sonraki adımın rapor olması |
 | `research_status` | İddia kontrolü temizse `Completed`, tutarsızlık sürerse `NeedsReview` |
 
+## Kampanya modu (Faz 13)
+
+`mode` `campaign` ise graf aynı `literature_node` ve `approval_gate` düğümlerini kullanır, ama tek veri setli düğümleri (planlayıcı, deney, doğrulayıcı, rapor, iddia kontrolü) atlar:
+
+```text
+START
+  -> literature_node
+  -> campaign_planner_node       (üç aday kampanya)
+  -> approval_gate               (burada durur; aday seçilir)
+  -> campaign_dispatch_node      (idempotent: kampanya kimliği thread ve spec'ten türer)
+  -> campaign_collect_node       (burada durur; Celery görevi bitince uyandırır)
+  -> meta_report_node
+  -> meta_consistency_node
+       -> meta_report_node       (kapı sorun buldu, en fazla 2 kez)
+  -> END
+```
+
+`interrupt_before` iki yerdedir: `approval_gate` ve `campaign_collect_node`. Kampanya `run_campaign_task` içinde koşar; bitince `resume_campaign_task` grafı uyandırır. Graf henüz toplama noktasına gelmediyse görev 5 saniye arayla 40 kez yeniden dener; dispatch tekrar çalışsa bile kampanya ikinci kez kuyruğa girmez. 20 dakika ilerlemeyen kampanya durum sorgusunda `failed` görünür. Console adımları: Literature, Campaign plan, Campaign, Meta report, Claims.
+
 ## Kalıcılık
 
 Checkpoint'ler `PostgresSaver` ile `DATABASE_URL` veritabanına yazılır. Deney özetlerinin gömüleri aynı Postgres'te `pgvector` koleksiyonu `experiment_memory` içindedir. İki kayıt ayrıdır: biri grafın anlık durumu, diğeri geçmiş deneylerin arama hafızasıdır.
