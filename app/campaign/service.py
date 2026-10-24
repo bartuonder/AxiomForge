@@ -1,0 +1,74 @@
+import logging
+import threading
+from typing import Any, Callable
+
+from app.campaign import store
+from app.campaign.analysis import analyze_campaign
+from app.campaign.report import render_report, report_issues
+from app.campaign.runner import DEFAULT_WORKERS, MAX_ATTEMPTS, run_campaign
+from app.campaign.spec import validate_campaign
+from app.sandbox.e2b_runner import run_classification
+from app.seeds import SPLIT_SEEDS
+
+logger = logging.getLogger("axiomforge")
+
+PROGRESS_FIELDS = ("status", "attempts", "seconds", "error")
+
+
+def _progress(result: dict[str, Any]) -> dict[str, Any]:
+    return {name: result[name] for name in PROGRESS_FIELDS if name in result}
+
+
+def _verdicts(analysis: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"id": claim["id"], "statement": claim["statement"], "verdict": claim["verdict"]} for claim in analysis.get("claims", [])]
+
+
+def execute_campaign(
+    raw_spec: Any,
+    campaign_id: str | None = None,
+    execute: Callable[[str, str], str] = run_classification,
+    workers: int = DEFAULT_WORKERS,
+    seeds: tuple[int, ...] = SPLIT_SEEDS,
+    attempts: int = MAX_ATTEMPTS,
+) -> dict[str, Any]:
+    spec = validate_campaign(raw_spec)
+    campaign_id = campaign_id or store.new_campaign_id()
+    lock = threading.Lock()
+    state: dict[str, Any] = {
+        "id": campaign_id,
+        "title": spec["title"],
+        "status": "running",
+        "started": store.now(),
+        "datasets": {dataset: {"status": "queued"} for dataset in spec["datasets"]},
+    }
+    store.save_state(campaign_id, state)
+
+    def on_update(dataset: str, result: dict[str, Any]) -> None:
+        with lock:
+            state["datasets"][dataset] = _progress(result)
+            store.save_state(campaign_id, state)
+
+    try:
+        outcome = run_campaign(spec, execute, workers, on_update, seeds, attempts)
+        analysis = analyze_campaign(spec, outcome)
+        markdown, ledger = render_report(spec, outcome, analysis)
+        issues = report_issues(markdown, ledger)
+        scripts = {dataset: record["script"] for dataset, record in outcome["datasets"].items()}
+        store.save_artifacts(campaign_id, markdown, ledger, analysis, scripts)
+    except Exception as exc:
+        logger.exception("campaign %s failed", campaign_id)
+        with lock:
+            state.update(status="failed", error=f"{type(exc).__name__}: {exc}", finished=store.now())
+            store.save_state(campaign_id, state)
+        return state
+    with lock:
+        state.update(
+            status="needs_review" if issues else "completed",
+            finished=store.now(),
+            issues=issues,
+            verdicts=_verdicts(analysis),
+            finished_datasets=len(outcome["datasets"]),
+            failed_datasets=len(outcome["failed"]),
+        )
+        store.save_state(campaign_id, state)
+    return state
