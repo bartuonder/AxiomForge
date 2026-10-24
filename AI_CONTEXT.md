@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı: son kod commit'i `f5966e5` (genel en iyi model), ardından doküman commit'leri. Çalışma ağacı temiz, 1092 pytest testi geçiyor. Oturumun başında 94 commit vardı, şimdi yaklaşık 242. Frontend bu turda değişmedi (`tsc` ve `eslint` en son temizdi).
+Durum anı (24 Ekim 2026): son kod commit'i `ccb6ee1` (kampanya uçları ve Celery görevi), ardından README, CONTINUATION ve GRAPH doküman commit'leri. Çalışma ağacı temiz, 1387 pytest testi geçiyor. Yerel dal origin/main'in önünde (push yalnız kullanıcı isteyince). Bu turda Faz 12 (replikasyon kampanyası) eklendi, bkz. 3.12. Frontend değişmedi.
 
 ## 1. Proje
 
@@ -66,7 +66,8 @@ START -> literature_node -> planner_node -> approval_gate (interrupt_before)
 | Hafıza | `app/memory/rag_memory.py` |
 | MLflow ve çıktı ayrıştırma | `app/tracking/mlflow_logger.py` |
 | Konsol | `frontend/app/page.tsx`, `frontend/app/result/[threadId]/paper-view.tsx`, `frontend/components/*` |
-| Testler | `tests/` (41 dosya) |
+| Replikasyon kampanyası | `app/campaign/` (3.12) |
+| Testler | `tests/` (53 dosya, `conftest.py` E2B anahtarını boşaltır) |
 
 ### 3.3 Sabitler
 
@@ -162,7 +163,7 @@ cd frontend; npm run dev
 
 ### 3.9 Test altyapısı
 
-1092 test, yaklaşık 35 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
+1387 test, yaklaşık 35 saniye, hiçbir dış servis çağrılmaz (düğüm testleri `monkeypatch` ile taklit eder, MLflow testi geçici SQLite kullanır). `requirements-dev.txt` pytest'i ekler. Sık kullanılan yaklaşım: **mutasyon denemesi**. Bir korumanın testle gerçekten kapsandığını görmek için koda bilerek bir hata sokulur, test kırılmalıdır. Bu yöntem bu oturumda iki zayıf testi ortaya çıkardı.
 
 ### 3.10 Gerçek koşular
 
@@ -193,12 +194,42 @@ Koşu 8-14 (yeni makale kapıları, `adult_income`/`breast_cancer`/`credit_defau
 
 12 sentetik makale döngüsü (3 tohum × 4 karar türü) gerçek `gpt-4o` ile ilk denemede, sıfır yeniden yazmayla `Completed` oldu. Bu testler iki modelli sade veriydi, karmaşık durumdaki hakem gürültüsünü göstermedi (Koşu 2 gösterdi).
 
+Koşu 15 (`demo-grinsztajn-1`, kampanya motoru, LLM yok, yalnız E2B): bkz. 3.12.
+
 ### 3.11 Kalıntı veri (test ve koşulardan)
 
 - Postgres: yaklaşık 31 checkpoint thread'i ve 31 hafıza kaydı (Koşu 3 eklendi; sayılar tam doğrulanmadı), `research_errors` boş. Thread'lerin bir kısmı bu oturumun test ve koşularından, kalanı önceki oturumlardan; hangisinin hangisi olduğu ayrıştırılmadı (yalnız aşağıdaki beş kimlik bu oturumdan biliniyor).
 - `mlflow.db` (yaklaşık 2 MB) içinde gerçek ve test run'ları. `reports/` içinde 20 makale. `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
 - `test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı yalnız `is_success=False` kayıtları okur.
 - Bugünkü test thread'leri: `5f2808e4` (deney sırasında işçi kapatıldı, `running` kaldı), `38f98fd2`, `ad6ee6be` (reddedildi), `a531b95d` (Koşu 1), `b670cc9a` (Koşu 2), `26344d2d` (Koşu 3), `96acf4c2` (Koşu 4), `40222d61` (Koşu 5), `5fcf65e4` (Koşu 6), `e0785e18` (Koşu 7), `d5f3ebbe` (Koşu 8), `4696ef76` (Koşu 9), `156b2b6e` (Koşu 10), `30a7b310` (Koşu 11, kredi bitti), `aeffac90` (Koşu 12), `9d0cd838` (Koşu 13), `1fb974d7` (Koşu 14). Koşu 7'den önce iki başarısız thread daha var (literatür adımında düştü), kimlikleri `f0143a53` ve `b4356310`. Eski thread'lerin ve hafıza kayıtlarının spesifikasyonları `dataset: imbalanced` taşıyabilir; bu anahtar artık geçersizdir, eski thread yeniden oynatılmamalı.
+
+### 3.12 Faz 12: replikasyon kampanyası (`app/campaign/`)
+
+Amaç: yayımlanmış bir akademik ML karşılaştırma iddiasını çok veri setinde yeniden sınamak ve her sayıyı bir kanıt kaydına bağlamak. Kullanıcı stratejik olarak "akademik ML karşılaştırma ve replikasyon" yönünü seçti ve ilk demo olarak Grinsztajn ve ark. 2022'yi (arXiv 2207.08815: ağaç tabanlı modeller tablo verisinde derin öğrenmeden iyi) istedi. Motor LLM çağırmaz; betik, istatistik, rapor ve denetim Python'dır.
+
+| Modül | İş |
+| --- | --- |
+| `spec.py` | `validate_campaign`: başlık, en az 2 model, parametreler (varsayılana eşit değer reddedilir), veri setleri (varsayılan: dokuz `benchmark` seti), iddialar (`subject` ve `other` model grupları, ölçütler), kaynak ve sapmalar (en çok 12 not) |
+| `protocol.py` | `build_script`: veri seti başına deterministik betik; 17 model (`ESTIMATORS`), `Model__default` kontrolleri, 10 tohumlu katmanlı bölme |
+| `runner.py` | `run_dataset`, `run_campaign`: ThreadPoolExecutor (3 paralel), en çok 2 deneme, çıktı eksiksizliği denetimi, `E2B_API_KEY is missing` yeniden denenmez |
+| `stats.py` | veri seti birimli işlemler: `family_scores` (ailenin en iyi üyesi), kesin iki yönlü Wilcoxon (`MIN_DATASETS=6` sıfırdan farklı fark), Holm, Friedman (`MIN_FRIEDMAN_DATASETS=5`, en az 3 model), `claim_verdict` (`replicated`, `partially_replicated`, `reversed`, `inconclusive`, `not_testable`) |
+| `analysis.py` | `analyze_campaign`: kapsam, çift karşılaştırmaları, Friedman, iddialar, veri setleri arası parametre etkisi; hiçbir veri seti bitmezse `error` |
+| `ledger.py` | `build_ledger`: E1... kimlikli kayıtlar (dataset, failure, claim, friedman, pairwise, effect), betik SHA-256 özeti |
+| `report.py` | `render_report`: Summary, Protocol (kaynak, sapmalar, yapılandırma, tohumlar), Results, Limitations, Evidence ledger; `report_issues`: bilinmeyen atıf, atıfsız sayısal satır, atıf almamış kanıt |
+| `store.py` | `reports/campaigns/{id}/` altında atomik yazım (geçici dosya + `os.replace`, Windows `PermissionError` yeniden denemesi, kilit), `save_state`, `load_state`, `save_artifacts`, `load_report`, `load_ledger`, `list_campaigns` |
+| `service.py` | `queue_campaign`, `reject_campaign`, `execute_campaign`: durumlar `queued`, `running`, `completed`, `needs_review`, `failed` |
+| `demos.py` | `grinsztajn-2022` (RandomForest, HistGradientBoosting, MLP, LogisticRegression; C1 ağaçlar > MLP, C2 ağaçlar > lineer; metrikler roc_auc, pr_auc, f1; 5 sapma notu) |
+| `__main__.py` | `python -m app.campaign run|list|show|demos`; çıkış kodları 0 tamam, 1 tamamlanmadı veya `needs_review`, 2 kullanım hatası |
+
+Uçlar: `POST /start_campaign` (`demo` ya da `spec`, isteğe bağlı `datasets`), `GET /campaigns`, `GET /campaign/{id}`, `GET /campaign/{id}/report`; Celery görevi `axiomforge.run_campaign`.
+
+Veri havuzu: `app/datasets.py` 14 sete çıktı. `core` (5 set, planlayıcı yalnız bunu görür) ve `benchmark` (tb_credit, tb_california, tb_electricity, tb_magic, tb_bank, tb_heloc, tb_house16h, tb_pol, tb_eye; `inria-soda/tabular-benchmark`, yapılandırma adları `clf_num_*`, 6000 satırlık sabit tohumlu dengeli örnek). Hedefler ve pozitif sınıflar gerçek sandbox'ta doğrulandı, `VERIFIED_BENCHMARK_TARGETS` testiyle sabit.
+
+Koşu 15 (`demo-grinsztajn-1`, 24 Ekim 2026, `python -m app.campaign run --demo grinsztajn-2022 --workers 3`): 9 veri seti 40-95 sn, toplam 4,5 dk, yeniden deneme yok, `completed`, `issues` boş. C1 ve C2 `replicated` (üç ölçütte Holm düzeltmeli p = 0,0117); ROC-AUC medyan farkı MLP'ye karşı +0,0134, lojistik regresyona karşı +0,0575; Friedman sıraları HGB 1,22, RF 1,89, MLP 3,00, LR 3,89 (p ≈ 5e-5). tb_eye'da MLP ağaçlardan belirgin geride, tb_pol'de MLP PR-AUC'de en iyi. Çıktı `reports/campaigns/demo-grinsztajn-1/` (gitte yok). Koşu raporun Protocol bölümünde bir yanlışı ortaya çıkardı (parametresizken "kontrol" cümlesi), düzeltildi (`e1d2ad6`).
+
+İstatistik notu: 5 veri setiyle kesin Wilcoxon'un en küçük p'si 0,0625'tir; 6 sette 0,03125 ama Holm üç ölçüte bölünce 0,094 olur. Bu yüzden 6 veri setiyle iddia `inconclusive` kalır, 9 setle geçer.
+
+Test sağlamlığı: her modül mutasyonla sınandı (hayatta kalanlara test eklendi). Bir CLI mutasyonu ("execute ignored") sahte yürütücüyü atlatıp gerçek E2B'ye gitmişti; bu yüzden `tests/conftest.py` tüm testlerde `E2B_API_KEY` değerini boşaltır. Mutasyon betikleri scratchpad'dedir (`mutate_c*.py`), depoda değil.
 
 ## 4. Bugün tespit edilen mimari sorunlar
 
@@ -244,6 +275,8 @@ Koşu 8-14 (yeni makale kapıları, `adult_income`/`breast_cancer`/`credit_defau
 
 ### 4.2 Açık sorunlar (öncelik sırasıyla)
 
+0. **Faz 12 sonrası açıklar.** Kampanya için MLflow kaydı yok; konsolda kampanya görünümü yok (yalnız API ve komut satırı); işçi kampanya sürerken ölürse durum `running` kalır; yalnız bir hazır iddia var (Grinsztajn 2022), iddiayı makaleden çıkaran literatür adımı yok; ölçütler yalnız roc_auc, pr_auc, f1; yalnız ikili sınıflandırma ve sklearn/xgboost/lightgbm/catboost tahmin edicileri; hiperparametre araması yok, bu yüzden makalenin "tuned" iddialarını birebir sınamaz (sapma olarak raporda yazılı); kampanyalar arası karşılaştırma ve geçmiş kampanyaların hafızaya yazılması yok.
+
 1. **Anlamsız fark denetimi kısmen çözüldü.** `unsupported_difference_issues` artık anlamlı olmayan bir çift için üstünlük iddiasını yakalıyor. Kalan boşluklar: yalnız bir model adı geçen cümleler ("Random Forest has the highest mean PR-AUC") ve `highest`, `best` gibi çift belirtmeyen ifadeler kontrol edilmiyor. Anlamlı bir satırın *yönü* (makale doğru modeli üstün gösteriyor mu) de kontrol edilmiyor. Toplu ifadeler ("the other models") artık `collective_claim_issues` ile denetleniyor, ama `highest`/`best` gibi üstünlük sıfatları hâlâ denetlenmiyor. Gerçek bir koşuda yazıcının bu kontrolü tetikleyip tetiklemediği henüz görülmedi.
 2. **Claim hâlâ yapılandırma çiftinin kararıdır.** Kontrol grubu parametrelerin etkisini ayrıca ölçüyor ama hipotez kararı (`supported`/`contradicted`) yapılandırılmış iki model arasındadır, "model sınıfı" için değil. Makale de kararı böyle yazmalı, bu henüz denetlenmiyor. Parametre değeri varsayılana eşitse (ör. LR `C=1.0`) etki sıfırdır ve `p=1` çıkar, planlayıcı bunu ayırt etmez. Etki ailesi 6 satırdır (model × 3 metrik), kontrol grubu sandbox süresini ve MLflow run sayısını artırır (4 model × 10 bölme).
 3. **Gerçek koşuda hâlâ tetiklenmeyen yollar.** Sızıntı eleştiri döngüsü Koşu 3'te, 10 koşuluk yedek yol Koşu 4'te gerçek servislerle çalıştı, ama ikisi de sentetik veriyle; gerçek Hugging Face verisiyle tam koşu Koşu 5'te yapıldı (`Passed` / `Completed`). Kalanlar: sandbox çökmesi, `Failed` doğrulama makalesi, `NeedsReview` kalıcı durumu, çok modelli veya yavaş sorguda sandbox zaman aşımı (XGBoost paket kurulumu dahil). Bunlar testlerle ve sahte servislerle kapsandı.
@@ -288,7 +321,9 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 
 ## 6. Yarın için önerilen sıra
 
-1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (1092 geçmeli).
+0. Faz 12 sonrası: kampanyayı konsolda göster (liste, durum, rapor), kampanya için MLflow kaydı ekle, ikinci bir hazır replikasyon (başka bir makale) yaz, hiperparametre araması ekleyip makaleye daha yakın bir koşu yap. Önce kullanıcının önceliğini sor.
+
+1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (1387 geçmeli).
 2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). ~~Konfigürasyon karışıklığı~~ Seçenek B ile yapıldı. ~~Üçüncü gerçek koşu~~ yapıldı (sızıntı yolu). İstenirse anlamlı satırın yönünün denetimi, tek model adlı cümleler ve claim kararının "yapılandırma çifti" olarak yazıldığının denetimi eklenebilir.
 3. Hazır cümle yaklaşımıyla (genel en iyi model dahil, `f5966e5`) farklı veri setlerinde ve model sayılarında tekrar canlı koşular (Koşu 13 ve 14 aynı sorgu, ikisi de ilk turda geçti; planlayıcı koşudan koşuya hafifçe değişiyor) ve kalan yollar: `Failed` doğrulama makalesi, sandbox çökmesi, diğer veri setlerinde (`breast_cancer`, `credit_default`, `adult_income`, `credit_fraud`) tam koşu. Maliyet onayı iste.
 4. `POST /approve_plan` doğrulama hatasını `422` yap (4.2 madde 15).
@@ -300,6 +335,9 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 Kullanıcı farklı bir öncelik verebilir. Mesajı gelmeden iş başlatma.
 
 ## 7. Süreç dersleri ve tuzaklar
+
+- **Mutasyon taraması gerçek servise gitmesin:** CLI mutasyonlarından biri sahte yürütücüyü atlatıp varsayılan `run_classification` ile gerçek E2B'ye gitti ve 10 dakikadan fazla sürdü. Servis çağıran her yeni kodda testlerin dış servis anahtarını boşaltması gerekir (`tests/conftest.py`). Mutasyon betiğinde zaman aşımı (`timeout`) kullan ve takılan sürecin `python.exe` çocuklarını PowerShell ile öldür.
+- **Holm ve en az veri seti:** çok ölçütlü bir iddiada Holm düzeltmesi yüzünden 6 veri seti kesin Wilcoxon için yetmez; test verisi üretirken 9 set kullan.
 
 - **Heredoc ve ters eğik çizgi:** Bash heredoc içindeki Python kaynağında (tırnaklı `'EOF'` ile bile) `\\` bir kat azalıyor (`\b` geri-silme karakteri, `\n` gerçek satır sonu oldu). Regex veya kaçış içeren her değişiklik `Write` aracıyla bir betik dosyası yazılarak yapılır. Bozuk karakter taraması: tracked dosyalarda 0x00-0x1f (sekme ve CR hariç) ara.
 - **CRLF:** Çalışma kopyası CRLF, çok satırlı eski-desen eşleşmeleri sessizce uygulanmaz (mutasyon betikleri bir kez uygulanmadan "geçti" gösterdi). Tek satırlık desen kullan ya da `\r\n` normalleştir.
