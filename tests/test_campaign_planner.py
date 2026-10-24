@@ -116,12 +116,12 @@ def test_invalid_json_and_a_wrong_shape_are_reported(llm):
     replies.append("not json")
     with pytest.raises(RuntimeError, match="invalid JSON"):
         run_campaign_planner(QUERY, SOURCES)
-    replies.append(json.dumps({"candidates": "nope"}))
-    with pytest.raises(RuntimeError, match="did not return candidates"):
-        run_campaign_planner(QUERY, SOURCES)
-    replies.append(json.dumps([1, 2]))
-    with pytest.raises(RuntimeError, match="did not return candidates"):
-        run_campaign_planner(QUERY, SOURCES)
+    for wrong in (json.dumps({"candidates": "nope"}), json.dumps([1, 2]), json.dumps({"unsupported": "a reason only"})):
+        for _ in range(MAX_PLAN_ATTEMPTS):
+            replies.append(wrong)
+        with pytest.raises(RuntimeError, match="did not return candidates"):
+            run_campaign_planner(QUERY, SOURCES)
+        assert replies == []
 
 
 def test_a_quote_that_is_not_in_the_source_rejects_the_candidate_and_the_error_is_fed_back(llm):
@@ -424,3 +424,71 @@ def test_the_final_error_lists_only_the_last_attempt(llm):
     with pytest.raises(RuntimeError) as caught:
         run_campaign_planner(QUERY, SOURCES)
     assert "metrics must come from" in str(caught.value) and "pool must be one of" not in str(caught.value)
+
+
+def test_the_prompt_lets_the_planner_take_a_claim_from_the_query_itself():
+    prompt = planner.SYSTEM_PROMPT
+    assert "When the user query itself states a comparison claim" in prompt
+    assert "propose that claim with source_index 0 and quote the query" in prompt
+    assert "prefer a source paper only when its abstract states the claim" in prompt
+    assert "Never invent a claim that the sources and the query do not state" in prompt
+
+
+def test_an_answer_without_a_candidates_list_is_asked_for_again_with_the_reason(llm):
+    replies, prompts = llm
+    replies.append(json.dumps({"unsupported": "the query itself states a claim, but I returned no list"}))
+    replies.append(three())
+    plan = run_campaign_planner(QUERY, SOURCES)
+    assert len(plan) == 3 and len(prompts) == 2
+    assert "must be a JSON object with a candidates list" in prompts[1] and "rejected" in prompts[1]
+    assert "rejected" not in prompts[0]
+
+
+def test_the_prompt_requires_the_candidates_key_in_every_answer():
+    assert "The key candidates is required in every answer; fill unsupported only when candidates is an empty list." in planner.SYSTEM_PROMPT
+
+
+def test_an_empty_candidates_list_with_a_reason_is_still_unsupported_without_a_retry(llm):
+    replies, prompts = llm
+    replies.append(json.dumps({"unsupported": "about images", "candidates": []}))
+    with pytest.raises(CampaignUnsupported, match="about images"):
+        run_campaign_planner(QUERY, SOURCES)
+    assert len(prompts) == 1
+
+
+QUERY_CLAIM = "Random forests are also better than linear models in my experience"
+
+
+def test_a_quote_taken_from_the_query_is_never_credited_to_the_paper_the_model_pointed_at(llm):
+    replies, _ = llm
+    replies.append(answer(candidate(source_index=1, claims=[claim(source_quote=QUERY_CLAIM, subject=["RandomForest"], other=["linear models"])])))
+    plan = run_campaign_planner(QUERY, SOURCES)
+    spec = plan[0]["spec"]
+    assert "title" not in spec["source"] and "url" not in spec["source"] and spec["source"]["deviations"]
+    assert plan[0]["evidence"][0]["source"] == "user query"
+
+
+def test_a_quote_found_in_the_chosen_paper_keeps_the_paper_as_the_source(llm):
+    replies, _ = llm
+    replies.append(answer(candidate(source_index=1)))
+    plan = run_campaign_planner(QUERY + " " + QUOTE_ONE, SOURCES)
+    assert plan[0]["spec"]["source"]["title"] == SOURCES[0]["title"]
+    assert plan[0]["evidence"][0]["source"] == SOURCES[0]["title"]
+
+
+def test_claims_quoted_from_different_origins_cannot_share_a_candidate(llm):
+    replies, _ = llm
+    mixed = candidate(source_index=1, claims=[claim(), claim(statement="Boosting beats linear models", subject=["HistGradientBoosting"], other=["LogisticRegression"], source_quote=QUERY_CLAIM)])
+    for _ in range(MAX_PLAN_ATTEMPTS):
+        replies.append(answer(mixed))
+    with pytest.raises(RuntimeError, match="must all be quoted from the same origin"):
+        run_campaign_planner(QUERY, SOURCES)
+
+
+def test_two_claims_from_the_query_share_an_origin_and_are_accepted(llm):
+    replies, _ = llm
+    first = claim(source_quote="Check whether tree-based models beat the ResNet on tabular data", subject=["RandomForest"], other=["ResNet"])
+    second = claim(statement="Random forests beat linear models", source_quote=QUERY_CLAIM, subject=["RandomForest"], other=["linear models"])
+    replies.append(answer(candidate(source_index=0, claims=[first, second])))
+    plan = run_campaign_planner(QUERY, SOURCES)
+    assert [item["source"] for item in plan[0]["evidence"]] == ["user query", "user query"]

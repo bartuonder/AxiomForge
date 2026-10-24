@@ -18,6 +18,7 @@ CANDIDATES = 3
 MAX_PLAN_ATTEMPTS = 2
 MIN_QUOTE_CHARS = 20
 MAX_CLAIMS = 2
+SHAPE_ERROR = "the answer must be a JSON object with a candidates list; use unsupported only together with an empty candidates list"
 
 SYSTEM_PROMPT = (
     "You are a replication planner. You read paper abstracts and a user query and turn their comparison claims "
@@ -36,8 +37,11 @@ SYSTEM_PROMPT = (
     "Use the model names as the source writes them; the system maps them to runnable estimators. "
     f"Runnable estimators: {', '.join(sorted(ESTIMATORS))}. "
     "Never invent a claim that the sources and the query do not state. Candidates may differ in the claim, the model groups or the metrics. "
+    "When the user query itself states a comparison claim, even one it attributes to a paper that is not among the sources, "
+    "propose that claim with source_index 0 and quote the query; prefer a source paper only when its abstract states the claim. "
     "If the sources are not about comparing models on tabular classification, or contain no comparison claim, "
     "return an empty candidates list and explain why in unsupported. "
+    "The key candidates is required in every answer; fill unsupported only when candidates is an empty list. "
     'Return only JSON: {"unsupported": "", "candidates": [{"title": "...", "source_index": 1, "pool": "benchmark", '
     '"claims": [{"statement": "...", "metrics": ["roc_auc"], "subject": ["..."], "other": ["..."], "source_quote": "..."}]}]}.'
 )
@@ -59,13 +63,14 @@ def _names(value: Any, label: str) -> list[str]:
     return value
 
 
-def _claim(raw: Any, texts: list[str], mapped_notes: list[str], models: list[str]) -> tuple[dict[str, Any], str]:
+def _claim(raw: Any, origins: dict[str, str], mapped_notes: list[str], models: list[str]) -> tuple[dict[str, Any], str, str]:
     if not isinstance(raw, dict):
         raise PlanningError("each claim must be an object")
     quote = raw.get("source_quote")
     if not isinstance(quote, str) or len(_normal(quote)) < MIN_QUOTE_CHARS:
         raise PlanningError(f"a claim needs a source_quote of at least {MIN_QUOTE_CHARS} characters")
-    if not any(_normal(quote) in text for text in texts):
+    origin = next((name for name, text in origins.items() if _normal(quote) in text), None)
+    if origin is None:
         raise PlanningError(f"the quote {quote[:60]!r} does not appear in the source text")
     groups: dict[str, list[str]] = {}
     for label in ("subject", "other"):
@@ -81,7 +86,7 @@ def _claim(raw: Any, texts: list[str], mapped_notes: list[str], models: list[str
                 mapped_notes.append(note)
     metrics = raw.get("metrics")
     claim = {"statement": raw.get("statement"), "metrics": metrics, "subject": groups["subject"], "other": groups["other"]}
-    return claim, quote.strip()
+    return claim, quote.strip(), origin
 
 
 def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str, Any]:
@@ -90,12 +95,13 @@ def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str,
     index = raw.get("source_index")
     if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index <= len(sources):
         raise PlanningError(f"source_index must be a whole number from 0 to {len(sources)}")
-    if index == 0:
-        texts, source = [_normal(query)], {}
-    else:
+    origins: dict[str, str] = {}
+    source: dict[str, str] = {}
+    if index > 0:
         paper = sources[index - 1]
-        texts = [_normal(f"{paper['title']} {paper['abstract']}")]
+        origins["source"] = _normal(f"{paper['title']} {paper['abstract']}")
         source = {"title": paper["title"], **({"url": paper["url"]} if paper.get("url") else {})}
+    origins["query"] = _normal(query)
     raw_claims = raw.get("claims")
     if not isinstance(raw_claims, list) or not 1 <= len(raw_claims) <= MAX_CLAIMS:
         raise PlanningError(f"a candidate needs one to {MAX_CLAIMS} claims")
@@ -106,10 +112,16 @@ def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str,
     notes: list[str] = []
     claims: list[dict[str, Any]] = []
     quotes: list[str] = []
+    found: list[str] = []
     for item in raw_claims:
-        claim, quote = _claim(item, texts, notes, models)
+        claim, quote, origin = _claim(item, origins, notes, models)
         claims.append(claim)
         quotes.append(quote)
+        found.append(origin)
+    if len(set(found)) > 1:
+        raise PlanningError("the claims of one candidate must all be quoted from the same origin, the source paper or the user query")
+    if found[0] == "query":
+        source = {}
     spec = assemble_spec(str(raw.get("title") or "").strip(), models, claims, source, pool=pool, mapped_notes=notes)
     evidence = [
         {"claim": claim["id"], "quote": quote, "source": source.get("title", "user query")}
@@ -164,7 +176,8 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
         except json.JSONDecodeError as exc:
             raise RuntimeError("campaign planner returned invalid JSON") from exc
         if not isinstance(payload, dict) or not isinstance(payload.get("candidates"), list):
-            raise RuntimeError("campaign planner did not return candidates")
+            errors = [SHAPE_ERROR]
+            continue
         if not payload["candidates"]:
             reason = payload.get("unsupported")
             raise CampaignUnsupported(str(reason).strip() if isinstance(reason, str) and reason.strip() else "the sources contain no claim a campaign can test")
@@ -181,6 +194,8 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
         if len(valid) >= CANDIDATES or not errors:
             break
     if not valid:
+        if errors == [SHAPE_ERROR]:
+            raise RuntimeError("campaign planner did not return candidates")
         raise RuntimeError("campaign planner returned no valid campaign: " + "; ".join(errors))
     chosen = valid[:CANDIDATES]
     for item in chosen:
