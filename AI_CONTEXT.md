@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı (25 Ekim 2026): son kod commit'i Faz 13 hafıza adımı (`d6c32be`); Faz 13 (ajanlı kampanya orkestrasyonu) 3.13'te. 20 commit `e3d381f`'e kadar pushlandı; sonrası (MLflow kaydı, özet listesi, konsol paneli ve dokümanlar) yerelde. 1942 pytest testi geçiyor. Bu turda Faz 12 (replikasyon kampanyası) eklendi, bkz. 3.12. Frontend değişmedi.
+Durum anı (25 Ekim 2026): son kod commit'i Faz 13 hafıza adımı (`d6c32be`); Faz 13 (ajanlı kampanya orkestrasyonu) 3.13'te. 20 commit `e3d381f`'e kadar pushlandı; sonrası (MLflow kaydı, özet listesi, konsol paneli ve dokümanlar) yerelde. 2011 pytest testi geçiyor. Bu turda Faz 12 (replikasyon kampanyası) eklendi, bkz. 3.12. Frontend değişmedi.
 
 ## 1. Proje
 
@@ -228,6 +228,21 @@ Test koruması: `tests/conftest.py` E2B anahtarını ve vektör hafızayı kapat
 
 Bilinen sınırlar: planlayıcı yalnız arXiv özetini görür (tam metin yok) ve kaynak künyesinde yazar yok (başlık ve bağlantı); gerçek gpt-4o ile planlayıcı, Introduction ve Discussion denenmedi; gerçek uçtan uca koşu yapılmadı; kampanya hattında doğrulayıcı yok (protokol şablonu ön işlemeyi Pipeline içinde yaptığı için sızıntı yapısal olarak engelli); meta kapı regex tabanlı ve gerçek LLM çıktısıyla yanlış alarm oranı ölçülmedi.
 
+### 3.14 Faz 13 canlı koşular (Koşu 16-18, 25 Ekim 2026)
+
+Sorgu: `Replicate the claim of Grinsztajn et al. 2022 that tree-based models such as random forests and gradient boosted trees still outperform deep learning and neural networks on medium-sized tabular classification data`, `mode: campaign`. Servisler: Redis, Postgres (Docker), MLflow, Celery (threads), uvicorn, `next start`.
+
+| | Koşu 16 | Koşu 17 | Koşu 18 |
+| --- | --- | --- | --- |
+| Thread | birkaç başarısız deneme | `a1b23dc0-…` | `8c645484-12d1-4abf-9ca8-8e847d0d1baf` |
+| Kampanya | yok | `g-29195f68…`, 9/9, `replicated` (ROC-AUC) | `g-ae573a29…`, 9/9, `replicated` (3 ölçüt), 4 dk 26 sn |
+| Sonuç | planlayıcıda `failed` | `NeedsReview` (iki turda 'significantly') | `Completed` (bir yeniden yazma) |
+| Bulgu | iddia sorgudan alınmadı; `candidates` eksik; alıntıya nokta; alıntı kaynağı karışıklığı | kapı yanlış alarmı (`F1`), ilgisiz makaleler, `.:`, süre tahmini | LLM 'significantly' alışkanlığı; yıl yazıyla yazıldı |
+
+Ölçümler: planlayıcı gerçek modelle 8/8 başarılı (düzeltmelerden sonra); meta kapı ilk taslakta 3/3 reddetti ('significantly') ve rewrite ile bir turda geçti; kampanya süresi tahmini GradientBoosting için +18 sn ile 240 sn (gerçek 266 sn); MLflow `axiomforge-campaigns` içinde 4 kampanya run'ı, `Campaign Run g-ae573a29…` 98 metrik, `ledger.json` (24 kayıt) ve `report.md`; hafızada 3 kampanya kaydı; konsolda `/campaigns`, `/campaign/{id}` ve `/result/{thread}` sorunsuz (sonuç sayfası tabloları düzeltildikten sonra).
+
+Dersler: (1) gerçek LLM çıktısı, sahte yanıtlı testlerin göremediği dört hata sınıfı gösterdi (alıntı noktalaması, eksik anahtar, kaynak karışıklığı, kapı yanlış alarmı); (2) bir kapı kuralı eklenirse aynı kural LLM istemine de yazılmalı, yoksa model geri bildirimle bile uymayabilir (Koşu 17 'significantly'); (3) iddianın kaynağını LLM'in numarasına değil alıntının gerçek yerine bağla; (4) test hattına dış servisleri (E2B, vektör hafıza) kapatan koruma koymak asılı kalan testleri önler.
+
 ### 3.12 Faz 12: replikasyon kampanyası (`app/campaign/`)
 
 Amaç: yayımlanmış bir akademik ML karşılaştırma iddiasını çok veri setinde yeniden sınamak ve her sayıyı bir kanıt kaydına bağlamak. Kullanıcı stratejik olarak "akademik ML karşılaştırma ve replikasyon" yönünü seçti ve ilk demo olarak Grinsztajn ve ark. 2022'yi (arXiv 2207.08815: ağaç tabanlı modeller tablo verisinde derin öğrenmeden iyi) istedi. Motor LLM çağırmaz; betik, istatistik, rapor ve denetim Python'dır.
@@ -350,7 +365,7 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 
 0. Faz 13 sonrası: gerçek gpt-4o ve E2B ile uçtan uca bir kampanya koşusu (`mode: campaign`, Grinsztajn sorgusu) yap ve meta kapının yanlış alarm oranını ölç; sonra kampanyayı canlı MLflow sunucusuyla doğrula, konsola başlatma düğmesi ekle, ikinci bir hazır replikasyon (başka bir makale) yaz, hiperparametre araması ekleyip makaleye daha yakın bir koşu yap. Önce kullanıcının önceliğini sor.
 
-1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (1942 geçmeli).
+1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (2011 geçmeli).
 2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). ~~Konfigürasyon karışıklığı~~ Seçenek B ile yapıldı. ~~Üçüncü gerçek koşu~~ yapıldı (sızıntı yolu). İstenirse anlamlı satırın yönünün denetimi, tek model adlı cümleler ve claim kararının "yapılandırma çifti" olarak yazıldığının denetimi eklenebilir.
 3. Hazır cümle yaklaşımıyla (genel en iyi model dahil, `f5966e5`) farklı veri setlerinde ve model sayılarında tekrar canlı koşular (Koşu 13 ve 14 aynı sorgu, ikisi de ilk turda geçti; planlayıcı koşudan koşuya hafifçe değişiyor) ve kalan yollar: `Failed` doğrulama makalesi, sandbox çökmesi, diğer veri setlerinde (`breast_cancer`, `credit_default`, `adult_income`, `credit_fraud`) tam koşu. Maliyet onayı iste.
 4. `POST /approve_plan` doğrulama hatasını `422` yap (4.2 madde 15).
