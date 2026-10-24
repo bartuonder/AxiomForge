@@ -102,6 +102,14 @@ def test_the_protocol_names_the_source_the_configuration_the_seeds_and_the_devia
     assert "- tb_credit: inria-soda/tabular-benchmark (clf_num_credit), 6000 rows, 10 features" in protocol
 
 
+def test_the_control_is_mentioned_only_when_a_model_is_configured():
+    configured = build()[0].split("## Protocol")[1].split("## Results")[0]
+    assert "A configured model also runs once with library defaults as its control." in configured
+    plain = build({**SPEC, "params": {}})[0].split("## Protocol")[1].split("## Results")[0]
+    assert "Every other argument is fixed by the protocol." in plain
+    assert "control" not in plain
+
+
 def test_a_campaign_without_a_source_has_no_source_or_deviation_lines():
     spec = {**SPEC, "source": {}}
     markdown, ledger = build(spec)

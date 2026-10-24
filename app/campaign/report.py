@@ -90,11 +90,11 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
     if source:
         lines.append("Source: " + "; ".join(source[name] for name in ("title", "citation", "url") if name in source) + ".")
         lines.append("")
-    lines.append(
-        "Models and configuration: "
-        + configuration_sentence({"models": spec["models"], "params": spec.get("params") or {}})
-        + " Every other argument is fixed by the protocol, and a configured model also runs once with library defaults as its control."
-    )
+    sentence = "Models and configuration: " + configuration_sentence({"models": spec["models"], "params": spec.get("params") or {}})
+    sentence += " Every other argument is fixed by the protocol."
+    if spec.get("params"):
+        sentence += " A configured model also runs once with library defaults as its control."
+    lines.append(sentence)
     lines += [
         "",
         f"Procedure: on each dataset every model ran on {len(SPLIT_SEEDS)} repeated stratified 80/20 train/test splits "
