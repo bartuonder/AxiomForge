@@ -233,3 +233,22 @@ def test_a_harmful_configuration_is_reported_as_lower_than_the_default():
     markdown, ledger = render_report(SPEC, data, analyze_campaign(SPEC, data))
     assert "MLP with the listed parameters scored lower than MLP with default parameters on ROC-AUC on 9 of 9 datasets (median difference 0.0200" in markdown
     assert report_issues(markdown, ledger) == []
+
+
+class TestCheckedSections:
+    def test_the_default_checks_only_the_summary_and_the_results(self):
+        markdown, ledger = build()
+        broken = markdown.replace("## Limitations", "## Notes\n\nRandomForest won 9 of 9 datasets.\n\n## Limitations", 1)
+        assert not any("a numeric line in Notes" in issue for issue in report_issues(broken, ledger))
+
+    def test_other_sections_can_be_checked_on_request(self):
+        markdown, ledger = build()
+        broken = markdown.replace("## Limitations", "## Notes\n\nRandomForest won 9 of 9 datasets.\n\n## Limitations", 1)
+        issues = report_issues(broken, ledger, checked=("Notes",))
+        assert any("a numeric line in Notes has no evidence reference: RandomForest won 9 of 9" in issue for issue in issues)
+
+    def test_a_section_that_is_not_listed_is_not_checked(self):
+        markdown, ledger = build()
+        broken = markdown.replace("## Protocol", "RandomForest won 9 of 9 datasets.\n\n## Protocol", 1)
+        assert not any("a numeric line in Summary" in issue for issue in report_issues(broken, ledger, checked=("Results",)))
+        assert any("a numeric line in Summary" in issue for issue in report_issues(broken, ledger))

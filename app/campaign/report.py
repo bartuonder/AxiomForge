@@ -15,7 +15,7 @@ VERDICT_LABELS = {
 }
 MAX_PAIR_SENTENCES = 20
 _REFERENCE = re.compile(r"\[E(\d+)\]")
-_CLAIM_HEAD = re.compile(r"^\*\*[A-Za-z][\w-]*\*\*")
+_CLAIM_HEAD = re.compile(r"\*\*[A-Za-z][\w-]*\*\*")
 _NAMES_WITH_DIGITS = re.compile(r"\bF1\b")
 
 
@@ -177,7 +177,7 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
     return "\n".join(lines).rstrip() + "\n", ledger
 
 
-def report_issues(markdown: str, ledger: list[dict[str, Any]]) -> list[str]:
+def report_issues(markdown: str, ledger: list[dict[str, Any]], checked: tuple[str, ...] = ("Summary", "Results")) -> list[str]:
     known = {entry["id"] for entry in ledger}
     issues: list[str] = []
     for number in dict.fromkeys(_REFERENCE.findall(markdown)):
@@ -188,7 +188,7 @@ def report_issues(markdown: str, ledger: list[dict[str, Any]]) -> list[str]:
         if line.startswith("## "):
             section = line[3:].strip()
             continue
-        if section not in {"Summary", "Results"} or not line.strip() or line.startswith("|---"):
+        if section not in checked or not line.strip() or line.startswith("|---"):
             continue
         if re.search(r"\d", _NAMES_WITH_DIGITS.sub("", _CLAIM_HEAD.sub("", line))) and not _REFERENCE.search(line):
             issues.append(f"a numeric line in {section} has no evidence reference: {line[:80]}")
