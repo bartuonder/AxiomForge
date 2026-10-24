@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ResearchStatus } from "@/components/ResearchStatus";
 import { fetchReport, fetchResearch } from "@/lib/api";
 import { STEP_LABELS, type ResearchSnapshot } from "@/lib/types";
@@ -80,7 +81,7 @@ export function PaperView({ threadId }: PaperViewProps) {
       {error && !markdown ? <p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
       {markdown ? (
         <article className="paper mt-10 space-y-4 text-[17px] leading-8 text-[#1c1915]">
-          <ReactMarkdown>{markdown}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </article>
       ) : null}
     </main>
