@@ -26,6 +26,8 @@ SYSTEM_PROMPT = (
     "into replication campaigns. A campaign trains the same models on 5 to 10 binary classification datasets of tabular data "
     "and tests the claim across datasets. "
     f"Propose exactly {CANDIDATES} different candidate campaigns. "
+    "If the sources and the query allow fewer than three different claims, vary the model groups, the metrics or the comparison "
+    "(for example all three metrics, ROC-AUC only, or a second comparison against another model family). "
     "Each candidate is a JSON object with: "
     "title (a short name), "
     "source_index (the number of the source paper the claims come from, or 0 when the claims come from the user query itself), "

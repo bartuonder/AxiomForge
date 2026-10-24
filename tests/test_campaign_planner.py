@@ -548,3 +548,9 @@ def test_the_prompt_says_irrelevant_sources_are_no_reason_to_refuse():
     prompt = planner.SYSTEM_PROMPT
     assert "irrelevant sources are no reason to answer unsupported" in prompt
     assert "Use unsupported only when neither the sources nor the query state any comparison" in prompt
+
+
+def test_the_prompt_asks_for_variations_when_fewer_than_three_claims_exist():
+    prompt = planner.SYSTEM_PROMPT
+    assert "If the sources and the query allow fewer than three different claims" in prompt
+    assert "vary the model groups, the metrics or the comparison" in prompt
