@@ -220,6 +220,7 @@ def get_research(thread_id: str) -> dict:
         "selected_campaign": _selected_campaign(values),
         "campaign_id": values.get("campaign_id") or "",
         "campaign_status": values.get("campaign_status") or "",
+        "campaign_mlflow_run_id": values.get("campaign_mlflow_run_id") or "",
         "approval_status": values.get("approval_status") or "",
         "verification_status": values.get("verification_status") or "",
         "verifier_feedback": values.get("verifier_feedback") or "",

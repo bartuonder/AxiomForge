@@ -81,18 +81,19 @@ class TestNodes:
 
     def test_the_campaign_planner_node_hands_the_sources_to_the_planner(self, monkeypatch):
         seen = []
-        monkeypatch.setattr(nodes, "run_campaign_planner", lambda query, sources: seen.append((query, sources)) or CANDIDATES)
+        monkeypatch.setattr(nodes, "run_campaign_planner", lambda query, sources, past: seen.append((query, sources, past)) or CANDIDATES)
+        monkeypatch.setattr(nodes, "past_campaigns", lambda query: [{"title": "old"}])
         result = nodes.campaign_planner_node({"query": "q", "literature_sources": SOURCES})
-        assert result == {"campaign_specs": CANDIDATES} and seen == [("q", SOURCES)]
+        assert result == {"campaign_specs": CANDIDATES} and seen == [("q", SOURCES, [{"title": "old"}])]
 
     def test_a_state_without_sources_gives_the_planner_an_empty_list(self, monkeypatch):
         seen = []
-        monkeypatch.setattr(nodes, "run_campaign_planner", lambda query, sources: seen.append(sources) or CANDIDATES)
+        monkeypatch.setattr(nodes, "run_campaign_planner", lambda query, sources, past: seen.append(sources) or CANDIDATES)
         nodes.campaign_planner_node({"query": "q"})
         assert seen == [[]]
 
     def test_an_unsupported_paper_stops_the_graph_with_its_reason(self, monkeypatch):
-        def refuse(query, sources):
+        def refuse(query, sources, past):
             raise CampaignUnsupported("the paper is about images")
 
         monkeypatch.setattr(nodes, "run_campaign_planner", refuse)

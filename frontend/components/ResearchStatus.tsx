@@ -67,11 +67,12 @@ function claimsRow(snapshot: ResearchSnapshot): StatusRow {
 }
 
 function campaignRow(snapshot: ResearchSnapshot): StatusRow {
+  const detail = snapshot.campaign_mlflow_run_id ? `MLflow run ${snapshot.campaign_mlflow_run_id}` : undefined;
   if (snapshot.campaign_status === "completed") {
-    return { key: "campaign", tone: "good", title: "Campaign finished and its report passed the traceability check" };
+    return { key: "campaign", tone: "good", title: "Campaign finished and its report passed the traceability check", detail };
   }
   if (snapshot.campaign_status === "needs_review") {
-    return { key: "campaign", tone: "warn", title: "Campaign finished, but its own report check found problems" };
+    return { key: "campaign", tone: "warn", title: "Campaign finished, but its own report check found problems", detail };
   }
   if (snapshot.campaign_status) {
     return { key: "campaign", tone: "wait", title: `Campaign ${snapshot.campaign_status}` };

@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnableConfig
 from app.agents.consistency_meta import meta_issues
 from app.agents.meta_report import write_meta_paper
 from app.campaign import store
+from app.campaign.memory import remember_campaign
 from app.campaign.service import campaign_id_for, queue_once, reject_campaign
 from app.graph.state import AgentState
 
@@ -77,6 +78,16 @@ def meta_report_node(state: AgentState, config: RunnableConfig) -> dict:
     return {"paper_markdown": Path(path).read_text(encoding="utf-8"), "consistency_continue": False}
 
 
+def _remember(state: AgentState, status: str) -> None:
+    spec = state.get("campaign_spec") or {}
+    if not spec:
+        return
+    try:
+        remember_campaign(spec, state.get("campaign_analysis") or {}, status)
+    except Exception:
+        logger.exception("the campaign could not be written to the memory")
+
+
 def meta_consistency_node(state: AgentState) -> dict:
     rounds = int(state.get("consistency_rounds", 0))
     issues = meta_issues(
@@ -94,6 +105,7 @@ def meta_consistency_node(state: AgentState) -> dict:
     campaign_issues = [f"Campaign check: {item}" for item in state.get("campaign_issues") or []]
     if issues or campaign_issues or state.get("campaign_status") == "needs_review":
         logger.info("meta_consistency_node stopped after %s rewrites", rounds)
+        _remember(state, "NeedsReview")
         return {
             "consistency_feedback": " ".join(issues + campaign_issues),
             "consistency_continue": False,
@@ -101,6 +113,7 @@ def meta_consistency_node(state: AgentState) -> dict:
             "referee_notes": [],
         }
     logger.info("meta_consistency_node passed")
+    _remember(state, "Completed")
     return {"consistency_feedback": "", "consistency_continue": False, "research_status": "Completed", "referee_notes": []}
 
 

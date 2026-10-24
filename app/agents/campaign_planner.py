@@ -4,6 +4,7 @@ from typing import Any
 
 from openai import OpenAI
 
+from app.campaign.memory import find_repeats
 from app.campaign.planning import POOLS, PlanningError, assemble_spec, estimate_cost, map_models
 from app.campaign.protocol import ESTIMATORS
 from app.campaign.spec import CampaignSpecError
@@ -135,11 +136,24 @@ def _signature(candidate: dict[str, Any]) -> tuple:
     )
 
 
-def run_campaign_planner(query: str, sources: list[dict[str, str]]) -> list[dict[str, Any]]:
+def _past_listing(past: list[dict[str, Any]]) -> str:
+    lines = []
+    for item in past:
+        claims = "; ".join(str(claim.get("statement", "")) for claim in item["spec"].get("claims") or [])
+        lines.append(f"- {item['title']}: {claims} ({item['verdicts']})")
+    return "\n".join(lines)
+
+
+def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
     listing = "\n\n".join(f"[{number}] {paper['title']}: {paper['abstract']}" for number, paper in enumerate(sources, start=1))
     prompt = f"User query:\n{query}\n\nSources:\n{listing or 'No source paper was found.'}"
+    if past:
+        prompt += (
+            "\n\nCampaigns that were already run on similar questions. "
+            "Do not propose the same claim again unless the user query asks to repeat it:\n" + _past_listing(past)
+        )
     valid: list[dict[str, Any]] = []
     errors: list[str] = []
     for attempt in range(MAX_PLAN_ATTEMPTS):
@@ -168,4 +182,7 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]]) -> list[dict
             break
     if not valid:
         raise RuntimeError("campaign planner returned no valid campaign: " + "; ".join(errors))
-    return valid[:CANDIDATES]
+    chosen = valid[:CANDIDATES]
+    for item in chosen:
+        item["repeats"] = find_repeats(item["spec"], past or [])
+    return chosen

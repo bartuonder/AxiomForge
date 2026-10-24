@@ -61,6 +61,7 @@ export type CampaignCandidate = {
   spec: CampaignPlanSpec;
   estimate: CampaignEstimate;
   evidence: CampaignEvidence[];
+  repeats?: string[];
 };
 
 export type ResearchSnapshot = {
@@ -70,6 +71,7 @@ export type ResearchSnapshot = {
   selected_campaign?: number;
   campaign_id?: string;
   campaign_status?: string;
+  campaign_mlflow_run_id?: string;
   status: "starting" | "running" | "paused" | "rejected" | "completed" | "needs_review" | "failed";
   next: string[];
   active_step: string;

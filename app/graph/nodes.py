@@ -26,6 +26,7 @@ from app.agents.consistency import (
 )
 from app.agents.experiment import MODEL, PROMPT_VERSION, requested_models
 from app.agents.campaign_planner import run_campaign_planner
+from app.campaign.memory import past_campaigns
 from app.agents.literature import format_papers, run_literature_search
 from app.agents.report import write_workshop_paper
 from app.agents.planner import run_planner_agent
@@ -107,7 +108,7 @@ def literature_node(state: AgentState) -> dict:
 
 def campaign_planner_node(state: AgentState) -> dict:
     logger.info("campaign_planner_node query=%s", state["query"])
-    candidates = run_campaign_planner(state["query"], list(state.get("literature_sources") or []))
+    candidates = run_campaign_planner(state["query"], list(state.get("literature_sources") or []), past_campaigns(state["query"]))
     for index, item in enumerate(candidates, start=1):
         logger.info("campaign candidate %s=%s estimate=%s", index, item["spec"]["title"], item["estimate"])
     return {"campaign_specs": candidates}

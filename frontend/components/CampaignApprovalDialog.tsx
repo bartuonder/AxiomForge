@@ -72,6 +72,11 @@ export function CampaignApprovalDialog({ candidates, busy, onDecide }: CampaignA
                     {item.claim}: “{item.quote}”
                   </span>
                 ))}
+                {candidate.repeats?.length ? (
+                  <span className="block text-xs font-semibold text-[#5c4a0c]">
+                    Already run: {candidate.repeats.join(", ")}. Running it again repeats that work.
+                  </span>
+                ) : null}
                 {spec.source?.deviations?.length ? (
                   <span className="block text-xs text-[#5c564e]">
                     Differs from the source in {spec.source.deviations.length} documented ways.
