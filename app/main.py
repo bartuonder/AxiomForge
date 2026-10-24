@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 import redis
 from fastapi import FastAPI, HTTPException
@@ -39,6 +40,7 @@ class ExperimentRequest(BaseModel):
 
 class StartResearchRequest(BaseModel):
     query: str = Field(min_length=1)
+    mode: Literal["experiment", "campaign"] = "experiment"
 
 
 class StartCampaignRequest(BaseModel):
@@ -114,9 +116,9 @@ def _enqueue(task, *args) -> None:
 @app.post("/start_research")
 def start_research_endpoint(body: StartResearchRequest):
     try:
-        thread_id = new_thread_id(body.query)
-        _enqueue(run_research_task, thread_id, body.query)
-        return {"thread_id": thread_id, "status": "running"}
+        thread_id = new_thread_id(body.query, body.mode)
+        _enqueue(run_research_task, thread_id, body.query, body.mode)
+        return {"thread_id": thread_id, "status": "running", "mode": body.mode}
     except QueryNamesTooFewModels as exc:
         raise HTTPException(status_code=422, detail=_too_few_models_detail(exc)) from exc
     except RuntimeError as exc:
