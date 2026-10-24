@@ -27,6 +27,13 @@ def _text(value: Any, name: str, limit: int) -> str:
     return text
 
 
+def _statement(value: Any, identifier: str) -> str:
+    text = _text(value, f"claim {identifier} statement", MAX_STATEMENT).rstrip(". ")
+    if not text:
+        raise CampaignSpecError(f"claim {identifier} statement is missing")
+    return text
+
+
 def _models(raw: Any) -> list[str]:
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
         raise CampaignSpecError("models must be a list of model names")
@@ -112,7 +119,7 @@ def _claims(raw: Any, models: list[str]) -> list[dict[str, Any]]:
         claims.append(
             {
                 "id": identifier,
-                "statement": _text(item.get("statement"), f"claim {identifier} statement", MAX_STATEMENT),
+                "statement": _statement(item.get("statement"), identifier),
                 "metric": metrics[0],
                 "metrics": list(dict.fromkeys(metrics)),
                 "subject": subject,

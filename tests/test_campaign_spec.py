@@ -138,3 +138,20 @@ def test_the_deviation_list_is_bounded():
         validate_campaign(raw(source={"deviations": "one note"}))
     with pytest.raises(CampaignSpecError, match="must be an object"):
         validate_campaign(raw(source="paper"))
+
+
+class TestStatementEnding:
+    def spec(self, statement):
+        claim = {"statement": statement, "metric": "roc_auc", "subject": ["RandomForest"], "other": ["MLP"]}
+        return validate_campaign({"title": "T", "models": ["RandomForest", "MLP"], "claims": [claim]})
+
+    @pytest.mark.parametrize("statement", ["Trees win.", "Trees win. ", "Trees win..", "Trees win . "])
+    def test_a_final_period_is_dropped_so_that_a_sentence_can_follow_it(self, statement):
+        assert self.spec(statement)["claims"][0]["statement"] == "Trees win"
+
+    def test_other_punctuation_stays(self):
+        assert self.spec("Do trees win?")["claims"][0]["statement"] == "Do trees win?"
+
+    def test_a_statement_that_is_only_periods_is_missing(self):
+        with pytest.raises(CampaignSpecError, match="claim C1 statement is missing"):
+            self.spec("...")
