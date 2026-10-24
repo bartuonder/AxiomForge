@@ -61,6 +61,12 @@ def test_artifacts_are_written_side_by_side(root):
     assert (folder / "scripts" / "tb_pol.py").read_text(encoding="utf-8") == "print(2)\n"
 
 
+def test_the_ledger_is_read_back_and_a_missing_one_is_none():
+    assert store.load_ledger("abc") is None
+    store.save_artifacts("abc", "r", [{"id": "E1", "note": "Çalışma"}], {}, {})
+    assert store.load_ledger("abc") == [{"id": "E1", "note": "Çalışma"}]
+
+
 def test_a_dataset_key_cannot_escape_the_scripts_folder(root):
     with pytest.raises(store.CampaignStoreError, match="dataset key"):
         store.save_artifacts("abc", "r", [], {}, {"../../evil": "x"})

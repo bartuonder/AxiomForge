@@ -95,6 +95,11 @@ def load_report(campaign_id: str) -> str | None:
     return path.read_text(encoding="utf-8") if path.exists() else None
 
 
+def load_ledger(campaign_id: str) -> list[dict[str, Any]] | None:
+    path = campaign_dir(campaign_id) / "ledger.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+
+
 def list_campaigns() -> list[str]:
     if not ROOT.exists():
         return []
