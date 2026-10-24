@@ -85,3 +85,18 @@ MLflow kaydı doğrulayıcıda bir kez açılır. `Passed` ise `Verified` üst r
 Checkpoint'ler `PostgresSaver` ile `DATABASE_URL` veritabanına yazılır. Deney özetlerinin gömüleri aynı Postgres'te `pgvector` koleksiyonu `experiment_memory` içindedir. İki kayıt ayrıdır: biri grafın anlık durumu, diğeri geçmiş deneylerin arama hafızasıdır.
 
 Bir düğüm hata verirse mesaj aynı veritabanındaki `research_errors` tablosuna `thread_id` ile yazılır. `GET /research/{thread_id}` bu kaydı okur ve durumu `failed` yapar. `/start_research` sorguda model adı yoksa grafı hiç başlatmaz.
+
+## Kampanya akışı (graf dışı)
+
+Replikasyon kampanyası (`app/campaign/`) LangGraph kullanmaz ve LLM çağırmaz; tek bir doğrusal hattır ve durumu Postgres yerine `reports/campaigns/{id}/` altındaki dosyalarda tutar.
+
+```text
+queue_campaign        belirtim doğrulanır, durum queued yazılır
+  -> run_campaign     her veri seti kendi sandbox'ında (varsayılan 3 paralel, en çok 2 deneme)
+  -> analyze_campaign veri seti birimli Wilcoxon, Holm, Friedman, iddia kararları
+  -> render_report    deterministik rapor ve kanıt defteri (E1, E2, ...)
+  -> report_issues    atıfsız sayısal satır, bilinmeyen atıf, atıf almamış kanıt
+  -> save_artifacts   report.md, ledger.json, analysis.json, scripts/
+```
+
+Durumlar `queued`, `running`, `completed`, `needs_review` (rapor denetimi sorun buldu) ve `failed` (beklenmedik hata ya da sandbox anahtarı yok). Bir veri setinin düşmesi kampanyayı düşürmez; veri seti `failed` yazılır, rapor onu limitasyonlarda ve kanıt defterinde anar. Hiçbir veri seti bitmezse rapor yine yazılır ve hiçbir iddianın değerlendirilemediğini söyler. Giriş noktaları: `python -m app.campaign`, `POST /start_campaign` (Celery görevi `axiomforge.run_campaign`) ve `execute_campaign`.
