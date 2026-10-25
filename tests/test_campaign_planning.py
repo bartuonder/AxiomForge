@@ -40,6 +40,11 @@ class TestModelMapping:
 
     def test_a_deep_architecture_is_replaced_by_the_mlp_and_the_replacement_is_noted(self):
         models, notes, unmapped = map_models(["ResNet", "FT-Transformer"])
+        assert (models, unmapped) == (["MLP"], [])
+        models, notes, unmapped = map_models(["Deep Models", "deep learning models", "Deep Neural Networks"])
+        assert (models, unmapped) == (["MLP"], [])
+        assert notes[0] == "Deep Models was represented by scikit-learn's MLPClassifier." and len(notes) == 3
+        models, notes, unmapped = map_models(["ResNet", "FT-Transformer"])
         assert models == ["MLP"] and unmapped == []
         assert notes == ["ResNet was represented by scikit-learn's MLPClassifier.", "FT-Transformer was represented by scikit-learn's MLPClassifier."]
 
