@@ -43,3 +43,44 @@ Bu dosya, kullanıcı bilgisayar başında değilken yürütülen otonom oturumu
 - **Test:** `tests/test_campaign_tuning.py`, `tests/test_campaign_tuned_pipeline.py`; 87+5 mutasyon, 9 hayatta kalan (biri eşdeğer: bool denetimi, gereksiz olduğu için kaldırıldı; kalan 8 testle kapatıldı). Tam paket 2260 test geçiyor.
 - **Canlı doğrulama (gerçek E2B):** `grinsztajn-2022`, `tb_credit` + `tb_electricity`. Adım 1 ve 2'nin sandbox kodu da ilk kez gerçek kutuda sınandı: `provenance` (revision `8d0ff91035`, Python 3.13.16, kütüphane sürümleri) ve `descriptors` satırları doğru ayrıştı, rapora ve deftere girdi. 4 iterasyon: 83 ve 70 sn/veri seti; 12 iterasyon: 132 ve 149 sn/veri seti. Maliyet tahmini 4 iterasyonda 151 sn, 12'de 191 sn (gerçeğin 1,3–1,8 katı, temkinli); kalibrasyon değiştirilmedi.
 - **Maliyet:** 4 küçük E2B kutusu (≈10 dakika toplam), LLM yok.
+
+### Adım 4: literatür alımı (tamam)
+
+- **Ne eklendi:** `app/tools/arxiv.py`: `arxiv_ids(metin)` sorguda `arxiv.org/abs|pdf|html/ID`, `arXiv:ID` ve eski biçim (`cs/0112017`) kimliklerini bulur (sürüm eki atılır, en çok 3); `fetch_arxiv_papers(ids)` arXiv API'sinden `id_list` ile başlık, özet, yazarlar, yıl ve kanonik bağlantıyı getirir (bulunamayan kimlik hata verir); `citation(kağıt)` "Grinsztajn, Oyallon and Varoquaux, arXiv:2207.08815 (2022)" biçiminde künye üretir (4+ yazar: "X et al."); `fetch_passages(id)` arxiv.org/html ve ar5iv'den makalenin Conclusion/Discussion/Summary bölümlerini (en çok 3000 karakter) alır, sayfa yoksa sessizce boş döner.
+- **Hat:** `run_literature_search` sorguda arXiv kimliği varsa aramayı ve LLM'i atlar, anılan makaleleri (başlık, özet, url, `citation`, `passages`) doğrudan kaynak yapar. Planlayıcı kaynak metnine sonuç bölümünü ekler (alıntı doğrulaması sonuç bölümünden de yapılır), kaynağın künyesini spec'e `source.citation` olarak yazar ve makaleden gelen her iddianın alıntısını spec'e `claims[].quote` olarak saklar (`spec.py` doğrular, 500 karakter sınırı).
+- **"Makale vs bizim" karşılaştırması:** alıntılı iddialar için rapora "Comparison with the source" bölümü eklendi: "The source states: “…”. The campaign result agrees with the source / disagrees with the source, the opposite held / …" ve her ölçüt için `[E#]` atfı; aynı bilgi tartışma olguları arasına (`comparison_sentences`) girdi. Kaynağı kullanıcı sorgusu olan iddialarda bölüm yok.
+- **Canlı doğrulama:** gerçek arXiv'de `2207.08815` (yazarlar, künye, 1745 karakterlik sonuç bölümü) ve `2106.03253` getirildi. İkincisinde planlayıcı "Deep Models" adını eşleyemeyip tüm adayları reddetti; bu bir hata sınıfıydı: `deep models`, `deep learning models`, `deep neural networks` MLP vekili olarak eşlendi (TabNet bilinçli olarak eşlenmeden bırakıldı), yeniden denemede 3 aday üretildi.
+- **Gözlem (çözülmedi):** aynı koşuda ikinci adayın alıntısı ("it is much more challenging to optimize deep models than XGBoost") iddiasını ("…even when models are tuned") tam desteklemiyor; alıntı doğrulaması yalnızca alıntının kaynakta bulunduğunu denetler, iddiayı desteklediğini değil.
+- **Test:** `test_arxiv_references`, `test_literature_references`, `test_campaign_planner_references`, `test_campaign_source_comparison` (+ spec/planlama testleri); 63 mutasyon, 13 hayatta kalan: 12'si testle kapatıldı, 1'i eşdeğer (hata girdisini atlama).
+- **Maliyet:** arXiv istekleri ücretsiz; LLM yalnızca adım 5'in planlayıcı koşusunda.
+
+### Adım 5: ajan kıyası (tamam)
+
+Kod: `app/campaign/benchmark.py` (10 bilinen iddia: 5 yerleşik doğru, 5 tersi; `score_campaign`, `score_plan`), 30 test, 15 mutasyon (hepsi yakalandı). Sonuçlar bu oturumda gerçek E2B ve gpt-4o ile alındı.
+
+**A. Motor doğruluğu (LLM yok; 9 benchmark veri seti, 7 model, 10 iddia, 3 ölçüt):**
+
+| Koşu | Doğru | Yanlış yön | Kararsız | Süre |
+|---|---|---|---|---|
+| Varsayılan parametreler (`benchmark-default`) | 10/10 | 0 | 0 | 4 dk 20 sn |
+| Ayarlı, 12 iterasyon (`benchmark-tuned`) | 10/10 | 0 | 0 | 10 dk 56 sn |
+| Yakın çiftler kontrolü (RF↔ExtraTrees, HGB↔GB, iki yönlü; `benchmark-near-equal`) | 4/4 "inconclusive", 0 sahte pozitif | – | – | ≈3 dk |
+
+Sınırlar: iddialar büyük etkili ve ön bilgiyle seçildi, yani zor vaka yok; yakın çiftler kontrolü yalnızca 4 iddia. Ayarlı koşuda hiçbir ayar etkisi anlamlı çıkmadı (9 veri setinde Holm 21 karşılaştırma üzerinden en küçük ulaşılabilir p 0,08'in üzerinde; bu bir güç sınırı, ayarın etkisiz olduğu anlamına gelmez). Bunu ileri iş olarak bırakıyorum: Holm ailesini model başına daraltmak.
+
+**B. Planlayıcı (gpt-4o, 10 sorgu, kaynak yok, ≈30 sn):** 10 sorgudan 9'unda ilk aday birebir doğru yönde ve doğru model kümeleriyle çıktı (`exact_first` 9/10), ters yön 0. B2'de ("gradient boosting … decision tree") planlayıcı "gradient boosting"i beş modelli bir aileye genişletti (GB, HGB, XGBoost, LightGBM, CatBoost); yön doğru, küme farklı. Her sorguda yalnızca 1 aday döndü (üçe tamamlayan farklı iddia bulunamadı). Arxiv kimlikli iki sorgudan biri ilk denemede "Deep Models" adı yüzünden reddedildi (yukarıda düzeltildi), diğeri 3 aday verdi.
+
+**C. Meta makale kapısı (gpt-4o, benchmark-default'un 10 iddiası):**
+
+| Durum | İlk taslak geçti | Bir yeniden yazımdan sonra |
+|---|---|---|
+| Değişiklikten önce (6 örnek) | 0/6 | 0/6 |
+| Sonra (8 örnek) | 3/8 | 5/8 |
+
+Neden: model Discussion'da "on all datasets" (kapı tarafından reddedilen genelleme ifadesi) ve "demonstrated/supported" yazıyordu; geri bildirim de hangi kelimenin alternatifi olduğunu söylemiyordu. Yapılanlar: (1) olgu cümlesi "on every dataset tested (9 of 9)" biçimine alındı; (2) üretilen düzyazıdaki kapsamsız "all/every dataset(s)" deterministik olarak "all the datasets tested" biçimine çevriliyor (kapsamlı ifadeler dokunulmadan kalıyor); (3) kapı, "tested/examined/studied/evaluated/included/in this campaign…" ile kapsamı belli "all datasets"i artık reddetmiyor; (4) sistem istemi yasak ifadeleri ve alternatifini söylüyor, kapının kesinlik-kelimesi geri bildirimi yasak kelimeleri ve "scored higher" gibi düz karşılaştırmayı öneriyor. Kalan başarısızlık "supported/demonstrated" kelimeleri; üretimde iki tur yeniden yazım var, buna rağmen bu 10 iddialık geniş kampanyada kalan ≈%40 oran `needs_review`'a düşebilir. Bu oran 8 örnekten, istatistik değil gösterge.
+
+**Maliyet (oturum toplamı, tahmini):** E2B: ≈40 kutu-koşusu (adım 3 duman koşuları 4, kıyas 3 kampanya × 9 veri seti + 4 duman), LLM: planlayıcı ≈15 çağrı, kapı kıyası 20 örnek ≈ 35 çağrı, her biri ≈4–6 bin token; toplam ≈1–2 USD gpt-4o ve birkaç dolar altında E2B.
+
+## Dondurulan / yapılmayan
+
+- Holm ailesinin model başına daraltılması (ayar etkilerinin gücü), alıntının iddiayı gerçekten desteklediğinin denetimi, HF veri seti revision'ının sabitlenmesi (yalnız kaydediliyor) ve kapının "supported/demonstrated" kalıntısı açık ileri iştir. Hiçbir hata 3 iterasyonu aşmadı, kota sorunu yaşanmadı.
