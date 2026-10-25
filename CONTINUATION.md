@@ -160,6 +160,8 @@ Faz 11. Makale kapısı ve hazır cümleler (`app/graph/evidence.py`, `app/agent
 
 Faz 12. Replikasyon kampanyası (`app/campaign/`). Yayımlanmış bir iddia çok veri setinde LLM'siz sınanır, kanıt defteri ve izlenebilir rapor üretilir. Ayrıntı yukarıda ve `README.md` içindedir.
 
+Faz 14 kampanya genişletmeleridir (otonom oturum, ayrıntı ve ölçümler `AUTONOMOUS_REPORT.md`). (1) Tekrarlanabilirlik: her veri setinin HF revision'ı, Python ve kütüphane sürümleri sandbox'ta basılır (`campaign/provenance.py`), rapor `Environment:` ve `Specification: SHA-256` satırlarını yazar ve onaydan sonra değişen spec çalıştırılmaz. (2) Moderatör analizi: sandbox'ta dört veri seti tanımlayıcısı ölçülür (`campaign/descriptors.py`), iddia başına model-ailesi avantajı tanımlayıcılarla Spearman ile ilişkilendirilir, Holm düzeltmeli ve keşif amaçlı etiketli (`campaign/moderators.py`, en az 6 veri seti). (3) Ayarlı protokol: spec'te `tuning` (`iterations` 4-40, varsayılan 12; `folds` 3-5), `params` ile birlikte kullanılmaz; veri %20 ayarlama ve %80 değerlendirme olarak bölünür, her model ROC-AUC ile rastgele aranır ve her modelin yanında kütüphane varsayılanı kontrolü koşar (`campaign/tuning.py`, CLI `--tuning N`, planlayıcıda aday `tuned` bayrağı). (4) Literatür alımı: sorguda arXiv kimliği ya da bağlantısı varsa (`app/tools/arxiv.py`) makale, yazarlar, künye ve sonuç bölümüyle doğrudan kaynak olur, LLM araması atlanır; makaleden gelen iddia alıntısı spec'e girer ve rapora 'Comparison with the source' bölümü eklenir. (5) Kıyas: `campaign/benchmark.py` 10 bilinen iddiayı (5 doğru, 5 ters) puanlar; motor 10/10, planlayıcı 9/10 birebir, yakın çiftlerde sahte pozitif 0.
+
 ## Kodun durduğu yerler
 
 | Konu | Dosya |
