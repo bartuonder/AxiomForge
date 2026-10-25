@@ -147,7 +147,21 @@ def moderator_sentences(analysis: dict[str, Any], ledger: list[dict[str, Any]]) 
     return sentences
 
 
+def effect_sentences(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
+    sentences = []
+    for row in analysis.get("parameter_effects") or []:
+        if not row["significant"]:
+            continue
+        treatment = "tuned by random search" if (row.get("params") or {}).get("tuned") else "with the listed parameters"
+        direction = "higher" if row["median_difference"] > 0 else "lower"
+        sentences.append(
+            f"{row['model']} {treatment} scored {direction} than {row['model']} with library defaults on {METRIC_NAMES[row['metric']]} across the datasets "
+            f"{_ref(ledger, 'effect', f"{row['model']}:{row['metric']}")}."
+        )
+    return sentences
+
+
 def discussion_facts(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
     if "error" in analysis:
         return []
-    return verdict_sentences(analysis, ledger) + leader_sentence(analysis, ledger) + exception_sentences(analysis, ledger) + margin_sentences(analysis, ledger) + moderator_sentences(analysis, ledger)
+    return verdict_sentences(analysis, ledger) + leader_sentence(analysis, ledger) + exception_sentences(analysis, ledger) + margin_sentences(analysis, ledger) + effect_sentences(analysis, ledger) + moderator_sentences(analysis, ledger)

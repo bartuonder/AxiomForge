@@ -6,6 +6,7 @@ from app.campaign.protocol import ESTIMATORS
 from app.campaign.runner import DEFAULT_WORKERS, MAX_ATTEMPTS
 from app.campaign.spec import MAX_NOTES, validate_campaign
 from app.campaign.stats import ALPHA
+from app.campaign.tuning import TUNING_SHARE
 from app.datasets import BENCHMARK_ROWS, benchmark_keys, core_keys
 
 MAX_PLAN_DATASETS = 10
@@ -13,6 +14,9 @@ POOLS = ("benchmark", "core", "all")
 SECONDS_BASE = 20
 SECONDS_PER_MODEL = 14
 SLOW_MODEL_SECONDS = {"GradientBoosting": 18}
+TUNING_FIT_SECONDS = {"MLP": 1.5, "GradientBoosting": 1.2, "HistGradientBoosting": 0.9, "RandomForest": 0.6, "ExtraTrees": 0.5, "CatBoost": 1.5, "XGBoost": 0.6, "LightGBM": 0.5}
+DEFAULT_TUNING_FIT_SECONDS = 0.3
+TUNING_PARALLELISM = 2
 
 _MLP_NOTE = "{name} was represented by scikit-learn's MLPClassifier."
 _LINEAR_NOTE = "{name} was represented by scikit-learn's LogisticRegression."
@@ -113,9 +117,15 @@ def power_check(datasets: int, claims: list[dict[str, Any]]) -> None:
         )
 
 
-def deviation_notes(datasets: list[str], params: dict[str, Any], mapped: list[str]) -> list[str]:
+def deviation_notes(datasets: list[str], params: dict[str, Any], mapped: list[str], tuning: dict[str, int] | None = None) -> list[str]:
     notes = list(mapped)
-    if params:
+    if tuning:
+        notes.append(
+            f"Each model was tuned on every dataset with a random search of {tuning['iterations']} configurations from a small fixed grid "
+            f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate {int(TUNING_SHARE * 100)}% tuning set), a much smaller search than a full study would run; "
+            "the remaining rows were used for evaluation."
+        )
+    elif params:
         notes.append("The listed parameters are single configurations chosen in advance, not the result of a hyperparameter search.")
     else:
         notes.append("No hyperparameter search: every model ran with library default parameters.")
@@ -140,15 +150,17 @@ def assemble_spec(
     dataset_count: int | None = None,
     mapped_notes: list[str] | None = None,
     params: dict[str, dict[str, Any]] | None = None,
+    tuning: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     datasets = select_datasets(pool, dataset_count)
-    notes = deviation_notes(datasets, params or {}, mapped_notes or [])
+    notes = deviation_notes(datasets, params or {}, mapped_notes or [], tuning)
     if len(notes) > MAX_NOTES:
         raise PlanningError(f"too many deviation notes ({len(notes)}); at most {MAX_NOTES} fit in a campaign")
     raw = {
         "title": title,
         "models": models,
         "params": params or {},
+        "tuning": tuning or {},
         "datasets": datasets,
         "claims": claims,
         "source": {**(source or {}), "deviations": notes},
@@ -159,8 +171,12 @@ def assemble_spec(
 
 
 def estimate_cost(spec: dict[str, Any], workers: int = DEFAULT_WORKERS, attempts: int = MAX_ATTEMPTS) -> dict[str, int]:
-    runs = len(spec["models"]) + len(spec.get("params") or {})
+    tuning = spec.get("tuning") or {}
+    runs = len(spec["models"]) + (len(spec["models"]) if tuning else len(spec.get("params") or {}))
     per_dataset = SECONDS_BASE + SECONDS_PER_MODEL * runs + sum(SLOW_MODEL_SECONDS.get(model, 0) for model in spec["models"])
+    if tuning:
+        fits = tuning["iterations"] * tuning["folds"]
+        per_dataset += int(sum(fits * TUNING_FIT_SECONDS.get(model, DEFAULT_TUNING_FIT_SECONDS) for model in spec["models"]) / TUNING_PARALLELISM)
     datasets = len(spec["datasets"])
     waves = math.ceil(datasets / max(1, workers))
     return {

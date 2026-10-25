@@ -2,6 +2,7 @@ from typing import Any
 
 from app.campaign.descriptors import descriptors_code
 from app.campaign.provenance import provenance_code
+from app.campaign.tuning import TuningError, tuning_code, validate_tuning
 from app.datasets import DATASETS, loader_code
 from app.seeds import SPLIT_SEEDS
 from app.variants import baseline_name
@@ -47,6 +48,7 @@ def build_script(
     models: list[str],
     params: dict[str, dict[str, Any]] | None = None,
     seeds: tuple[int, ...] = SPLIT_SEEDS,
+    tuning: dict[str, int] | None = None,
 ) -> str:
     if dataset not in DATASETS:
         raise ProtocolError(f"unknown dataset {dataset}")
@@ -61,6 +63,12 @@ def build_script(
         raise ProtocolError("parameters for models that are not in the campaign: " + ", ".join(stray))
     if not seeds:
         raise ProtocolError("at least one split seed is needed")
+    try:
+        tuning = validate_tuning(tuning, models)
+    except TuningError as exc:
+        raise ProtocolError(str(exc)) from exc
+    if tuning and params:
+        raise ProtocolError("tuning and listed parameters cannot be combined")
 
     packages = list(dict.fromkeys(ESTIMATORS[model]["package"] for model in models if "package" in ESTIMATORS[model]))
     lines: list[str] = []
@@ -83,7 +91,14 @@ def build_script(
             imports[entry["module"]].append(entry["cls"])
     lines.extend(f"from {module} import {', '.join(names)}" for module, names in imports.items())
     entries: list[str] = []
+    if tuning:
+        lines.append(tuning_code(models, tuning["iterations"], tuning["folds"], ESTIMATORS))
     for model in models:
+        if tuning:
+            entry = ESTIMATORS[model]
+            entries.append(f'    "{model}": with_preprocessing({entry["cls"]}(**{{**{entry["fixed"]!r}, **tuned[{model!r}]}})),')
+            entries.append(f'    "{baseline_name(model)}": with_preprocessing({_constructor(model, None)}),')
+            continue
         entries.append(f'    "{model}": with_preprocessing({_constructor(model, params.get(model))}),')
         if model in params:
             entries.append(f'    "{baseline_name(model)}": with_preprocessing({_constructor(model, None)}),')

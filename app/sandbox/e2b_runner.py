@@ -13,6 +13,8 @@ class SandboxCodeError(RuntimeError):
 DATA_PATH = "/home/user/data.csv"
 RUN_TIMEOUT_SECONDS = 240
 SANDBOX_LIFETIME_SECONDS = 300
+TUNED_RUN_TIMEOUT_SECONDS = 900
+TUNED_LIFETIME_SECONDS = 1100
 INSTALL_TIMEOUT_SECONDS = 120
 INSTALL_CODE = (
     "import importlib, subprocess, sys\n"
@@ -53,17 +55,22 @@ def build_csv(csv_schema: str) -> str:
     return buffer.getvalue()
 
 
-def run_classification(code: str, csv_schema: str) -> str:
+def run_classification(
+    code: str,
+    csv_schema: str,
+    run_timeout: int = RUN_TIMEOUT_SECONDS,
+    lifetime: int = SANDBOX_LIFETIME_SECONDS,
+) -> str:
     if not E2B_API_KEY:
         raise RuntimeError("E2B_API_KEY is missing")
     csv_text = build_csv(csv_schema)
-    sandbox = Sandbox.create(api_key=E2B_API_KEY, timeout=SANDBOX_LIFETIME_SECONDS)
+    sandbox = Sandbox.create(api_key=E2B_API_KEY, timeout=lifetime)
     try:
         sandbox.files.write(DATA_PATH, csv_text)
         installed = sandbox.run_code(INSTALL_CODE, timeout=INSTALL_TIMEOUT_SECONDS)
         if installed.error is not None:
             raise RuntimeError(f"datasets package could not be installed: {installed.error.value}")
-        execution = sandbox.run_code(code, timeout=RUN_TIMEOUT_SECONDS)
+        execution = sandbox.run_code(code, timeout=run_timeout)
     finally:
         sandbox.kill()
     if execution.error is not None:
@@ -71,3 +78,7 @@ def run_classification(code: str, csv_schema: str) -> str:
             f"{execution.error.name}: {execution.error.value}\n{execution.error.traceback}"
         )
     return "\n".join(execution.logs.stdout)
+
+
+def run_tuned_classification(code: str, csv_schema: str) -> str:
+    return run_classification(code, csv_schema, TUNED_RUN_TIMEOUT_SECONDS, TUNED_LIFETIME_SECONDS)

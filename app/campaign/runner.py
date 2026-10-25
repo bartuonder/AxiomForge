@@ -6,8 +6,9 @@ from typing import Any, Callable
 from app.campaign.descriptors import dataset_descriptors, parse_descriptors
 from app.campaign.protocol import build_script
 from app.campaign.provenance import parse_provenance
+from app.campaign.tuning import effective_params, parse_tuning
 from app.graph.verifier import parameter_effects, performance_comparisons, summarize_seed_runs, without_baselines
-from app.sandbox.e2b_runner import SandboxCodeError, run_classification
+from app.sandbox.e2b_runner import SandboxCodeError, run_classification, run_tuned_classification
 from app.seeds import SPLIT_SEEDS
 from app.tracking.mlflow_logger import parse_dataset_profile, parse_model_results
 from app.variants import expected_keys
@@ -32,12 +33,13 @@ def _check_rows(rows: list[dict[str, Any]], models: list[str], params: dict[str,
 def run_dataset(
     dataset: str,
     spec: dict[str, Any],
-    execute: Callable[[str, str], str] = run_classification,
+    execute: Callable[[str, str], str] | None = None,
     seeds: tuple[int, ...] = SPLIT_SEEDS,
     attempts: int = MAX_ATTEMPTS,
 ) -> dict[str, Any]:
-    models, params = spec["models"], spec.get("params") or {}
-    script = build_script(dataset, models, params, seeds)
+    models, params, tuning = spec["models"], effective_params(spec), spec.get("tuning") or {}
+    script = build_script(dataset, models, spec.get("params") or {}, seeds, tuning)
+    execute = execute or (run_tuned_classification if tuning else run_classification)
     last_error = ""
     for attempt in range(1, attempts + 1):
         started = time.time()
@@ -61,6 +63,7 @@ def run_dataset(
             "seconds": time.time() - started,
             "profile": profile,
             "provenance": parse_provenance(output),
+            "tuning": parse_tuning(output) if tuning else {},
             "descriptors": dataset_descriptors(profile, parse_descriptors(output)),
             "summary": summarize_seed_runs([rows]),
             "performance": performance_comparisons(main_runs, samples),
@@ -72,7 +75,7 @@ def run_dataset(
 
 def run_campaign(
     spec: dict[str, Any],
-    execute: Callable[[str, str], str] = run_classification,
+    execute: Callable[[str, str], str] | None = None,
     workers: int = DEFAULT_WORKERS,
     on_update: Callable[[str, dict[str, Any]], None] | None = None,
     seeds: tuple[int, ...] = SPLIT_SEEDS,

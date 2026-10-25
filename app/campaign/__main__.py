@@ -10,7 +10,6 @@ from app.campaign.runner import DEFAULT_WORKERS
 from app.campaign.service import execute_campaign
 from app.campaign.spec import CampaignSpecError
 from app.campaign.tracking import log_campaign
-from app.sandbox.e2b_runner import run_classification
 
 EXIT_OK = 0
 EXIT_UNFINISHED = 1
@@ -28,6 +27,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="datasets run in parallel")
     run.add_argument("--id", help="campaign id; a new one is generated when omitted")
     run.add_argument("--mlflow", action="store_true", help="also record the campaign in MLflow")
+    run.add_argument("--tuning", type=int, help="tune every model by random search with this many configurations per dataset")
     commands.add_parser("list", help="list stored campaigns")
     commands.add_parser("demos", help="list the ready campaigns")
     show = commands.add_parser("show", help="print the report of a stored campaign")
@@ -45,6 +45,8 @@ def _load_spec(arguments: argparse.Namespace) -> dict[str, Any]:
             raise CampaignSpecError(f"cannot read {arguments.spec}: {exc}") from exc
     if arguments.datasets:
         spec["datasets"] = [key.strip() for key in arguments.datasets.split(",") if key.strip()]
+    if arguments.tuning is not None:
+        spec["tuning"] = {"iterations": arguments.tuning}
     return spec
 
 
@@ -66,7 +68,7 @@ def _describe(state: dict[str, Any]) -> list[str]:
     return lines
 
 
-def main(argv: list[str] | None = None, execute: Callable[[str, str], str] = run_classification, out=None) -> int:
+def main(argv: list[str] | None = None, execute: Callable[[str, str], str] | None = None, out=None) -> int:
     out = out or sys.stdout
     arguments = _parser().parse_args(argv)
     if arguments.command == "demos":

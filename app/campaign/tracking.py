@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any
 
@@ -114,6 +115,9 @@ def log_campaign(
                     if isinstance(values, dict):
                         for key, value in values.items():
                             mlflow.log_metric(f"{model}/{key}", float(value))
+                for model, found in ((record.get("tuning") or {}).get("models") or {}).items():
+                    mlflow.log_param(f"tuned/{model}", json.dumps(found["params"])[:500])
+                    mlflow.log_metric(f"tuned/{model}/cv_roc_auc", float(found["cv_roc_auc"]))
         for dataset, failure in coverage["failed"].items():
             with mlflow.start_run(nested=True, run_name=dataset):
                 mlflow.set_tag("run_type", "campaign_dataset")

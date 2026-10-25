@@ -10,7 +10,6 @@ from app.campaign.report import render_report, report_issues
 from app.campaign.provenance import spec_digest
 from app.campaign.runner import DEFAULT_WORKERS, MAX_ATTEMPTS, run_campaign
 from app.campaign.spec import CampaignSpecError, validate_campaign
-from app.sandbox.e2b_runner import run_classification
 from app.seeds import SPLIT_SEEDS
 
 logger = logging.getLogger("axiomforge")
@@ -89,7 +88,7 @@ def _track(tracker: Callable[..., str] | None, campaign_id: str, *arguments: Any
 def execute_campaign(
     raw_spec: Any,
     campaign_id: str | None = None,
-    execute: Callable[[str, str], str] = run_classification,
+    execute: Callable[[str, str], str] | None = None,
     workers: int = DEFAULT_WORKERS,
     seeds: tuple[int, ...] = SPLIT_SEEDS,
     attempts: int = MAX_ATTEMPTS,

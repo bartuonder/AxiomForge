@@ -9,6 +9,7 @@ from app.campaign.planning import POOLS, PlanningError, assemble_spec, estimate_
 from app.campaign.protocol import ESTIMATORS
 from app.campaign.spec import CampaignSpecError
 from app.campaign.stats import METRICS
+from app.campaign.tuning import DEFAULT_FOLDS, DEFAULT_ITERATIONS
 from app.config import OPENAI_API_KEY
 
 logger = logging.getLogger("axiomforge")
@@ -32,6 +33,7 @@ SYSTEM_PROMPT = (
     "title (a short name), "
     "source_index (the number of the source paper the claims come from, or 0 when the claims come from the user query itself), "
     "pool (benchmark for the nine tabular benchmark datasets, or all for the benchmark plus the core datasets), "
+    "tuned (true only when the user asks for tuned models or the source tuned its models; tuning every model by random search makes the run several times slower; otherwise false), "
     f"claims (at most {MAX_CLAIMS}), each with: statement (one sentence), "
     f"metrics (a list from: {', '.join(METRICS)}), "
     "subject (a list of model names that are claimed to score higher), "
@@ -116,6 +118,10 @@ def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str,
     pool = raw.get("pool") or "benchmark"
     if pool not in POOLS:
         raise PlanningError(f"pool must be one of: {', '.join(POOLS)}")
+    tuned = raw.get("tuned", False)
+    if not isinstance(tuned, bool):
+        raise PlanningError("tuned must be true or false")
+    tuning = {"iterations": DEFAULT_ITERATIONS, "folds": DEFAULT_FOLDS} if tuned else None
     models: list[str] = []
     notes: list[str] = []
     claims: list[dict[str, Any]] = []
@@ -130,7 +136,7 @@ def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str,
         raise PlanningError("the claims of one candidate must all be quoted from the same origin, the source paper or the user query")
     if found[0] == "query":
         source = {}
-    spec = assemble_spec(str(raw.get("title") or "").strip(), models, claims, source, pool=pool, mapped_notes=notes)
+    spec = assemble_spec(str(raw.get("title") or "").strip(), models, claims, source, pool=pool, mapped_notes=notes, tuning=tuning)
     evidence = [
         {"claim": claim["id"], "quote": quote, "source": source.get("title", "user query")}
         for claim, quote in zip(spec["claims"], quotes)

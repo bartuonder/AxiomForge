@@ -4,6 +4,7 @@ from typing import Any
 from app.campaign.descriptors import DESCRIPTOR_LABELS
 from app.campaign.ledger import build_ledger, find
 from app.campaign.provenance import environment_sentence, spec_digest
+from app.campaign.tuning import TUNING_SHARE
 from app.campaign.stats import ALPHA, METRICS, MIN_DATASETS, MIN_FRIEDMAN_DATASETS
 from app.graph.evidence import METRIC_NAMES, configuration_sentence
 from app.seeds import SPLIT_SEEDS
@@ -52,6 +53,26 @@ def _claim_lines(claim: dict[str, Any], ledger: list[dict[str, Any]]) -> list[st
                 f"Holm-adjusted p = {_p(row['adjusted_p_value'])}, rank-biserial r = {row['rank_biserial']:+.2f} {ref}."
             )
     return lines
+
+
+def _tuned_lines(finished: list[str], ledger: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for dataset in finished:
+        entry = find(ledger, "dataset", dataset)
+        models = (entry.get("tuning") or {}).get("models") or {}
+        if not models:
+            continue
+        described = "; ".join(
+            f"{model} ({', '.join(f'{name}={value}' for name, value in found['params'].items()) or 'defaults'})" for model, found in models.items()
+        )
+        lines.append(f"- {dataset}: {described} {_ref(ledger, 'dataset', dataset)}")
+    if not lines:
+        return []
+    return ["Selected configurations (best cross-validated ROC-AUC on the tuning set):", ""] + lines + [""]
+
+
+def _treatment(row: dict[str, Any]) -> str:
+    return "tuned by random search" if (row.get("params") or {}).get("tuned") else "with the listed parameters"
 
 
 def _moderator_lines(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
@@ -119,10 +140,18 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
     if source:
         lines.append("Source: " + "; ".join(source[name] for name in ("title", "citation", "url") if name in source) + ".")
         lines.append("")
-    sentence = "Models and configuration: " + configuration_sentence({"models": spec["models"], "params": spec.get("params") or {}})
-    sentence += " Every other argument is fixed by the protocol."
-    if spec.get("params"):
-        sentence += " A configured model also runs once with library defaults as its control."
+    tuning = spec.get("tuning") or {}
+    if tuning:
+        sentence = (
+            f"Models and configuration: every model was tuned on each dataset by a random search of {tuning['iterations']} configurations "
+            f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate tuning set of {int(TUNING_SHARE * 100)}% of the rows that was excluded from evaluation) "
+            "and also ran once with library defaults as its control. Every other argument is fixed by the protocol."
+        )
+    else:
+        sentence = "Models and configuration: " + configuration_sentence({"models": spec["models"], "params": spec.get("params") or {}})
+        sentence += " Every other argument is fixed by the protocol."
+        if spec.get("params"):
+            sentence += " A configured model also runs once with library defaults as its control."
     lines.append(sentence)
     lines += [
         "",
@@ -143,8 +172,11 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
             entry = find(ledger, "dataset", dataset)
             revision = (entry.get("provenance") or {}).get("revision", "unknown")
             suffix = f", revision {revision[:10]}" if revision != "unknown" else ""
-            lines.append(f"- {dataset}: {entry['source']}, {int(entry['samples'])} rows, {int(entry['features'])} features{suffix} {_ref(ledger, 'dataset', dataset)}")
+            evaluated = (entry.get("tuning") or {}).get("rows_eval")
+            used = f" ({evaluated} used for evaluation)" if evaluated else ""
+            lines.append(f"- {dataset}: {entry['source']}, {int(entry['samples'])} rows{used}, {int(entry['features'])} features{suffix} {_ref(ledger, 'dataset', dataset)}")
         lines.append("")
+        lines += _tuned_lines(finished, ledger)
         environment = environment_sentence({dataset: (find(ledger, "dataset", dataset).get("provenance") or {}) for dataset in finished})
         if environment:
             lines += [environment, ""]
@@ -182,12 +214,13 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
             if row["significant"]:
                 direction = "higher" if row["median_difference"] > 0 else "lower"
                 lines.append(
-                    f"{row['model']} with the listed parameters scored {direction} than {row['model']} with default parameters on "
+                    f"{row['model']} {_treatment(row)} scored {direction} than {row['model']} with default parameters on "
                     f"{METRIC_NAMES[row['metric']]} on {max(row['wins'], row['losses'])} of {row['datasets']} datasets "
                     f"(median difference {abs(row['median_difference']):.4f}, adjusted p = {_p(row['adjusted_p_value'])}) {ref}."
                 )
             else:
-                lines.append(f"No significant effect of the listed parameters of {row['model']} on {METRIC_NAMES[row['metric']]} across datasets was found {ref}.")
+                what = "tuning" if (row.get("params") or {}).get("tuned") else "the listed parameters"
+                lines.append(f"No significant effect of {what} of {row['model']} on {METRIC_NAMES[row['metric']]} across datasets was found {ref}.")
         if analysis["parameter_effects"]:
             lines.append("")
         lines += _moderator_lines(analysis, ledger)
@@ -195,7 +228,11 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
     limitations = [
         "Every conclusion concerns the datasets listed above; with a handful of datasets the tests have little power and a non-significant result is not evidence of equivalence.",
         "Within a dataset the repeated splits overlap, so they are summarised by their mean and never used as independent samples across datasets.",
-        "Only scikit-learn style estimators with the arguments fixed by the protocol were run; the listed parameters are single configurations, not the result of a search.",
+        (
+            "Tuning used a small random search over fixed discrete grids with one tuning set per dataset; a larger search could change the ranking."
+            if spec.get("tuning")
+            else "Only scikit-learn style estimators with the arguments fixed by the protocol were run; the listed parameters are single configurations, not the result of a search."
+        ),
         "Datasets larger than the sampling limit were sampled with a fixed seed, which changes their size but not the class balance of the benchmark.",
     ]
     if failed:

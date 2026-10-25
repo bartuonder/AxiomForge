@@ -4,6 +4,7 @@ from typing import Any
 from app.agents.spec import MODEL_PARAMS, is_default
 from app.campaign.protocol import ESTIMATORS, MIN_CAMPAIGN_MODELS
 from app.campaign.stats import METRICS
+from app.campaign.tuning import TuningError, validate_tuning
 from app.datasets import DATASETS, benchmark_keys
 
 MAX_STATEMENT = 500
@@ -152,10 +153,18 @@ def validate_campaign(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise CampaignSpecError("a campaign must be a JSON object")
     models = _models(raw.get("models"))
+    params = _params(raw.get("params"), models)
+    try:
+        tuning = validate_tuning(raw.get("tuning"), models)
+    except TuningError as exc:
+        raise CampaignSpecError(str(exc)) from exc
+    if tuning and params:
+        raise CampaignSpecError("tuning and listed parameters cannot be combined")
     return {
         "title": _text(raw.get("title"), "title", MAX_TITLE),
         "models": models,
-        "params": _params(raw.get("params"), models),
+        "params": params,
+        "tuning": tuning,
         "datasets": _datasets(raw.get("datasets")),
         "claims": _claims(raw.get("claims"), models),
         "source": _source(raw.get("source")),

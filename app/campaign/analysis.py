@@ -12,13 +12,14 @@ from app.campaign.stats import (
     score_matrix,
 )
 from app.campaign.moderators import moderator_rows
+from app.campaign.tuning import effective_params
 from app.graph.stats import holm_adjust
 from app.variants import baseline_name
 
 
 def _parameter_effects(spec: dict[str, Any], per_dataset: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for model, values in (spec.get("params") or {}).items():
+    for model, values in effective_params(spec).items():
         control = baseline_name(model)
         for metric in METRICS:
             _, names, matrix = score_matrix(per_dataset, metric, [model, control])
