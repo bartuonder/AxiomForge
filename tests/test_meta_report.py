@@ -298,6 +298,29 @@ class TestProse:
         prose = meta_report.write_prose("q", SOURCES, SPEC, analysis, ledger)
         assert prose["discussion"] == "" and "Facts for the discussion:\n(none)" in prompts[0]
 
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("Trees win on all datasets.", "Trees win on all the datasets tested."),
+            ("Trees win across All Datasets and metrics.", "Trees win across All the datasets tested and metrics."),
+            ("It held on every dataset.", "It held on every dataset tested."),
+            ("It held on every dataset tested.", "It held on every dataset tested."),
+            ("It held on all datasets that were evaluated.", "It held on all datasets that were evaluated."),
+            ("It held on all datasets in this campaign.", "It held on all datasets in this campaign."),
+            ("It held on all the datasets tested.", "It held on all the datasets tested."),
+            ("Each dataset differs and all data differ.", "Each dataset differs and all data differ."),
+        ],
+    )
+    def test_an_unscoped_dataset_phrase_is_scoped_to_the_datasets_tested(self, raw, expected):
+        assert meta_report.scope_datasets(raw) == expected
+
+    def test_the_scoping_applies_to_both_sections(self, llm):
+        replies, _ = llm
+        replies.append(prose_reply(introduction="We test all datasets.", discussion="Trees win on every dataset."))
+        analysis, ledger, _ = world()
+        prose = meta_report.write_prose("q", SOURCES, SPEC, analysis, ledger)
+        assert prose == {"introduction": "We test all the datasets tested.", "discussion": "Trees win on every dataset tested."}
+
     def test_the_text_is_stripped(self, llm):
         replies, _ = llm
         replies.append(prose_reply(introduction="  Intro.  \n", discussion="\nDiscussion may differ.\n"))
@@ -454,6 +477,11 @@ class TestPromptRules:
         assert "never use the words significant, significantly, supported, supports, confirmed or proved" in meta_report.DISCUSSION_RULES
         assert "significance is reported only in the Results" in meta_report.DISCUSSION_RULES
         assert "plain words such as larger, smaller, ahead or behind" in meta_report.DISCUSSION_RULES
+
+    def test_the_discussion_rules_name_the_phrases_the_gate_rejects(self):
+        rules = meta_report.DISCUSSION_RULES
+        assert "Never write the phrases all datasets, every dataset, always or in general; write the datasets tested instead" in rules
+        assert "Also avoid the words demonstrated, demonstrates, proves, refutes and refuted" in rules
 
 
 class TestIntroductionRules:

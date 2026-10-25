@@ -207,6 +207,45 @@ class TestGeneralisation:
             found = issues({**PROSE, section: f"{PROSE[section]} Trees win {phrase}."})
             assert any(f"The {section.capitalize()} generalises beyond the datasets tested with {matched!r}" in issue for issue in found)
 
+    @pytest.mark.parametrize(
+        "phrase",
+        [
+            "on all datasets tested",
+            "across all datasets tested in this campaign",
+            "on every dataset examined",
+            "on all datasets that were evaluated",
+            "on all datasets in this campaign",
+            "on every dataset of this campaign",
+            "on all datasets included here",
+            "on all datasets studied",
+        ],
+    )
+    def test_a_dataset_phrase_that_names_its_scope_is_allowed(self, phrase):
+        for section in ("introduction", "discussion"):
+            found = issues({**PROSE, section: f"{PROSE[section]} Trees win {phrase}."})
+            assert not any("generalises" in issue for issue in found)
+
+    def test_a_scope_word_far_from_the_phrase_does_not_count(self):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} Trees win on all datasets and nothing else was ever tested."})
+        assert any("generalises beyond the datasets tested with 'all datasets'" in issue for issue in found)
+
+    def test_a_scoped_phrase_does_not_hide_an_unscoped_one(self):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} Trees win on all datasets tested. Forests win on every dataset."})
+        assert any("with 'every dataset'" in issue for issue in found)
+
+    def test_other_absolute_words_stay_forbidden_even_with_a_scope_word(self):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} Trees always win on the datasets tested."})
+        assert any("with 'always'" in issue for issue in found)
+
+    def test_a_certainty_word_issue_names_the_banned_words_and_the_alternative(self):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} The claim was demonstrated."})
+        issue = next(issue for issue in found if "uses the word 'demonstrated'" in issue)
+        assert "do not use confirm, refute, prove, demonstrate or support" in issue and "scored higher" in issue
+
+    def test_the_issue_tells_how_to_fix_it(self):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} Trees win on all datasets."})
+        assert any("write 'the datasets tested' instead" in issue for issue in found)
+
     def test_the_deterministic_sections_may_say_every_one_of_the_datasets(self):
         assert not any("generalises" in issue for issue in issues())
 

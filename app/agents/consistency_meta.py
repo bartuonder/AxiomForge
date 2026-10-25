@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from app.agents.meta_report import split_sections
+from app.agents.meta_report import DATASET_SCOPE, split_sections
 from app.campaign.meta_evidence import VERDICT_TITLES
 from app.campaign.protocol import ESTIMATORS
 from app.campaign.report import report_issues
@@ -19,6 +19,8 @@ _VERDICT_WORDS = re.compile(r"\b(replicat\w*|contradict\w*|inconclusive)\b", re.
 _CAUSAL = re.compile(r"\b(because|due to|owing to|caused by|explained by|the reason|results? from|driven by|leads? to|thanks to|as a result of)\b", re.IGNORECASE)
 _HEDGE = re.compile(r"\b(may|might|could|possibly|perhaps|plausibly|potentially|probably|we speculate|it is possible|a possible|one possible)\b", re.IGNORECASE)
 _ABSOLUTE = re.compile(r"\b(always|never|universally|in general|generally speaking|all tabular|every tabular|any dataset|all datasets|every dataset|all data)\b", re.IGNORECASE)
+_SCOPABLE = {"all datasets", "every dataset"}
+_SCOPE = re.compile(DATASET_SCOPE, re.IGNORECASE)
 _NEGATIONS = ("not ", "n't", "fail", "unable", "cannot", "no ")
 _QUOTED = re.compile(r'"([^"]{20,})"')
 _DATASET_NAME = re.compile(r"\b(?:tb_[a-z0-9]+|" + "|".join(re.escape(key) for key in sorted(DATASETS, key=len, reverse=True)) + r")\b")
@@ -51,7 +53,10 @@ def _certainty_issues(sections: dict[str, str]) -> list[str]:
     issues = []
     for name in LLM_SECTIONS:
         for match in _FORBIDDEN_CERTAINTY.finditer(sections.get(name, "")):
-            issues.append(f"The {name} uses the word {match.group(0)!r}; use only the given verdict words and hedged wording.")
+            issues.append(
+                f"The {name} uses the word {match.group(0)!r}; use only the given verdict words and hedged wording: "
+                "do not use confirm, refute, prove, demonstrate or support, and state a result with the verdict word or a plain comparison such as 'scored higher'."
+            )
             break
     return issues
 
@@ -94,12 +99,19 @@ def _speculation_issues(sections: dict[str, str]) -> list[str]:
     return issues
 
 
+def _scoped(text: str, match: re.Match[str]) -> bool:
+    if match.group(0).lower() not in _SCOPABLE:
+        return False
+    return _SCOPE.match(text, match.end()) is not None
+
+
 def _generalisation_issues(sections: dict[str, str]) -> list[str]:
     issues = []
     for name in LLM_SECTIONS:
-        match = _ABSOLUTE.search(sections.get(name, ""))
+        text = sections.get(name, "")
+        match = next((found for found in _ABSOLUTE.finditer(text) if not _scoped(text, found)), None)
         if match:
-            issues.append(f"The {name} generalises beyond the datasets tested with {match.group(0)!r}.")
+            issues.append(f"The {name} generalises beyond the datasets tested with {match.group(0)!r}; write 'the datasets tested' instead.")
     return issues
 
 

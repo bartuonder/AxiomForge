@@ -36,6 +36,8 @@ DISCUSSION_RULES = (
     "do not introduce a verdict that the facts do not state; "
     "never use the words significant, significantly, supported, supports, confirmed or proved, because significance is reported only in the Results, "
     "and compare with plain words such as larger, smaller, ahead or behind. "
+    "Never write the phrases all datasets, every dataset, always or in general; write the datasets tested instead. "
+    "Also avoid the words demonstrated, demonstrates, proves, refutes and refuted. "
     "If no facts are given, return an empty discussion."
 )
 SYSTEM_PROMPT = (
@@ -125,6 +127,14 @@ def _complete(user: str) -> str:
     return response.choices[0].message.content or ""
 
 
+DATASET_SCOPE = r"\s+(?:that\s+(?:were\s+)?)?(?:tested|examined|studied|evaluated|included|in this campaign|of this campaign|in the campaign)\b"
+_UNSCOPED = re.compile(r"\b(all|every)\s+(datasets?)\b(?!" + DATASET_SCOPE + ")", re.IGNORECASE)
+
+
+def scope_datasets(text: str) -> str:
+    return _UNSCOPED.sub(lambda match: f"{match.group(1)} the datasets tested" if match.group(2).lower() == "datasets" else f"{match.group(1)} dataset tested", text)
+
+
 def write_prose(query: str, sources: list[dict[str, str]], spec: dict[str, Any], analysis: dict[str, Any], ledger: list[dict[str, Any]], feedback: str = "") -> dict[str, str]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
@@ -140,7 +150,7 @@ def write_prose(query: str, sources: list[dict[str, str]], spec: dict[str, Any],
         value = payload.get(name)
         if not isinstance(value, str):
             raise RuntimeError(f"meta reporter did not return {name}")
-        prose[name] = value.strip()
+        prose[name] = scope_datasets(value.strip())
     if not facts:
         prose["discussion"] = ""
     if not prose["introduction"]:
