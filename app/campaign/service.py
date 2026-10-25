@@ -7,8 +7,9 @@ from typing import Any, Callable
 from app.campaign import store
 from app.campaign.analysis import analyze_campaign
 from app.campaign.report import render_report, report_issues
+from app.campaign.provenance import spec_digest
 from app.campaign.runner import DEFAULT_WORKERS, MAX_ATTEMPTS, run_campaign
-from app.campaign.spec import validate_campaign
+from app.campaign.spec import CampaignSpecError, validate_campaign
 from app.sandbox.e2b_runner import run_classification
 from app.seeds import SPLIT_SEEDS
 
@@ -30,6 +31,7 @@ def _initial_state(campaign_id: str, spec: dict[str, Any], status: str) -> dict[
         "id": campaign_id,
         "title": spec["title"],
         "status": status,
+        "spec_sha256": spec_digest(spec),
         "datasets": {dataset: {"status": "queued"} for dataset in spec["datasets"]},
     }
 
@@ -95,6 +97,9 @@ def execute_campaign(
 ) -> dict[str, Any]:
     spec = validate_campaign(raw_spec)
     campaign_id = campaign_id or store.new_campaign_id()
+    queued = store.load_state(campaign_id)
+    if queued is not None and queued.get("spec_sha256") not in (None, spec_digest(spec)):
+        raise CampaignSpecError("the specification changed after it was queued")
     lock = threading.Lock()
     state = _initial_state(campaign_id, spec, "running") | {"started": store.now()}
     store.save_state(campaign_id, state)

@@ -38,6 +38,7 @@ def build_ledger(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[s
             seconds=float(result["seconds"]),
             attempts=int(result["attempts"]),
             script_sha256=script_digest(result["script"]),
+            provenance=result.get("provenance") or {},
             means=_means(result["summary"], models),
         )
     for dataset, failure in analysis["coverage"]["failed"].items():

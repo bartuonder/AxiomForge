@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
 from app.campaign.protocol import build_script
+from app.campaign.provenance import parse_provenance
 from app.graph.verifier import parameter_effects, performance_comparisons, summarize_seed_runs, without_baselines
 from app.sandbox.e2b_runner import SandboxCodeError, run_classification
 from app.seeds import SPLIT_SEEDS
@@ -58,6 +59,7 @@ def run_dataset(
             "attempts": attempt,
             "seconds": time.time() - started,
             "profile": profile,
+            "provenance": parse_provenance(output),
             "summary": summarize_seed_runs([rows]),
             "performance": performance_comparisons(main_runs, samples),
             "parameter_effects": parameter_effects([rows], samples, params),

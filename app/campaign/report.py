@@ -2,6 +2,7 @@ import re
 from typing import Any
 
 from app.campaign.ledger import build_ledger, find
+from app.campaign.provenance import environment_sentence, spec_digest
 from app.campaign.stats import ALPHA, METRICS, MIN_DATASETS, MIN_FRIEDMAN_DATASETS
 from app.graph.evidence import METRIC_NAMES, configuration_sentence
 from app.seeds import SPLIT_SEEDS
@@ -105,13 +106,20 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
         f"with a non-zero difference), Holm-adjusted within each family of tests; the Friedman test needs at least three models and {MIN_FRIEDMAN_DATASETS} datasets. "
         "A model family is scored by its best member on each dataset.",
         "",
+        f"Specification: SHA-256 {spec_digest(spec)}, computed before the first dataset started.",
+        "",
     ]
     if finished:
         lines += ["Datasets:", ""]
         for dataset in finished:
             entry = find(ledger, "dataset", dataset)
-            lines.append(f"- {dataset}: {entry['source']}, {int(entry['samples'])} rows, {int(entry['features'])} features {_ref(ledger, 'dataset', dataset)}")
+            revision = (entry.get("provenance") or {}).get("revision", "unknown")
+            suffix = f", revision {revision[:10]}" if revision != "unknown" else ""
+            lines.append(f"- {dataset}: {entry['source']}, {int(entry['samples'])} rows, {int(entry['features'])} features{suffix} {_ref(ledger, 'dataset', dataset)}")
         lines.append("")
+        environment = environment_sentence({dataset: (find(ledger, "dataset", dataset).get("provenance") or {}) for dataset in finished})
+        if environment:
+            lines += [environment, ""]
     if source.get("deviations"):
         lines += ["Deviations from the source:", ""] + [f"- {note}" for note in source["deviations"]] + [""]
     if "error" not in analysis:
