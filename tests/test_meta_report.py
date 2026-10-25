@@ -256,6 +256,36 @@ class TestProse:
         meta_report.write_prose("q", SOURCES, SPEC, analysis, ledger, "The discussion contains digits.")
         assert "Your previous text was rejected for these reasons, rewrite both sections and fix them: The discussion contains digits." in prompts[0]
 
+    def test_a_rewrite_shows_the_previous_text_and_asks_for_minimal_changes(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        analysis, ledger, _ = world()
+        previous = {"introduction": "Old intro.", "discussion": "Old discussion."}
+        meta_report.write_prose("q", SOURCES, SPEC, analysis, ledger, "Fix it.", previous)
+        assert "Fix it.\n\nYour previous Introduction:\nOld intro.\n\nYour previous Discussion:\nOld discussion." in prompts[0]
+        assert prompts[0].endswith("Keep every sentence that the reasons do not touch and change only what they require.")
+
+    def test_the_previous_text_is_ignored_without_feedback(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        analysis, ledger, _ = world()
+        meta_report.write_prose("q", SOURCES, SPEC, analysis, ledger, "", {"introduction": "Old intro.", "discussion": "Old discussion."})
+        assert "Old intro." not in prompts[0] and "previous" not in prompts[0]
+
+    def test_an_empty_previous_section_is_left_out(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        analysis, ledger, _ = world()
+        meta_report.write_prose("q", SOURCES, SPEC, analysis, ledger, "Fix it.", {"introduction": "Old intro.", "discussion": ""})
+        assert "Your previous Introduction:\nOld intro." in prompts[0] and "Your previous Discussion" not in prompts[0]
+
+    def test_a_rewrite_without_previous_text_keeps_the_old_brief(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        analysis, ledger, _ = world()
+        meta_report.write_prose("q", SOURCES, SPEC, analysis, ledger, "Fix it.")
+        assert prompts[0].endswith("rewrite both sections and fix them: Fix it.")
+
     def test_without_sources_the_brief_says_so(self, llm):
         replies, prompts = llm
         replies.append(prose_reply())
@@ -405,6 +435,35 @@ class TestWriteMetaPaper:
         self.stored()
         meta_report.write_meta_paper(self.state(consistency_feedback="No digits in the discussion."), "thread-1")
         assert "No digits in the discussion." in prompts[0]
+
+    def test_the_previous_paper_of_the_run_is_shown_to_the_rewrite(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        self.stored()
+        paper = "# T\n\n## Introduction\n\nOld intro.\n\n## Discussion\n\nOld discussion.\n\n## Limitations\n\nx\n"
+        meta_report.write_meta_paper(self.state(consistency_feedback="No digits.", paper_markdown=paper), "thread-1")
+        assert "Your previous Introduction:\nOld intro.\n\nYour previous Discussion:\nOld discussion." in prompts[0]
+
+    def test_the_first_draft_has_no_previous_paper(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        self.stored()
+        meta_report.write_meta_paper(self.state(paper_markdown="# T\n\n## Discussion\n\nOld discussion.\n"), "thread-1")
+        assert "Old discussion." not in prompts[0]
+
+    def test_a_missing_previous_paper_is_tolerated(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        self.stored()
+        meta_report.write_meta_paper(self.state(consistency_feedback="No digits."), "thread-1")
+        assert "No digits." in prompts[0] and "Your previous Introduction" not in prompts[0]
+
+    def test_an_empty_previous_paper_is_tolerated(self, llm):
+        replies, prompts = llm
+        replies.append(prose_reply())
+        self.stored()
+        meta_report.write_meta_paper(self.state(consistency_feedback="No digits.", paper_markdown=None), "thread-1")
+        assert "No digits." in prompts[0] and "Your previous Introduction" not in prompts[0]
 
     def test_a_missing_campaign_report_stops_the_paper(self, llm):
         with pytest.raises(RuntimeError, match="the campaign report is missing"):

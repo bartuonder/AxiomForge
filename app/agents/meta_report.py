@@ -105,7 +105,7 @@ def claim_sources(spec: dict[str, Any], sources: list[dict[str, str]]) -> list[d
     return [paper for paper in sources if title and paper["title"] == title]
 
 
-def _brief(query: str, sources: list[dict[str, str]], spec: dict[str, Any], facts: list[str], feedback: str) -> str:
+def _brief(query: str, sources: list[dict[str, str]], spec: dict[str, Any], facts: list[str], feedback: str, previous: dict[str, str] | None = None) -> str:
     own = claim_sources(spec, sources)
     listing = "\n\n".join(f'"{paper["title"]}": {paper["abstract"]}' for paper in own) or "No source paper states these claims; they come from the user query."
     claims = "\n".join(f"- {claim['id']}: {claim['statement']}" for claim in spec["claims"])
@@ -113,7 +113,17 @@ def _brief(query: str, sources: list[dict[str, str]], spec: dict[str, Any], fact
     text += "\n".join(f"- {fact}" for fact in facts) if facts else "(none)"
     if feedback:
         text += f"\n\nYour previous text was rejected for these reasons, rewrite both sections and fix them: {feedback}"
+        shown = [(name, (previous or {}).get(name, "")) for name in PROSE_SECTIONS]
+        shown = [(name, value) for name, value in shown if value]
+        if shown:
+            text += "".join(f"\n\nYour previous {name.capitalize()}:\n{value}" for name, value in shown)
+            text += "\n\nKeep every sentence that the reasons do not touch and change only what they require."
     return text
+
+
+def _previous_prose(paper: str) -> dict[str, str]:
+    sections = split_sections(paper or "")
+    return {name: sections.get(name.capitalize(), "") for name in PROSE_SECTIONS}
 
 
 def _complete(user: str) -> str:
@@ -135,12 +145,12 @@ def scope_datasets(text: str) -> str:
     return _UNSCOPED.sub(lambda match: f"{match.group(1)} the datasets tested" if match.group(2).lower() == "datasets" else f"{match.group(1)} dataset tested", text)
 
 
-def write_prose(query: str, sources: list[dict[str, str]], spec: dict[str, Any], analysis: dict[str, Any], ledger: list[dict[str, Any]], feedback: str = "") -> dict[str, str]:
+def write_prose(query: str, sources: list[dict[str, str]], spec: dict[str, Any], analysis: dict[str, Any], ledger: list[dict[str, Any]], feedback: str = "", previous: dict[str, str] | None = None) -> dict[str, str]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
     facts = discussion_facts(analysis, ledger)
     try:
-        payload = json.loads(_complete(_brief(query, sources, spec, facts, feedback)))
+        payload = json.loads(_complete(_brief(query, sources, spec, facts, feedback, previous)))
     except json.JSONDecodeError as exc:
         raise RuntimeError("meta reporter returned invalid JSON") from exc
     if not isinstance(payload, dict):
@@ -196,6 +206,7 @@ def write_meta_paper(state: dict[str, Any], run_id: str) -> str:
         analysis,
         ledger,
         state.get("consistency_feedback", ""),
+        _previous_prose(state.get("paper_markdown", "")),
     )
     markdown = compose(spec, analysis, ledger, campaign_report, prose)
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
