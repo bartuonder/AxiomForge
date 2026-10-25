@@ -14,6 +14,15 @@ VERDICT_TITLES = {
 }
 
 
+AGREEMENT = {
+    "replicated": "agrees with the source",
+    "partially_replicated": "agrees with the source on some metrics only",
+    "contradicted": "disagrees with the source, the opposite held",
+    "inconclusive": "neither confirms nor refutes the source",
+    "not_testable": "could not test the claim of the source",
+}
+
+
 def metric_leaders(analysis: dict[str, Any]) -> dict[str, str]:
     leaders: dict[str, str] = {}
     for metric, result in (analysis.get("friedman") or {}).items():
@@ -63,6 +72,16 @@ def verdict_sentences(analysis: dict[str, Any], ledger: list[dict[str, Any]]) ->
         else:
             detail = "; ".join(f"{VERDICT_TITLES[verdict]} on {_names(metrics)}" for verdict, metrics in by_verdict.items())
             sentences.append(f"{head} was **{title}**: {detail} {refs}.")
+    return sentences
+
+
+def comparison_sentences(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
+    sentences = []
+    for claim in analysis.get("claims") or []:
+        if not claim["claim"].get("quote"):
+            continue
+        refs = " ".join(_ref(ledger, "claim", f"{claim['id']}:{row['metric']}") for row in claim["rows"])
+        sentences.append(f"**{claim['id']}** ({claim['statement']}) was stated by the source and the campaign result {AGREEMENT[claim['verdict']]} {refs}.")
     return sentences
 
 
@@ -164,4 +183,4 @@ def effect_sentences(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> 
 def discussion_facts(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
     if "error" in analysis:
         return []
-    return verdict_sentences(analysis, ledger) + leader_sentence(analysis, ledger) + exception_sentences(analysis, ledger) + margin_sentences(analysis, ledger) + effect_sentences(analysis, ledger) + moderator_sentences(analysis, ledger)
+    return verdict_sentences(analysis, ledger) + leader_sentence(analysis, ledger) + exception_sentences(analysis, ledger) + margin_sentences(analysis, ledger) + effect_sentences(analysis, ledger) + moderator_sentences(analysis, ledger) + comparison_sentences(analysis, ledger)

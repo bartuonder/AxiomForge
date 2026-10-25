@@ -3,6 +3,7 @@ from typing import Any
 
 from app.campaign.descriptors import DESCRIPTOR_LABELS
 from app.campaign.ledger import build_ledger, find
+from app.campaign.meta_evidence import AGREEMENT
 from app.campaign.provenance import environment_sentence, spec_digest
 from app.campaign.tuning import TUNING_SHARE
 from app.campaign.stats import ALPHA, METRICS, MIN_DATASETS, MIN_FRIEDMAN_DATASETS
@@ -73,6 +74,19 @@ def _tuned_lines(finished: list[str], ledger: list[dict[str, Any]]) -> list[str]
 
 def _treatment(row: dict[str, Any]) -> str:
     return "tuned by random search" if (row.get("params") or {}).get("tuned") else "with the listed parameters"
+
+
+def _source_lines(spec: dict[str, Any], analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
+    source = spec.get("source") or {}
+    quoted = [claim for claim in analysis.get("claims") or [] if claim["claim"].get("quote")]
+    if not source.get("title") or not quoted:
+        return []
+    name = source["title"] + (f" ({source['citation']})" if source.get("citation") else "")
+    lines = ["## Comparison with the source", "", f"Source of the claims: {name}.", ""]
+    for claim in quoted:
+        refs = " ".join(_ref(ledger, "claim", f"{claim['id']}:{row['metric']}") for row in claim["rows"])
+        lines.append(f"- **{claim['id']}** The source states: “{claim['claim']['quote']}”. The campaign result {AGREEMENT[claim['verdict']]} {refs}.")
+    return lines + [""]
 
 
 def _moderator_lines(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
@@ -224,6 +238,7 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
         if analysis["parameter_effects"]:
             lines.append("")
         lines += _moderator_lines(analysis, ledger)
+        lines += _source_lines(spec, analysis, ledger)
     lines += ["## Limitations", ""]
     limitations = [
         "Every conclusion concerns the datasets listed above; with a handful of datasets the tests have little power and a non-significant result is not evidence of equivalence.",

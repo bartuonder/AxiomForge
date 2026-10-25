@@ -117,16 +117,17 @@ def _claims(raw: Any, models: list[str]) -> list[dict[str, Any]]:
         other = _group(item.get("other"), "other", models)
         if set(subject) & set(other):
             raise CampaignSpecError(f"claim {identifier} compares a model with itself")
-        claims.append(
-            {
-                "id": identifier,
-                "statement": _statement(item.get("statement"), identifier),
-                "metric": metrics[0],
-                "metrics": list(dict.fromkeys(metrics)),
-                "subject": subject,
-                "other": other,
-            }
-        )
+        claim = {
+            "id": identifier,
+            "statement": _statement(item.get("statement"), identifier),
+            "metric": metrics[0],
+            "metrics": list(dict.fromkeys(metrics)),
+            "subject": subject,
+            "other": other,
+        }
+        if isinstance(item.get("quote"), str) and item["quote"].strip():
+            claim["quote"] = _text(item["quote"], f"claim {identifier} quote", MAX_STATEMENT)
+        claims.append(claim)
     if len({claim["id"] for claim in claims}) != len(claims):
         raise CampaignSpecError("claim ids must be unique")
     return claims

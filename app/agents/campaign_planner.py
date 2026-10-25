@@ -38,7 +38,7 @@ SYSTEM_PROMPT = (
     f"metrics (a list from: {', '.join(METRICS)}), "
     "subject (a list of model names that are claimed to score higher), "
     "other (a list of model names they are compared with), "
-    "source_quote (an exact quote of at least 20 characters copied from the source abstract or the user query that states or implies the claim). "
+    "source_quote (an exact quote of at least 20 characters copied from the source abstract, the source conclusion or the user query that states or implies the claim). "
     "Use the model names as the source writes them; the system maps them to runnable estimators. "
     f"Runnable estimators: {', '.join(sorted(ESTIMATORS))}. "
     "Never invent a claim that the sources and the query do not state. Candidates may differ in the claim, the model groups or the metrics. "
@@ -109,8 +109,8 @@ def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str,
     source: dict[str, str] = {}
     if index > 0:
         paper = sources[index - 1]
-        origins["source"] = _normal(f"{paper['title']} {paper['abstract']}")
-        source = {"title": paper["title"], **({"url": paper["url"]} if paper.get("url") else {})}
+        origins["source"] = _normal(f"{paper['title']} {paper['abstract']} {paper.get('passages', '')}")
+        source = {"title": paper["title"], **{name: paper[name] for name in ("url", "citation") if paper.get(name)}}
     origins["query"] = _normal(query)
     raw_claims = raw.get("claims")
     if not isinstance(raw_claims, list) or not 1 <= len(raw_claims) <= MAX_CLAIMS:
@@ -136,6 +136,9 @@ def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str,
         raise PlanningError("the claims of one candidate must all be quoted from the same origin, the source paper or the user query")
     if found[0] == "query":
         source = {}
+    else:
+        for item, quote in zip(claims, quotes):
+            item["quote"] = quote
     spec = assemble_spec(str(raw.get("title") or "").strip(), models, claims, source, pool=pool, mapped_notes=notes, tuning=tuning)
     evidence = [
         {"claim": claim["id"], "quote": quote, "source": source.get("title", "user query")}
@@ -173,7 +176,10 @@ def _past_listing(past: list[dict[str, Any]]) -> str:
 def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
-    listing = "\n\n".join(f"[{number}] {paper['title']}: {paper['abstract']}" for number, paper in enumerate(sources, start=1))
+    listing = "\n\n".join(
+        f"[{number}] {paper['title']}: {paper['abstract']}" + (f"\nConclusion: {paper['passages']}" if paper.get("passages") else "")
+        for number, paper in enumerate(sources, start=1)
+    )
     prompt = f"User query:\n{query}\n\nSources:\n{listing or 'No source paper was found.'}"
     if past:
         prompt += (
