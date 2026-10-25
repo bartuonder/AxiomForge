@@ -3,6 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable
 
+from app.campaign.descriptors import dataset_descriptors, parse_descriptors
 from app.campaign.protocol import build_script
 from app.campaign.provenance import parse_provenance
 from app.graph.verifier import parameter_effects, performance_comparisons, summarize_seed_runs, without_baselines
@@ -60,6 +61,7 @@ def run_dataset(
             "seconds": time.time() - started,
             "profile": profile,
             "provenance": parse_provenance(output),
+            "descriptors": dataset_descriptors(profile, parse_descriptors(output)),
             "summary": summarize_seed_runs([rows]),
             "performance": performance_comparisons(main_runs, samples),
             "parameter_effects": parameter_effects([rows], samples, params),

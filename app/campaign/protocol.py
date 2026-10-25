@@ -1,5 +1,6 @@
 from typing import Any
 
+from app.campaign.descriptors import descriptors_code
 from app.campaign.provenance import provenance_code
 from app.datasets import DATASETS, loader_code
 from app.seeds import SPLIT_SEEDS
@@ -71,6 +72,7 @@ def build_script(
     lines.append("import time")
     lines.append(loader_code(dataset))
     lines.append(provenance_code(dataset, packages))
+    lines.append(descriptors_code())
     lines.append("from sklearn.model_selection import train_test_split")
     lines.append("from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score, confusion_matrix")
     imports: dict[str, list[str]] = {}

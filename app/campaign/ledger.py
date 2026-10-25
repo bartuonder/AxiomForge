@@ -39,6 +39,7 @@ def build_ledger(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[s
             attempts=int(result["attempts"]),
             script_sha256=script_digest(result["script"]),
             provenance=result.get("provenance") or {},
+            descriptors=result.get("descriptors") or {},
             means=_means(result["summary"], models),
         )
     for dataset, failure in analysis["coverage"]["failed"].items():
@@ -55,6 +56,8 @@ def build_ledger(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[s
             add("pairwise", f"{metric}:{row['a']}:{row['b']}", **row)
     for row in analysis["parameter_effects"]:
         add("effect", f"{row['model']}:{row['metric']}", **row)
+    for row in analysis.get("moderators") or []:
+        add("moderator", f"{row['claim']}:{row['metric']}:{row['descriptor']}", **row)
     return entries
 
 

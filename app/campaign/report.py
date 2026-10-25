@@ -1,6 +1,7 @@
 import re
 from typing import Any
 
+from app.campaign.descriptors import DESCRIPTOR_LABELS
 from app.campaign.ledger import build_ledger, find
 from app.campaign.provenance import environment_sentence, spec_digest
 from app.campaign.stats import ALPHA, METRICS, MIN_DATASETS, MIN_FRIEDMAN_DATASETS
@@ -15,6 +16,7 @@ VERDICT_LABELS = {
     "not_testable": "NOT TESTABLE",
 }
 MAX_PAIR_SENTENCES = 20
+MAX_MODERATOR_SENTENCES = 12
 _REFERENCE = re.compile(r"\[E(\d+)\]")
 _CLAIM_HEAD = re.compile(r"\*\*[A-Za-z][\w-]*\*\*")
 _NAMES_WITH_DIGITS = re.compile(r"\bF1\b")
@@ -49,6 +51,32 @@ def _claim_lines(claim: dict[str, Any], ledger: list[dict[str, Any]]) -> list[st
                 f"(lower on {row['losses']}, tied on {row['ties']}); median difference {row['median_difference']:+.4f}, "
                 f"Holm-adjusted p = {_p(row['adjusted_p_value'])}, rank-biserial r = {row['rank_biserial']:+.2f} {ref}."
             )
+    return lines
+
+
+def _moderator_lines(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
+    rows = [row for row in analysis.get("moderators") or [] if row["testable"]]
+    if not rows:
+        return []
+    claims = {claim["id"]: claim for claim in analysis["claims"]}
+    lines = [
+        "Exploratory moderator analysis (Spearman correlation between the per-dataset advantage of a claim and dataset descriptors, "
+        "exploratory because the number of datasets is small):",
+        "",
+    ]
+    significant = [row for row in rows if row["significant"]]
+    if not significant:
+        lines += ["No dataset descriptor was significantly related to the size of the advantage after Holm adjustment.", ""]
+    for row in significant[:MAX_MODERATOR_SENTENCES]:
+        claim = claims[row["claim"]]["claim"]
+        movement = "grew" if row["rho"] > 0 else "shrank"
+        lines.append(
+            f"The advantage of {_group(claim['subject'])} over {_group(claim['other'])} on {METRIC_NAMES[row['metric']]} {movement} with "
+            f"{DESCRIPTOR_LABELS[row['descriptor']]} (Spearman rho = {row['rho']:+.2f}, Holm-adjusted p = {_p(row['adjusted_p_value'])}, "
+            f"{row['datasets']} datasets) {_ref(ledger, 'moderator', f"{row['claim']}:{row['metric']}:{row['descriptor']}")}."
+        )
+    if significant:
+        lines.append("")
     return lines
 
 
@@ -162,6 +190,7 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
                 lines.append(f"No significant effect of the listed parameters of {row['model']} on {METRIC_NAMES[row['metric']]} across datasets was found {ref}.")
         if analysis["parameter_effects"]:
             lines.append("")
+        lines += _moderator_lines(analysis, ledger)
     lines += ["## Limitations", ""]
     limitations = [
         "Every conclusion concerns the datasets listed above; with a handful of datasets the tests have little power and a non-significant result is not evidence of equivalence.",
@@ -180,6 +209,7 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
             "friedman": lambda e: f"mean ranks over {e['datasets']} datasets",
             "pairwise": lambda e: f"{e['wins']} wins, {e['losses']} losses, {e['ties']} ties",
             "effect": lambda e: f"{e['wins']} wins, {e['losses']} losses, {e['ties']} ties",
+            "moderator": lambda e: f"{e['descriptor']}, rho {e['rho']:+.2f}, n {e['datasets']}",
         }[entry["kind"]](entry)
         lines.append(f"| {entry['id']} | {entry['kind']} | {entry['key']} | {detail} |")
     return "\n".join(lines).rstrip() + "\n", ledger

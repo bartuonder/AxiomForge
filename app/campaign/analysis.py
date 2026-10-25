@@ -11,6 +11,7 @@ from app.campaign.stats import (
     pairwise_comparisons,
     score_matrix,
 )
+from app.campaign.moderators import moderator_rows
 from app.graph.stats import holm_adjust
 from app.variants import baseline_name
 
@@ -54,6 +55,12 @@ def analyze_campaign(spec: dict[str, Any], outcome: dict[str, Any]) -> dict[str,
             "friedman": {metric: friedman_test(per_dataset, metric, models) for metric in METRICS},
             "claims": [claim_verdict(per_dataset, claim) | {"id": claim["id"], "statement": claim["statement"]} for claim in spec["claims"]],
             "parameter_effects": _parameter_effects(spec, per_dataset),
+            "moderators": moderator_rows(
+                spec["claims"],
+                per_dataset,
+                {dataset: outcome["datasets"][dataset].get("descriptors") or {} for dataset in finished},
+                finished,
+            ),
         }
     except CampaignStatsError as exc:
         return {"coverage": coverage, "error": str(exc)}

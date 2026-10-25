@@ -1,5 +1,6 @@
 from typing import Any
 
+from app.campaign.descriptors import DESCRIPTOR_LABELS
 from app.campaign.ledger import find
 from app.campaign.stats import METRICS
 from app.graph.evidence import METRIC_NAMES
@@ -131,7 +132,22 @@ def leader_sentence(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> l
     return [f"Averaged over the metrics, the mean ranks (1 = best) were {ranks}; {ordered[0]} ranked first overall {refs}."]
 
 
+def moderator_sentences(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
+    claims = {claim["id"]: claim for claim in analysis.get("claims") or []}
+    sentences = []
+    for row in analysis.get("moderators") or []:
+        if not row["significant"]:
+            continue
+        claim = claims[row["claim"]]["claim"]
+        movement = "grew" if row["rho"] > 0 else "shrank"
+        sentences.append(
+            f"The advantage of {_family(claim['subject'])} over {_family(claim['other'])} on {METRIC_NAMES[row['metric']]} {movement} with "
+            f"{DESCRIPTOR_LABELS[row['descriptor']]} across the datasets {_ref(ledger, 'moderator', f"{row['claim']}:{row['metric']}:{row['descriptor']}")}."
+        )
+    return sentences
+
+
 def discussion_facts(analysis: dict[str, Any], ledger: list[dict[str, Any]]) -> list[str]:
     if "error" in analysis:
         return []
-    return verdict_sentences(analysis, ledger) + leader_sentence(analysis, ledger) + exception_sentences(analysis, ledger) + margin_sentences(analysis, ledger)
+    return verdict_sentences(analysis, ledger) + leader_sentence(analysis, ledger) + exception_sentences(analysis, ledger) + margin_sentences(analysis, ledger) + moderator_sentences(analysis, ledger)

@@ -66,7 +66,9 @@ def test_the_datasets_come_first_then_the_claims_then_the_tests():
     assert kinds[:7] == ["dataset"] * 7
     assert kinds[7:9] == ["claim", "claim"]
     assert kinds[9:12] == ["friedman"] * 3
-    assert kinds[-3:] == ["effect"] * 3
+    first_moderator = kinds.index("moderator")
+    assert kinds[first_moderator - 3 : first_moderator] == ["effect"] * 3
+    assert set(kinds[first_moderator:]) == {"moderator"}
 
 
 def test_a_dataset_entry_names_its_source_size_and_script():

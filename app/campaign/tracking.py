@@ -46,6 +46,11 @@ def _log_analysis(analysis: dict[str, Any]) -> None:
                 mlflow.log_metric(f"{prefix}/p_value", float(row["p_value"]))
             if row["adjusted_p_value"] is not None:
                 mlflow.log_metric(f"{prefix}/adjusted_p_value", float(row["adjusted_p_value"]))
+    for row in analysis.get("moderators") or []:
+        if row["testable"]:
+            prefix = f"moderator/{row['claim']}/{row['metric']}/{row['descriptor']}"
+            mlflow.log_metric(f"{prefix}/rho", float(row["rho"]))
+            mlflow.log_metric(f"{prefix}/adjusted_p_value", float(row["adjusted_p_value"]))
     effects = analysis.get("parameter_effects") or []
     mlflow.log_metric("significant_parameter_effects", float(sum(1 for item in effects if item.get("significant"))))
     for item in effects:
