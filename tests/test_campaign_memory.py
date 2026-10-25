@@ -172,6 +172,7 @@ def test_the_planner_node_searches_the_past_with_the_query(monkeypatch):
     assert seen == ["my question"]
 
 
+@pytest.mark.usefixtures("approve_judge")
 class TestPlanner:
     @pytest.fixture
     def llm(self, monkeypatch):

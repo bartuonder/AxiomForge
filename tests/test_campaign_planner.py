@@ -6,6 +6,8 @@ import app.agents.campaign_planner as planner
 from app.agents.campaign_planner import CANDIDATES, MAX_PLAN_ATTEMPTS, CampaignUnsupported, run_campaign_planner
 from app.datasets import benchmark_keys, core_keys
 
+pytestmark = pytest.mark.usefixtures("approve_judge")
+
 ABSTRACT_ONE = (
     "While deep learning has enabled tremendous progress on text and image datasets, its superiority on tabular data is not clear. "
     "We show that tree-based models remain state-of-the-art on medium-sized data, even without accounting for their superior speed."

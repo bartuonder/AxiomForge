@@ -6,6 +6,8 @@ import app.agents.campaign_planner as planner
 from app.agents.campaign_planner import run_campaign_planner
 from app.campaign.spec import CampaignSpecError, validate_campaign
 
+pytestmark = pytest.mark.usefixtures("approve_judge")
+
 ABSTRACT = "We show that tree-based models remain state-of-the-art on medium-sized data."
 PASSAGES = "Our conclusion is that gradient boosted trees clearly beat neural networks on every medium-sized benchmark we studied."
 CITATION = "Grinsztajn, Oyallon and Varoquaux, arXiv:2207.08815 (2022)"

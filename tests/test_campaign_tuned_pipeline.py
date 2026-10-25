@@ -30,6 +30,8 @@ from app.seeds import SPLIT_SEEDS
 from app.tracking.mlflow_logger import parse_dataset_profile, parse_model_results
 from app.variants import expected_keys
 
+pytestmark = pytest.mark.usefixtures("approve_judge")
+
 MODELS = ["RandomForest", "GradientBoosting", "MLP"]
 CLAIMS = [{"id": "C1", "statement": "Trees beat the MLP", "metric": "roc_auc", "metrics": ["roc_auc", "pr_auc", "f1"], "subject": ["RandomForest", "GradientBoosting"], "other": ["MLP"]}]
 TUNING = {"iterations": 12, "folds": 3}

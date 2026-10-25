@@ -55,6 +55,18 @@ SYSTEM_PROMPT = (
 )
 
 
+JUDGE_PROMPT = (
+    "You check whether a quote from a paper supports a comparison claim between model groups on tabular classification. "
+    "You get a JSON object with claims; each has an id, a statement, subject models, other models and a quote. "
+    "A quote supports the claim only when it states, or directly implies, that the subject models score higher or perform better than the other models. "
+    "A quote that describes a related finding, such as tuning effort, speed, cost, robustness or a different pair of model families, does not support the claim. "
+    "A quote that states the opposite direction does not support it. "
+    "Answer for every id with a one-sentence reason. "
+    'Return only JSON: {"verdicts": [{"id": 1, "supports": true, "reason": "..."}]}.'
+)
+MAX_REASON_CHARS = 200
+
+
 class CampaignUnsupported(RuntimeError):
     pass
 
@@ -140,11 +152,55 @@ def _candidate(raw: Any, query: str, sources: list[dict[str, str]]) -> dict[str,
         for item, quote in zip(claims, quotes):
             item["quote"] = quote
     spec = assemble_spec(str(raw.get("title") or "").strip(), models, claims, source, pool=pool, mapped_notes=notes, tuning=tuning)
+    if found[0] == "source":
+        issues = _support_issues(spec["claims"], raw_claims, quotes)
+        if issues:
+            raise PlanningError("; ".join(issues))
     evidence = [
         {"claim": claim["id"], "quote": quote, "source": source.get("title", "user query")}
         for claim, quote in zip(spec["claims"], quotes)
     ]
     return {"spec": spec, "estimate": estimate_cost(spec), "evidence": evidence}
+
+
+def _judge_complete(user: str) -> str:
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    response = client.chat.completions.create(
+        model=MODEL,
+        temperature=0,
+        response_format={"type": "json_object"},
+        messages=[{"role": "system", "content": JUDGE_PROMPT}, {"role": "user", "content": user}],
+    )
+    return response.choices[0].message.content or ""
+
+
+def _support_issues(spec_claims: list[dict[str, Any]], raw_claims: list[dict[str, Any]], quotes: list[str]) -> list[str]:
+    items = [
+        {
+            "id": number,
+            "statement": claim["statement"],
+            "subject": _names(raw.get("subject"), "subject"),
+            "other": _names(raw.get("other"), "other"),
+            "quote": quote,
+        }
+        for number, (claim, raw, quote) in enumerate(zip(spec_claims, raw_claims, quotes), start=1)
+    ]
+    try:
+        payload = json.loads(_judge_complete(json.dumps({"claims": items}, ensure_ascii=False)))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("campaign support judge returned invalid JSON") from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("verdicts"), list) or not all(isinstance(item, dict) for item in payload["verdicts"]):
+        raise RuntimeError("campaign support judge returned an unusable answer")
+    by_id = {item.get("id"): item for item in payload["verdicts"]}
+    issues = []
+    for number, claim in enumerate(spec_claims, start=1):
+        verdict = by_id.get(number)
+        if verdict is None:
+            issues.append(f"claim {claim['id']}: the judge returned no verdict")
+        elif verdict.get("supports") is not True:
+            reason = str(verdict.get("reason") or "no reason given")[:MAX_REASON_CHARS]
+            issues.append(f"claim {claim['id']}: the source quote does not support the claim ({reason})")
+    return issues
 
 
 def _complete(user: str) -> str:
