@@ -117,14 +117,18 @@ def power_check(datasets: int, claims: list[dict[str, Any]]) -> None:
         )
 
 
+def tuning_note(tuning: dict[str, int]) -> str:
+    return (
+        f"Each model was tuned on every dataset with a random search of {tuning['iterations']} configurations from a small fixed grid "
+        f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate {int(TUNING_SHARE * 100)}% tuning set), a much smaller search than a full study would run; "
+        "the remaining rows were used for evaluation."
+    )
+
+
 def deviation_notes(datasets: list[str], params: dict[str, Any], mapped: list[str], tuning: dict[str, int] | None = None) -> list[str]:
     notes = list(mapped)
     if tuning:
-        notes.append(
-            f"Each model was tuned on every dataset with a random search of {tuning['iterations']} configurations from a small fixed grid "
-            f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate {int(TUNING_SHARE * 100)}% tuning set), a much smaller search than a full study would run; "
-            "the remaining rows were used for evaluation."
-        )
+        notes.append(tuning_note(tuning))
     elif params:
         notes.append("The listed parameters are single configurations chosen in advance, not the result of a hyperparameter search.")
     else:

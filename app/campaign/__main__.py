@@ -6,10 +6,12 @@ from typing import Any, Callable
 
 from app.campaign import store
 from app.campaign.demos import demo_names, demo_spec
+from app.campaign.planning import tuning_note
 from app.campaign.runner import DEFAULT_WORKERS
 from app.campaign.service import execute_campaign
 from app.campaign.spec import CampaignSpecError
 from app.campaign.tracking import log_campaign
+from app.campaign.tuning import DEFAULT_FOLDS
 
 EXIT_OK = 0
 EXIT_UNFINISHED = 1
@@ -47,6 +49,10 @@ def _load_spec(arguments: argparse.Namespace) -> dict[str, Any]:
         spec["datasets"] = [key.strip() for key in arguments.datasets.split(",") if key.strip()]
     if arguments.tuning is not None:
         spec["tuning"] = {"iterations": arguments.tuning}
+        source = spec.get("source")
+        if isinstance(source, dict) and isinstance(source.get("deviations"), list):
+            note = tuning_note({"iterations": arguments.tuning, "folds": DEFAULT_FOLDS})
+            source["deviations"] = [note if str(item).startswith("No hyperparameter search") else item for item in source["deviations"]]
     return spec
 
 

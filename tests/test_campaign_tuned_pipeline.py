@@ -358,6 +358,14 @@ class TestPlanning:
         )
         assert not any("No hyperparameter search" in note for note in notes)
 
+    def test_the_tuning_note_names_the_setting(self):
+        note = planning.tuning_note({"iterations": 8, "folds": 5})
+        assert "random search of 8 configurations" in note and "5-fold" in note and "20% tuning set" in note
+
+    def test_the_tuning_note_follows_the_share_constant(self, monkeypatch):
+        monkeypatch.setattr(planning, "TUNING_SHARE", 0.3)
+        assert "30% tuning set" in planning.tuning_note({"iterations": 8, "folds": 3})
+
     def test_without_tuning_the_notes_are_unchanged(self):
         assert planning.deviation_notes(benchmark_keys(), {}, [])[0].startswith("No hyperparameter search")
         assert planning.deviation_notes(benchmark_keys(), {}, [], {})[0].startswith("No hyperparameter search")
@@ -495,6 +503,19 @@ class TestCli:
         cli_main(["run", "--demo", "grinsztajn-2022", "--tuning", "8"], None, out)
         cli_main(["run", "--demo", "grinsztajn-2022"], None, out)
         assert seen[0]["tuning"] == {"iterations": 8} and "tuning" not in seen[1]
+
+    def test_a_tuned_demo_replaces_the_no_search_deviation(self, monkeypatch):
+        import app.campaign.__main__ as cli
+
+        seen = []
+        monkeypatch.setattr(cli, "execute_campaign", lambda spec, campaign_id, execute, workers, tracker=None: seen.append(spec) or {"id": "abc", "status": "completed", "datasets": {}})
+        cli_main(["run", "--demo", "grinsztajn-2022", "--tuning", "8"], None, io.StringIO())
+        cli_main(["run", "--demo", "grinsztajn-2022"], None, io.StringIO())
+        tuned, plain = seen[0]["source"]["deviations"], seen[1]["source"]["deviations"]
+        assert not any("No hyperparameter search" in note for note in tuned)
+        assert planning.tuning_note({"iterations": 8, "folds": DEFAULT_FOLDS}) in tuned
+        assert len(tuned) == len(plain) and tuned[1:] == plain[1:]
+        assert plain[0].startswith("No hyperparameter search")
 
     def test_the_default_executor_is_left_to_the_runner(self, monkeypatch):
         import app.campaign.__main__ as cli
