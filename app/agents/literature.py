@@ -9,7 +9,7 @@ from openai import OpenAI
 from app.agents.experiment import requested_models
 from app.agents.spec import MODEL_PARAMS
 from app.config import OPENAI_API_KEY
-from app.tools.arxiv import search_arxiv_phrases
+from app.tools.arxiv import arxiv_ids, citation, fetch_arxiv_papers, fetch_passages, search_arxiv_phrases
 
 MODEL = "gpt-4o"
 EMBEDDING_MODEL = "text-embedding-3-small"
@@ -115,14 +115,32 @@ def search_plan(model_keys: list[str], topics: list[str]) -> list[list[str]]:
 
 
 def format_papers(papers: list[dict[str, str]]) -> list[str]:
-    return [f"{paper['title']}: {paper['abstract']}" for paper in papers]
+    return [f"{paper['title']}: {paper['abstract']}" + (f" Conclusion: {paper['passages']}" if paper.get("passages") else "") for paper in papers]
 
 
 def run_literature_agent(query: str) -> list[str]:
     return format_papers(run_literature_search(query))
 
 
+def referenced_papers(identifiers: list[str]) -> list[dict[str, str]]:
+    papers = fetch_arxiv_papers(identifiers)
+    return [
+        {
+            "title": str(paper["title"]),
+            "abstract": str(paper["abstract"]),
+            "url": str(paper["url"]),
+            "citation": citation(paper),
+            "passages": fetch_passages(str(paper["arxiv_id"])),
+        }
+        for paper in papers
+    ]
+
+
 def run_literature_search(query: str) -> list[dict[str, str]]:
+    identifiers = arxiv_ids(query)
+    if identifiers:
+        logger.info("literature references=%s", identifiers)
+        return referenced_papers(identifiers)
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
     client = OpenAI(api_key=OPENAI_API_KEY)
