@@ -108,7 +108,7 @@ def exception_sentences(analysis: dict[str, Any], ledger: list[dict[str, Any]]) 
             gaps = _gaps(claim, metric, analysis, ledger)
             failures = [item for item in gaps if item[1] <= item[2]]
             if not failures:
-                sentences.append(f"On {METRIC_NAMES[metric]}, {subject} scored higher than {other} on every one of the {len(gaps)} datasets {ref}.")
+                sentences.append(f"On {METRIC_NAMES[metric]}, {subject} scored higher than {other} on every dataset tested ({len(gaps)} of {len(gaps)}) {ref}.")
                 continue
             details = []
             for dataset, first, second in failures:

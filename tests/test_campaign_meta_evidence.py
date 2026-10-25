@@ -123,7 +123,7 @@ class TestExceptions:
         analysis, ledger = build()
         sentence = meta.exception_sentences(analysis, ledger)[0]
         claim = next(entry for entry in ledger if entry["kind"] == "claim" and entry["key"] == "C1:roc_auc")
-        assert sentence == f"On ROC-AUC, the best of RandomForest and HistGradientBoosting scored higher than MLP on every one of the 9 datasets [{claim['id']}]."
+        assert sentence == f"On ROC-AUC, the best of RandomForest and HistGradientBoosting scored higher than MLP on every dataset tested (9 of 9) [{claim['id']}]."
 
     def test_a_dataset_where_the_other_family_won_is_named_with_both_scores_and_its_reference(self):
         analysis, ledger = build({"tb_eye": {("MLP", "roc_auc"): 0.95}})
@@ -152,12 +152,12 @@ class TestExceptions:
 
     def test_a_single_model_family_reads_without_the_best_of(self):
         analysis, ledger = build()
-        assert any(sentence.startswith("On F1, MLP scored higher than LogisticRegression on every one") for sentence in meta.exception_sentences(analysis, ledger))
+        assert any(sentence.startswith("On F1, MLP scored higher than LogisticRegression on every dataset tested") for sentence in meta.exception_sentences(analysis, ledger))
 
     def test_only_the_metric_of_the_failure_changes(self):
         analysis, ledger = build({"tb_eye": {("MLP", "pr_auc"): 0.99}})
         sentences = meta.exception_sentences(analysis, ledger)
-        assert "every one of the 9" in sentences[0] and "1 of 9 datasets: tb_eye" in sentences[1] and "every one of the 9" in sentences[2]
+        assert "every dataset tested (9 of 9)" in sentences[0] and "1 of 9 datasets: tb_eye" in sentences[1] and "every dataset tested (9 of 9)" in sentences[2]
 
 
 class TestMargins:
