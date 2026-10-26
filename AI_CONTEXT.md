@@ -257,7 +257,7 @@ Canlı sonuçlar: zor kampanya (16 iddia, 10 model, ayarlı, 10 dk 35 sn) biline
 
 Dersler: (1) Zor sorgular iki gerçek planlayıcı hatası gösterdi (olumsuz cümlenin ters çevrilmesi, çalıştırılamayan mimarinin reddi); yeni istem satırları yalnız canlı koşuyla doğrulanabilir, birim testi yalnız metnin varlığını denetler. (2) Yeniden yazım turunun reddedilen taslağı görmesi, kapı kuralını gevşetmekten çok daha etkili oldu (6/10 → 10/10). (3) Bash heredoc'ları ters eğik çizgili Python kaynağını bozar ve aynı çağrıda birden çok heredoc ayrıştırma hatası verir: kaçışlı değişiklikleri Write ile bir betik dosyasına yaz, mutasyon betiğini her seferinde yeni bir dosya adıyla yaz (eski bir dosya varsa Write başarısız olur ve eski betik çalışır). (4) Başka oturumdan kalan bir mutasyon betiğini yanlışlıkla çalıştırmak zarar vermedi çünkü her betik yedeği geri yükler; yine de sonrasında `git status` ile doğrula. (5) MLflow sunucusunu `mlflow.exe` ile başlatınca asıl süreç görünmez olabilir; `Get-CimInstance Win32_Process` ile `multiprocessing.spawn` çocuklarını bulup kapat.
 
-Açık: katı düzeltmede ayakta kalan ayar etkisi yok (küçük ayarlama kümesi); 17 regex kapısının genel yanlış alarm oranı ölçülmedi; CI GitHub'da koşmadı; test kalıntısı temizliği yapılmadı (silme kararı kullanıcıya ait).
+Açık: katı düzeltmede ayakta kalan ayar etkisi yok (küçük ayarlama kümesi); 17 regex kapısının genel yanlış alarm oranı ölçülmedi; CI GitHub'da yeşil (Linux'ta backend 2664 test geçti; frontend ilk koşuda temiz checkout'ta `LayoutProps` bulunamadığı için düştü, `next typegen` adımıyla düzeldi); test kalıntısı temizliği yapılmadı (silme kararı kullanıcıya ait).
 
 ### 3.12 Faz 12: replikasyon kampanyası (`app/campaign/`)
 
