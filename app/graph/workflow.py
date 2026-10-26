@@ -34,6 +34,7 @@ logger = logging.getLogger("axiomforge")
 FINISHED_STATUSES = {"completed", "needs_review"}
 MODES = ("experiment", "campaign")
 STALE_CAMPAIGN_SECONDS = 1200
+STALE_RESEARCH_SECONDS = 1800
 _STEP_ORDER = [
     "literature_node",
     "planner_node",
@@ -204,8 +205,8 @@ def get_research(thread_id: str) -> dict:
         compiled = _compile(checkpointer)
         snapshot = compiled.get_state(config)
     values = dict(snapshot.values or {})
-    error = error or _stale_campaign_error(values)
     next_nodes = [str(node) for node in (snapshot.next or ())]
+    error = error or _stale_campaign_error(values) or _stale_research_error(values, next_nodes, getattr(snapshot, "created_at", None))
     status = _research_status(values, next_nodes, error)
     return {
         "thread_id": thread_id,
@@ -254,6 +255,25 @@ def _stale_campaign_error(values: dict) -> str:
     if idle <= STALE_CAMPAIGN_SECONDS:
         return ""
     return f"the campaign has reported no progress for {int(idle // 60)} minutes; its worker may have stopped"
+
+
+def _stale_research_error(values: dict, next_nodes: list[str], created_at: object) -> str:
+    if not values or not next_nodes or values.get("research_status") in {"Completed", "NeedsReview"}:
+        return ""
+    if values.get("approval_status") == "rejected" or "approval_gate" in next_nodes and values.get("approval_status") != "approved":
+        return ""
+    if values.get("mode") == "campaign" and values.get("campaign_id") and not values.get("campaign_analysis"):
+        return ""
+    try:
+        written = datetime.fromisoformat(str(created_at))
+    except ValueError:
+        return ""
+    if written.tzinfo is None:
+        written = written.replace(tzinfo=timezone.utc)
+    idle = (_now() - written).total_seconds()
+    if idle <= STALE_RESEARCH_SECONDS:
+        return ""
+    return f"the research has reported no progress for {int(idle // 60)} minutes; its worker may have stopped"
 
 
 def _selected_campaign(values: dict) -> int:
