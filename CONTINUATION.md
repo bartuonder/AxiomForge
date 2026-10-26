@@ -8,7 +8,7 @@ Sahip: Bartu Önder, `onderbartu8@gmail.com`. Commitlerde yalnız bu ad ve e-pos
 
 ## Şu an neredeyiz
 
-Güncel durum (26 Ekim 2026): Faz 14 kampanya genişletmeleri iki turda bitti (aşağıdaki 'Faz 14' paragrafları, ayrıntı `AUTONOMOUS_REPORT.md`). 2628 pytest testi ve 10 frontend Node testi geçiyor; sonraki oturum önce `AUTONOMOUS_REPORT.md` 'Açık kalanlar' bölümünü okumalı. Aşağıdaki satırlar eski fazların tarihçesidir.
+Güncel durum (26 Ekim 2026): Faz 14 kampanya genişletmeleri iki turda bitti (aşağıdaki 'Faz 14' paragrafları, ayrıntı `AUTONOMOUS_REPORT.md`). 2628 pytest testi ve 10 frontend Node testi geçiyor; sonraki oturum önce `ROADMAP.md` (kalan işler ve frontend yenileme listesi) ve `AUTONOMOUS_REPORT.md` 'Açık kalanlar' bölümünü okumalı. Frontend'in ilk gerçek denemesinde sonuç sayfasının kullanıcıya göre olmadığı görüldü ('sayı cümbüşü'); yenileme `ROADMAP.md` B bölümünde. Aşağıdaki satırlar eski fazların tarihçesidir.
 
 Faz 8 bitti. Son kod işi, raporun ve hakemin `statistical_conclusion` cümlesine bağlanmasıdır. Beraberlik kararında makale `superior`, `more stable`, `outperformed` veya `better` diyorsa hakem LLM'e gitmez. Ondan önce deney betiği `experiment-v5` oldu: sorguda adı geçmeyen model betiğe girmez. Doğrulayıcı varyansı `std ** 2` olarak yazar. ROC-AUC varyans farkı 0.005'i geçerse düşük varyanslı tek model kazanan ilan edilir.
 
