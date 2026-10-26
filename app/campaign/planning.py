@@ -120,10 +120,10 @@ def power_check(datasets: int, claims: list[dict[str, Any]]) -> None:
         )
 
 
-def tuning_note(tuning: dict[str, int]) -> str:
+def tuning_note(tuning: dict[str, int | float]) -> str:
     return (
         f"Each model was tuned on every dataset with a random search of {tuning['iterations']} configurations from a small fixed grid "
-        f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate {int(TUNING_SHARE * 100)}% tuning set), a much smaller search than a full study would run; "
+        f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate {round(tuning.get('share', TUNING_SHARE) * 100)}% tuning set), a much smaller search than a full study would run; "
         "the remaining rows were used for evaluation."
     )
 

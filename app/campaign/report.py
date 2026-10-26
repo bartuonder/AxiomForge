@@ -175,7 +175,7 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
     if tuning:
         sentence = (
             f"Models and configuration: every model was tuned on each dataset by a random search of {tuning['iterations']} configurations "
-            f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate tuning set of {int(TUNING_SHARE * 100)}% of the rows that was excluded from evaluation) "
+            f"({tuning['folds']}-fold cross-validated ROC-AUC on a separate tuning set of {round(tuning.get('share', TUNING_SHARE) * 100)}% of the rows that was excluded from evaluation) "
             "and also ran once with library defaults as its control. Every other argument is fixed by the protocol."
         )
     else:

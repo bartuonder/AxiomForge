@@ -100,7 +100,7 @@ def build_script(
     lines.extend(f"from {module} import {', '.join(names)}" for module, names in imports.items())
     entries: list[str] = []
     if tuning:
-        lines.append(tuning_code(models, tuning["iterations"], tuning["folds"], ESTIMATORS))
+        lines.append(tuning_code(models, tuning["iterations"], tuning["folds"], ESTIMATORS, tuning.get("share")))
     for model in models:
         if tuning:
             entry = ESTIMATORS[model]

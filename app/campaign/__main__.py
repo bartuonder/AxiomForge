@@ -31,6 +31,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--id", help="campaign id; a new one is generated when omitted")
     run.add_argument("--mlflow", action="store_true", help="also record the campaign in MLflow")
     run.add_argument("--tuning", type=int, help="tune every model by random search with this many configurations per dataset")
+    run.add_argument("--tuning-share", type=float, help="share of the rows that forms the tuning set (0.1 to 0.6, default 0.2); needs --tuning")
     run.add_argument("--pin-from", help="pin the dataset revisions recorded by this stored campaign")
     commands.add_parser("list", help="list stored campaigns")
     commands.add_parser("demos", help="list the ready campaigns")
@@ -49,11 +50,15 @@ def _load_spec(arguments: argparse.Namespace) -> dict[str, Any]:
             raise CampaignSpecError(f"cannot read {arguments.spec}: {exc}") from exc
     if arguments.datasets:
         spec["datasets"] = [key.strip() for key in arguments.datasets.split(",") if key.strip()]
+    if arguments.tuning_share is not None and arguments.tuning is None:
+        raise CampaignSpecError("--tuning-share needs --tuning")
     if arguments.tuning is not None:
         spec["tuning"] = {"iterations": arguments.tuning}
+        shares = {"share": arguments.tuning_share} if arguments.tuning_share is not None else {}
+        spec["tuning"].update(shares)
         source = spec.get("source")
         if isinstance(source, dict) and isinstance(source.get("deviations"), list):
-            note = tuning_note({"iterations": arguments.tuning, "folds": DEFAULT_FOLDS})
+            note = tuning_note({"iterations": arguments.tuning, "folds": DEFAULT_FOLDS, **shares})
             source["deviations"] = [note if str(item).startswith("No hyperparameter search") else item for item in source["deviations"]]
     if arguments.pin_from:
         spec["revisions"] = _pinned_revisions(arguments.pin_from, spec.get("datasets") or [])

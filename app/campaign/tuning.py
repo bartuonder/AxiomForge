@@ -10,6 +10,8 @@ MIN_FOLDS = 3
 MAX_FOLDS = 5
 DEFAULT_FOLDS = 3
 TUNING_SHARE = 0.2
+MIN_SHARE = 0.1
+MAX_SHARE = 0.6
 TUNING_SEED = 0
 
 _FOREST = {"n_estimators": [100, 200, 400], "max_depth": [None, 5, 10, 20], "min_samples_leaf": [1, 2, 5]}
@@ -53,27 +55,33 @@ def grid_size(model: str) -> int:
     return math.prod(len(values) for values in SEARCH_SPACES[model].values())
 
 
-def validate_tuning(raw: Any, models: list[str]) -> dict[str, int]:
+def validate_tuning(raw: Any, models: list[str]) -> dict[str, int | float]:
     if raw in (None, False, {}):
         return {}
     if not isinstance(raw, dict):
-        raise TuningError("tuning must be an object with iterations and folds")
-    unknown = sorted(set(raw) - {"iterations", "folds"})
+        raise TuningError("tuning must be an object with iterations, folds and an optional share")
+    unknown = sorted(set(raw) - {"iterations", "folds", "share"})
     if unknown:
         raise TuningError("tuning has unknown fields: " + ", ".join(unknown))
-    values = {}
+    values: dict[str, int | float] = {}
     for name, default, low, high in (("iterations", DEFAULT_ITERATIONS, MIN_ITERATIONS, MAX_ITERATIONS), ("folds", DEFAULT_FOLDS, MIN_FOLDS, MAX_FOLDS)):
         value = raw.get(name, default)
         if not isinstance(value, int) or not low <= value <= high:
             raise TuningError(f"tuning {name} must be a whole number from {low} to {high}")
         values[name] = value
+    if "share" in raw:
+        share = raw["share"]
+        if not isinstance(share, (int, float)) or not MIN_SHARE <= share <= MAX_SHARE:
+            raise TuningError(f"tuning share must be a number from {MIN_SHARE} to {MAX_SHARE}")
+        values["share"] = share
     missing = [model for model in models if model not in SEARCH_SPACES]
     if missing:
         raise TuningError("these models have no search space: " + ", ".join(missing))
     return values
 
 
-def tuning_code(models: list[str], iterations: int, folds: int, estimators: dict[str, dict[str, Any]]) -> str:
+def tuning_code(models: list[str], iterations: int, folds: int, estimators: dict[str, dict[str, Any]], share: float | None = None) -> str:
+    share = TUNING_SHARE if share is None else share
     spaces = {model: SEARCH_SPACES[model] for model in models}
     classes = {model: estimators[model]["cls"] for model in models}
     fixed = {model: estimators[model]["fixed"] for model in models}
@@ -83,7 +91,7 @@ def tuning_code(models: list[str], iterations: int, folds: int, estimators: dict
         [
             "import json",
             "from sklearn.model_selection import ParameterSampler, cross_val_score",
-            f"X_tune, X, y_tune, y = train_test_split(X, y, train_size={TUNING_SHARE!r}, random_state={TUNING_SEED!r}, stratify=y)",
+            f"X_tune, X, y_tune, y = train_test_split(X, y, train_size={share!r}, random_state={TUNING_SEED!r}, stratify=y)",
             "print('tuning rows_tune=%d rows_eval=%d' % (len(y_tune), len(y)))",
             f"spaces = {spaces!r}",
             f"fixed = {fixed!r}",
