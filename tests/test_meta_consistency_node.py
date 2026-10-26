@@ -139,3 +139,39 @@ def test_the_gate_only_gets_the_source_paper_of_the_claims(monkeypatch):
     assert seen == [SOURCES]
     meta_consistency_node(state(CLEAN, literature_sources=[other], campaign_spec={**SPEC, "source": {}}))
     assert seen[1] == []
+
+
+def test_a_completed_paper_is_stored_in_the_campaign_run(monkeypatch):
+    seen = []
+    monkeypatch.setattr(campaign_nodes, "log_meta_paper", lambda *args: seen.append(args) or True)
+    current = state(CLEAN, campaign_mlflow_run_id="run-1", consistency_rounds=1)
+    meta_consistency_node(current)
+    assert seen == [("run-1", current["paper_markdown"], "Completed", 1)]
+
+
+def test_a_paper_that_needs_review_is_stored_too(monkeypatch):
+    seen = []
+    monkeypatch.setattr(campaign_nodes, "log_meta_paper", lambda *args: seen.append(args) or True)
+    current = state(DIRTY, campaign_mlflow_run_id="run-2", consistency_rounds=MAX_META_ROUNDS)
+    meta_consistency_node(current)
+    assert seen == [("run-2", current["paper_markdown"], "NeedsReview", MAX_META_ROUNDS)]
+
+
+def test_a_rewrite_round_does_not_store_the_paper_yet(monkeypatch):
+    monkeypatch.setattr(campaign_nodes, "log_meta_paper", lambda *args: pytest.fail("stored too early"))
+    meta_consistency_node(state(DIRTY, campaign_mlflow_run_id="run-3", consistency_rounds=0))
+
+
+def test_a_run_without_an_mlflow_id_is_not_stored(monkeypatch):
+    seen = []
+    monkeypatch.setattr(campaign_nodes, "log_meta_paper", lambda *args: seen.append(args) or False)
+    update = meta_consistency_node(state(CLEAN))
+    assert update["research_status"] == "Completed" and seen == [("", state(CLEAN)["paper_markdown"], "Completed", 0)]
+
+
+def test_a_failing_store_never_changes_the_outcome(monkeypatch):
+    def broken(*args):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr(campaign_nodes, "log_meta_paper", broken)
+    assert meta_consistency_node(state(CLEAN, campaign_mlflow_run_id="run-4"))["research_status"] == "Completed"

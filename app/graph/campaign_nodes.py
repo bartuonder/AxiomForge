@@ -8,6 +8,7 @@ from app.agents.meta_report import claim_sources, write_meta_paper
 from app.campaign import store
 from app.campaign.memory import remember_campaign
 from app.campaign.service import campaign_id_for, queue_once, reject_campaign
+from app.campaign.tracking import log_meta_paper
 from app.graph.state import AgentState
 
 logger = logging.getLogger("axiomforge")
@@ -88,6 +89,13 @@ def _remember(state: AgentState, status: str) -> None:
         logger.exception("the campaign could not be written to the memory")
 
 
+def _store_paper(state: AgentState, status: str) -> None:
+    try:
+        log_meta_paper(state.get("campaign_mlflow_run_id") or "", state.get("paper_markdown", ""), status, int(state.get("consistency_rounds", 0)))
+    except Exception:
+        logger.exception("the paper could not be written to MLflow")
+
+
 def meta_consistency_node(state: AgentState) -> dict:
     rounds = int(state.get("consistency_rounds", 0))
     issues = meta_issues(
@@ -106,6 +114,7 @@ def meta_consistency_node(state: AgentState) -> dict:
     if issues or campaign_issues or state.get("campaign_status") == "needs_review":
         logger.info("meta_consistency_node stopped after %s rewrites", rounds)
         _remember(state, "NeedsReview")
+        _store_paper(state, "NeedsReview")
         return {
             "consistency_feedback": " ".join(issues + campaign_issues),
             "consistency_continue": False,
@@ -114,6 +123,7 @@ def meta_consistency_node(state: AgentState) -> dict:
         }
     logger.info("meta_consistency_node passed")
     _remember(state, "Completed")
+    _store_paper(state, "Completed")
     return {"consistency_feedback": "", "consistency_continue": False, "research_status": "Completed", "referee_notes": []}
 
 

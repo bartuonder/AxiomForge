@@ -3,6 +3,7 @@ import logging
 from typing import Any
 
 import mlflow
+from mlflow.tracking import MlflowClient
 
 from app.campaign.meta_evidence import metric_leaders, overall_leader
 from app.config import MLFLOW_TRACKING_URI
@@ -62,6 +63,20 @@ def _log_analysis(analysis: dict[str, Any]) -> None:
             mlflow.log_metric(f"{prefix}/adjusted_p_value", float(item["adjusted_p_value"]))
         if item.get("adjusted_p_value_all") is not None:
             mlflow.log_metric(f"{prefix}/adjusted_p_value_all", float(item["adjusted_p_value_all"]))
+
+
+def log_meta_paper(run_id: str, paper: str, status: str, rewrites: int) -> bool:
+    if not run_id or not paper:
+        return False
+    try:
+        client = MlflowClient(MLFLOW_TRACKING_URI)
+        client.log_text(run_id, paper, "paper.md")
+        client.set_tag(run_id, "paper_status", status)
+        client.log_metric(run_id, "paper_rewrites", float(rewrites))
+        return True
+    except Exception:
+        logger.exception("the paper of MLflow run %s could not be stored", run_id)
+        return False
 
 
 def log_campaign(
