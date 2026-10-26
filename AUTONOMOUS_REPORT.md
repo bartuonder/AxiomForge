@@ -92,3 +92,11 @@ Neden: model Discussion'da "on all datasets" (kapı tarafından reddedilen genel
 3. **XGBoost, LightGBM, CatBoost ayarlı protokolde canlı.** `smoke-boost` kampanyası (2 veri seti, 6 iterasyon, 4 model) gerçek E2B'de 1 dk 16 sn'de bitti; üç kütüphane de ayarlandı ve koştu, rapora sürümler yazıldı (xgboost 3.4.1, lightgbm 4.7.0, catboost 1.2.10), seçilen yapılandırmalar listelendi. Kod değişikliği gerekmedi. Not: XGBoost ve LightGBM aynı ızgara ve tohumla aynı yapılandırmayı seçti, bu beklenen.
 
 Tam paket 2431 test geçiyor (3 atlandı).
+
+## Takip 2: Holm ailesinin daraltılması (26 Ekim 2026)
+
+- **Sorun:** ayar (ve listelenen parametre) etkileri tek bir Holm ailesinde düzeltiliyordu: 7 model × 3 ölçüt = 21 test. 9 veri setinde tek bir testin ulaşabileceği en küçük kesin p 2/512 = 0,0039; ×21 = 0,082 > 0,05. Yani 9 veri setinde ayarın etkisi, her veri setinde aynı yönde olsa bile anlamlı çıkamazdı (`benchmark-tuned` koşusunda hiçbir etki anlamlı çıkmamasının nedeni buydu).
+- **Karar:** aile artık bir modelin üç ölçütü (iddiaların ölçütlerle düzeltilmesiyle aynı mantık: "ayar bu modele yarar mı?" tek bir soru, üç ölçüt onun üç görünümü). `adjusted_p_value` / `significant` bu ailedir; en küçük ulaşılabilir değer 3 × 2/512 = 0,0117.
+- **Dürüstlük önlemi:** modeller arası çoklu test artık düzeltilmiyor, bu yüzden katı ayarlama da hesaplanıyor: `adjusted_p_value_all` / `significant_all` (tüm model ve ölçütler tek ailede). Rapor Statistics paragrafında aileyi söylüyor ("The effect of tuning is adjusted across the metrics of each model.") ve Limitations'a "Significant tuning effects within their model: N; of these, K remain significant when the adjustment spans all models and metrics." cümlesini ekliyor (en az iki etki modeli ve en az bir anlamlı etki varsa). 7 model ve 9 veri setiyle her veri setinde aynı yönde etki durumunda: 21 etki model içinde anlamlı, 0'ı katı ayarlamada anlamlı; bu fark okuyucuya açıkça gösteriliyor. MLflow'a `adjusted_p_value_all` ve `significant_parameter_effects_all` yazılıyor.
+- **Test:** `tests/test_campaign_effect_family.py` (17 test), 24 mutasyon, hayatta kalan 1 eşdeğer (aile sırası). Tam paket 2448 test geçiyor.
+- **Eksik:** canlı doğrulama yapılmadı. Eski `benchmark-tuned` kaydında varsayılan kontrol skorları olmadığı için yeniden analiz edilemiyor; yeni bir ayarlı koşu (≈11 dk E2B) gerekir.
