@@ -151,3 +151,24 @@ E2B: yaklaşık 35 dakikalık sandbox (hard-tuned 10 dk 35 sn × 3 eşzamanlı, 
 **Sonuç:** "Ayar MLP'yi tutarlı biçimde kötüleştirir" bulgusu **küçük ayarlama kümesi ve küçük arama artefaktıydı**: ayarlama kümesi büyüyünce de, arama 3 kat büyüyünce de etki sıfıra yakın ve anlamsız. Ayar MLP'yi iyileştirmiyor da: etki hâlâ ≤0. Seçilen yapılandırmalar bunu destekliyor: 36 iterasyonda 9 veri setinin 4'ü varsayılan `alpha=1e-4`'ü, 7'si varsayılan `learning_rate_init=0,001`'i seçti (arama varsayılana yakınsıyor); %50 kümede daha büyük ağlar (200 nöron) 1 yerine 3 veri setinde seçildi. Yani sklearn MLP varsayılanı bu ızgaranın zaten iyi bir noktası. Dikkat: %50 koşuda değerlendirme kümesi 3000 satıra düştü, gürültü arttı; bu yüzden "iyileşmedi" demek "zarar vermedi"den daha güvenli bir okuma.
 
 **Sınır:** tek model, 9 veri seti, tek tohum seti; ızgara küçük ve ayrık. Ayar protokolünü HGB gibi güçlü modellerde bu kadar kanıtla değerlendirmek mümkün değil (etkiler binde bir basamakta).
+
+## Takip 5: yakın çift kontrolünün 7 çifte genişletilmesi (26 Ekim 2026)
+
+**Kod:** `NEAR_PAIRS` 3'ten 7 çifte çıktı (14 iddia, N1-N14): önceki üçe ek olarak LightGBM↔HistGradientBoosting, XGBoost↔LightGBM, LogisticRegression↔LDA, XGBoost↔HistGradientBoosting; yalnız bu iddiaları soran `near_spec()` (9 model) eklendi, `hard_spec()` 24 iddiaya çıktı. 41 test, 24 yeni mutasyonun hepsi yakalandı. Tam paket 2671 test geçiyor.
+
+**Canlı koşular** (9 benchmark veri seti, E2B, LLM yok): `near-default` (varsayılan parametreler, ≈7 dk) ve `near-tuned` (12 iterasyon, ≈15 dk).
+
+| | Karar verilen iddia | İki yönde de "replicated" çift | Kararsız çift |
+|---|---|---|---|
+| `near-default` | 3 / 14 | 0 | 5 / 7 (iki yönde de karar yok) |
+| `near-tuned` | 2 / 14 | 0 | 6 / 7 |
+
+Kararsız iddia payı için Wilson %95 aralığı: varsayılan 0,52-0,92 (11/14), ayarlı 0,60-0,96 (12/14).
+
+**Karar verilen çiftlerin incelemesi (ön bilgi yanlış çıktı, motor değil):**
+- **LogisticRegression↔LDA:** iki koşuda da LR öne çıktı (ROC-AUC farkları 9 veri setinin 9'unda pozitif: +0,0002 ile +0,131 arası, medyan +0,0038; ayarlıda 8/9). Bu bir sahte pozitif değil, gerçek ve tutarlı bir fark; LDA'nın düzenlileştirmesiz çözücüsü `credit` verisinde belirgin geride kalıyor. Çiftin "eşdeğer" ön kabulü hatalıydı.
+- **XGBoost↔LightGBM (yalnız varsayılan):** LightGBM 8/9 veri setinde önde (medyan +0,0038, en çok +0,018); ayar iki modeli birbirine yaklaştırınca (ayarlı koşu) çift kararsıza döndü. Yani ayarsız karşılaştırmadaki fark büyük ölçüde varsayılan hiperparametre farkı.
+- **Diğer beş çift** (RF↔ExtraTrees, HGB↔GB, LR↔LinearSVC, LightGBM↔HGB, XGBoost↔HGB) iki koşuda da kararsız.
+
+**Sonuç:** 7 çift ve 2 koşuda motor hiçbir çiftte çelişkili karar (iki yönde de replicated) üretmedi ve kararlarını gerçek, tutarlı farklara dayandırdı. Ama "yakın çift" etiketi kendi başına bir doğru cevap değildir: iki çift ön bilgiyi çürüttü, bu yüzden bu kontrol sahte pozitif oranını **ölçmez**, yalnız aşırı tutarsızlık (çelişki) olmadığını gösterir. Gerçek bir sahte pozitif oranı için iki özdeş modelin yalnız rastgele tohumla ayrıldığı bir boş (null) karşılaştırma gerekir; protokol `random_state`'i sabit tuttuğu için bu şimdilik kurulamıyor (açık iş).
+**Ayar etkileri (`near-tuned`):** 27 etkinin 24'ü testlenebilir, model içinde 1'i anlamlı, katı düzeltmede 0'ı.
