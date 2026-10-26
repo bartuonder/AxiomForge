@@ -120,3 +120,22 @@ def test_every_split_becomes_a_nested_run_with_its_seed(store):
     assert len(children) == 2 * SPLITS
     assert children["params.model"].value_counts().to_dict() == {"Hi": SPLITS, "Lo": SPLITS}
     assert sorted(children["params.seed"].unique(), key=int) == [str(seed) for seed in sorted(VERIFICATION_SEEDS)]
+
+
+def test_the_statistical_decision_is_stored_as_an_artifact(store):
+    run = log_run(verdict="supported")
+    path = mlflow.artifacts.download_artifacts(run_id=run.info.run_id, artifact_path="statistical_decision.json", tracking_uri=store)
+    import json
+
+    stored = json.load(open(path, encoding="utf-8"))
+    assert stored["hypothesis"]["verdict"] == "supported" and stored["n_splits"] == SPLITS
+    assert "performance" in stored and "instability" in stored
+
+
+def test_an_artifact_failure_does_not_lose_the_run(store, monkeypatch):
+    def broken(*args, **kwargs):
+        raise OSError("artifact store is not writable")
+
+    monkeypatch.setattr(mlflow, "log_dict", broken)
+    run = log_run(verdict="supported")
+    assert run.data.params["status"] == "Verified" and run.data.metrics["Hi/roc_auc_mean"] > 0

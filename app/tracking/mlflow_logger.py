@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import sys
@@ -10,9 +11,9 @@ import mlflow
 
 from app.config import MLFLOW_TRACKING_URI
 
+logger = logging.getLogger("axiomforge")
+
 _NUMBER = r"(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
-_ACCURACY = re.compile(rf"accuracy\s*[:=]\s*({_NUMBER})", re.IGNORECASE)
-_F1 = re.compile(rf"\bf1(?:_score)?\s*[:=]\s*({_NUMBER})", re.IGNORECASE)
 _DATASET_LINE = re.compile(
     r"dataset\s*=\s*(?P<dataset>[A-Za-z0-9_]+)\s+"
     r"samples\s*=\s*(?P<samples>\d+)\s+"
@@ -83,19 +84,6 @@ def parse_model_results(output: str) -> list[dict[str, str | float]]:
     if not results:
         raise RuntimeError(f"model metrics missing from sandbox output: {output}")
     return results
-
-
-def parse_metrics(output: str) -> dict[str, float]:
-    metrics: dict[str, float] = {}
-    accuracy = _ACCURACY.search(output)
-    f1 = _F1.search(output)
-    if accuracy is not None:
-        metrics["accuracy"] = float(accuracy.group(1))
-    if f1 is not None:
-        metrics["f1"] = float(f1.group(1))
-    if not metrics:
-        raise RuntimeError(f"metrics missing from sandbox output: {output}")
-    return metrics
 
 
 def _allow_unicode_logs() -> None:
@@ -186,6 +174,10 @@ def log_verified_comparison(
         mlflow.log_param("seeds", ",".join(str(seed) for seed in seeds))
         mlflow.log_param("n_splits", str(decision.get("n_splits", 0)))
         mlflow.log_param("stability_test", str(decision.get("test", "")))
+        try:
+            mlflow.log_dict(json.loads(json.dumps(decision, default=str)), "statistical_decision.json")
+        except Exception:
+            logger.exception("the statistical decision could not be uploaded to MLflow")
         mlflow.set_tag("hypothesis", hypothesis[:5000])
         mlflow.set_tag("outcome", str(decision.get("outcome", "none")))
         mlflow.set_tag("winner", str(decision.get("winner", "")))
@@ -235,25 +227,6 @@ def log_verified_comparison(
                 for name in metric_names:
                     mlflow.log_metric(name, float(item[name]))
         return parent.info.run_id
-
-
-def log_classification_run(
-    metrics: dict[str, float],
-    prompt_version: str,
-    algorithm: str,
-    model: str,
-    attempts: int,
-) -> str:
-    _start_experiment()
-    with mlflow.start_run() as run:
-        mlflow.log_param("prompt_version", prompt_version)
-        mlflow.log_param("algorithm", algorithm)
-        mlflow.log_param("model", model)
-        mlflow.log_param("attempts", str(attempts))
-        mlflow.log_param("status", "Finished")
-        for name, value in metrics.items():
-            mlflow.log_metric(name, value)
-        return run.info.run_id
 
 
 def log_failed_run(
