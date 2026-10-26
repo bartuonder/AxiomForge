@@ -38,7 +38,7 @@ def run_dataset(
     attempts: int = MAX_ATTEMPTS,
 ) -> dict[str, Any]:
     models, params, tuning = spec["models"], effective_params(spec), spec.get("tuning") or {}
-    script = build_script(dataset, models, spec.get("params") or {}, seeds, tuning)
+    script = build_script(dataset, models, spec.get("params") or {}, seeds, tuning, spec.get("revisions") or {})
     execute = execute or (run_tuned_classification if tuning else run_classification)
     last_error = ""
     for attempt in range(1, attempts + 1):

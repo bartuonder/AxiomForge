@@ -154,6 +154,15 @@ def describe(key: str) -> str:
     return f"Hugging Face dataset {where}: {entry['summary']}"
 
 
+REVISION = re.compile(r"[0-9a-f]{40}")
+
+
+def pinned_loader_code(key: str, revision: str) -> str:
+    if not REVISION.fullmatch(str(revision)):
+        raise ValueError("revision must be a 40 character commit hash in lower case hexadecimal")
+    return loader_code(key).replace('split="train")', f'split="train", revision="{revision}")', 1)
+
+
 def loader_code(key: str) -> str:
     entry = DATASETS[key]
     lines = [

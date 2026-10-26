@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -30,6 +31,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--id", help="campaign id; a new one is generated when omitted")
     run.add_argument("--mlflow", action="store_true", help="also record the campaign in MLflow")
     run.add_argument("--tuning", type=int, help="tune every model by random search with this many configurations per dataset")
+    run.add_argument("--pin-from", help="pin the dataset revisions recorded by this stored campaign")
     commands.add_parser("list", help="list stored campaigns")
     commands.add_parser("demos", help="list the ready campaigns")
     show = commands.add_parser("show", help="print the report of a stored campaign")
@@ -53,7 +55,23 @@ def _load_spec(arguments: argparse.Namespace) -> dict[str, Any]:
         if isinstance(source, dict) and isinstance(source.get("deviations"), list):
             note = tuning_note({"iterations": arguments.tuning, "folds": DEFAULT_FOLDS})
             source["deviations"] = [note if str(item).startswith("No hyperparameter search") else item for item in source["deviations"]]
+    if arguments.pin_from:
+        spec["revisions"] = _pinned_revisions(arguments.pin_from, spec.get("datasets") or [])
     return spec
+
+
+def _pinned_revisions(campaign_id: str, datasets: list[str]) -> dict[str, str]:
+    ledger = store.load_ledger(campaign_id)
+    if ledger is None:
+        raise CampaignSpecError(f"campaign {campaign_id} has no ledger to pin the revisions from")
+    revisions = {
+        entry["key"]: entry["provenance"]["revision"]
+        for entry in ledger
+        if entry.get("kind") == "dataset" and entry["key"] in datasets and re.fullmatch(r"[0-9a-f]{40}", str((entry.get("provenance") or {}).get("revision", "")))
+    }
+    if not revisions:
+        raise CampaignSpecError(f"campaign {campaign_id} has no revision for the datasets of this run")
+    return revisions
 
 
 def _describe(state: dict[str, Any]) -> list[str]:

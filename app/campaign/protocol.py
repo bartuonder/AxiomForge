@@ -3,7 +3,7 @@ from typing import Any
 from app.campaign.descriptors import descriptors_code
 from app.campaign.provenance import provenance_code
 from app.campaign.tuning import TuningError, tuning_code, validate_tuning
-from app.datasets import DATASETS, loader_code
+from app.datasets import DATASETS, loader_code, pinned_loader_code
 from app.seeds import SPLIT_SEEDS
 from app.variants import baseline_name
 
@@ -49,6 +49,7 @@ def build_script(
     params: dict[str, dict[str, Any]] | None = None,
     seeds: tuple[int, ...] = SPLIT_SEEDS,
     tuning: dict[str, int] | None = None,
+    revisions: dict[str, str] | None = None,
 ) -> str:
     if dataset not in DATASETS:
         raise ProtocolError(f"unknown dataset {dataset}")
@@ -78,8 +79,15 @@ def build_script(
             f"subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '{package}'], check=True)" for package in packages
         )
     lines.append("import time")
-    lines.append(loader_code(dataset))
-    lines.append(provenance_code(dataset, packages))
+    revision = (revisions or {}).get(dataset)
+    if revision:
+        try:
+            lines.append(pinned_loader_code(dataset, revision))
+        except ValueError as exc:
+            raise ProtocolError(str(exc)) from exc
+    else:
+        lines.append(loader_code(dataset))
+    lines.append(provenance_code(dataset, packages, revision))
     lines.append(descriptors_code())
     lines.append("from sklearn.model_selection import train_test_split")
     lines.append("from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, average_precision_score, confusion_matrix")

@@ -168,6 +168,9 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
     if source:
         lines.append("Source: " + "; ".join(source[name] for name in ("title", "citation", "url") if name in source) + ".")
         lines.append("")
+    if spec.get("revisions"):
+        lines.append("Dataset revisions pinned in the specification: " + ", ".join(spec["revisions"]) + ".")
+        lines.append("")
     tuning = spec.get("tuning") or {}
     if tuning:
         sentence = (

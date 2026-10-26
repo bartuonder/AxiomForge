@@ -150,6 +150,25 @@ def _source(raw: Any) -> dict[str, Any]:
     return source
 
 
+_REVISION = re.compile(r"[0-9a-f]{40}")
+
+
+def _revisions(raw: Any, datasets: list[str]) -> dict[str, str]:
+    if raw in (None, {}):
+        return {}
+    if not isinstance(raw, dict):
+        raise CampaignSpecError("revisions must be an object that maps dataset keys to commit hashes")
+    revisions: dict[str, str] = {}
+    for key, value in raw.items():
+        if key not in datasets:
+            raise CampaignSpecError(f"revision given for {key}, which is not a dataset of the campaign")
+        text = value.lower() if isinstance(value, str) else ""
+        if not _REVISION.fullmatch(text):
+            raise CampaignSpecError(f"the revision of {key} must be a 40 character commit hash")
+        revisions[key] = text
+    return revisions
+
+
 def validate_campaign(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise CampaignSpecError("a campaign must be a JSON object")
@@ -161,12 +180,17 @@ def validate_campaign(raw: Any) -> dict[str, Any]:
         raise CampaignSpecError(str(exc)) from exc
     if tuning and params:
         raise CampaignSpecError("tuning and listed parameters cannot be combined")
-    return {
+    datasets = _datasets(raw.get("datasets"))
+    spec = {
         "title": _text(raw.get("title"), "title", MAX_TITLE),
         "models": models,
         "params": params,
         "tuning": tuning,
-        "datasets": _datasets(raw.get("datasets")),
+        "datasets": datasets,
         "claims": _claims(raw.get("claims"), models),
         "source": _source(raw.get("source")),
     }
+    revisions = _revisions(raw.get("revisions"), datasets)
+    if revisions:
+        spec["revisions"] = revisions
+    return spec

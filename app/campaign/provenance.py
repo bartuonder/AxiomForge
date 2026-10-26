@@ -16,7 +16,7 @@ def spec_digest(spec: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def provenance_code(dataset: str, extra_packages: list[str]) -> str:
+def provenance_code(dataset: str, extra_packages: list[str], revision: str | None = None) -> str:
     packages = list(dict.fromkeys([*BASE_PACKAGES, *extra_packages]))
     hf_id = DATASETS[dataset]["hf_id"]
     return "\n".join(
@@ -30,7 +30,7 @@ def provenance_code(dataset: str, extra_packages: list[str]) -> str:
             f"        return {UNKNOWN!r}",
             "try:",
             "    from huggingface_hub import HfApi",
-            f"    _revision = HfApi().dataset_info({hf_id!r}).sha or {UNKNOWN!r}",
+            f"    _revision = HfApi().dataset_info({hf_id!r}{f', revision={revision!r}' if revision else ''}).sha or {UNKNOWN!r}",
             "except Exception:",
             f"    _revision = {UNKNOWN!r}",
             f"_packages = {packages!r}",
