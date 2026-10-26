@@ -72,6 +72,20 @@ def _tuned_lines(finished: list[str], ledger: list[dict[str, Any]]) -> list[str]
     return ["Selected configurations (best cross-validated ROC-AUC on the tuning set):", ""] + lines + [""]
 
 
+def _effect_name(spec: dict[str, Any]) -> str:
+    return "tuning" if spec.get("tuning") else "the listed parameters"
+
+
+def _strict_effect_sentence(spec: dict[str, Any], analysis: dict[str, Any]) -> list[str]:
+    effects = analysis.get("parameter_effects") or []
+    significant = [row for row in effects if row["significant"]]
+    if not significant or len({row["model"] for row in effects}) < 2:
+        return []
+    kept = sum(1 for row in significant if row["significant_all"])
+    what = "tuning effects" if spec.get("tuning") else "parameter effects"
+    return [f"Significant {what} within their model: {len(significant)}; of these, {kept} remain significant when the adjustment spans all models and metrics."]
+
+
 def _treatment(row: dict[str, Any]) -> str:
     return "tuned by random search" if (row.get("params") or {}).get("tuned") else "with the listed parameters"
 
@@ -175,7 +189,8 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
         "Statistics: each dataset contributes the mean over its splits for every model; datasets are the units of analysis. "
         f"Models and model families are compared with a two-sided exact Wilcoxon signed-rank test across datasets (at least {MIN_DATASETS} datasets "
         f"with a non-zero difference), Holm-adjusted within each family of tests; the Friedman test needs at least three models and {MIN_FRIEDMAN_DATASETS} datasets. "
-        "A model family is scored by its best member on each dataset.",
+        "A model family is scored by its best member on each dataset."
+        + (f" The effect of {_effect_name(spec)} is adjusted across the metrics of each model." if analysis.get("parameter_effects") else ""),
         "",
         f"Specification: SHA-256 {spec_digest(spec)}, computed before the first dataset started.",
         "",
@@ -250,6 +265,7 @@ def render_report(spec: dict[str, Any], outcome: dict[str, Any], analysis: dict[
         ),
         "Datasets larger than the sampling limit were sampled with a fixed seed, which changes their size but not the class balance of the benchmark.",
     ]
+    limitations += _strict_effect_sentence(spec, analysis)
     if failed:
         limitations.append("Datasets that failed were left out of every test: " + ", ".join(failed) + ".")
     lines += [f"- {text}" for text in limitations] + ["", "## Evidence ledger", "", "| Id | Kind | Key | Detail |", "|---|---|---|---|"]

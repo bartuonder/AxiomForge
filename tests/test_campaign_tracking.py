@@ -127,6 +127,8 @@ def test_parameter_effects_are_logged_with_their_count(store):
     assert run.data.metrics["significant_parameter_effects"] == float(sum(1 for item in analysis["parameter_effects"] if item["significant"]))
     assert run.data.metrics["effect/MLP/roc_auc/median_difference"] == pytest.approx(0.01)
     assert "effect/MLP/roc_auc/adjusted_p_value" in run.data.metrics
+    assert run.data.metrics["effect/MLP/roc_auc/adjusted_p_value_all"] == pytest.approx(run.data.metrics["effect/MLP/roc_auc/adjusted_p_value"])
+    assert run.data.metrics["significant_parameter_effects_all"] == float(sum(1 for item in analysis["parameter_effects"] if item["significant_all"]))
 
 
 def test_each_dataset_is_a_nested_run_with_its_means_and_timing(store):

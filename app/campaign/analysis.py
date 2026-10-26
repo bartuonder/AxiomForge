@@ -24,14 +24,18 @@ def _parameter_effects(spec: dict[str, Any], per_dataset: dict[str, dict[str, An
         for metric in METRICS:
             _, names, matrix = score_matrix(per_dataset, metric, [model, control])
             rows.append({"model": model, "params": dict(values), "metric": metric, **compare_scores(matrix[:, 0], matrix[:, 1])})
-    testable = [index for index, row in enumerate(rows) if row["testable"]]
-    adjusted = holm_adjust([rows[index]["p_value"] for index in testable])
     for row in rows:
         row["adjusted_p_value"] = None
         row["significant"] = False
-    for index, value in zip(testable, adjusted):
-        rows[index]["adjusted_p_value"] = value
-        rows[index]["significant"] = value < ALPHA
+        row["adjusted_p_value_all"] = None
+        row["significant_all"] = False
+    families = [[index for index, row in enumerate(rows) if row["model"] == model and row["testable"]] for model in dict.fromkeys(row["model"] for row in rows)]
+    families.append([index for index, row in enumerate(rows) if row["testable"]])
+    for position, family in enumerate(families):
+        adjusted_key, significant_key = ("adjusted_p_value_all", "significant_all") if position == len(families) - 1 else ("adjusted_p_value", "significant")
+        for index, value in zip(family, holm_adjust([rows[index]["p_value"] for index in family])):
+            rows[index][adjusted_key] = value
+            rows[index][significant_key] = value < ALPHA
     return rows
 
 

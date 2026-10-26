@@ -54,11 +54,14 @@ def _log_analysis(analysis: dict[str, Any]) -> None:
             mlflow.log_metric(f"{prefix}/adjusted_p_value", float(row["adjusted_p_value"]))
     effects = analysis.get("parameter_effects") or []
     mlflow.log_metric("significant_parameter_effects", float(sum(1 for item in effects if item.get("significant"))))
+    mlflow.log_metric("significant_parameter_effects_all", float(sum(1 for item in effects if item.get("significant_all"))))
     for item in effects:
         prefix = f"effect/{item['model']}/{item['metric']}"
         mlflow.log_metric(f"{prefix}/median_difference", float(item["median_difference"]))
         if item.get("adjusted_p_value") is not None:
             mlflow.log_metric(f"{prefix}/adjusted_p_value", float(item["adjusted_p_value"]))
+        if item.get("adjusted_p_value_all") is not None:
+            mlflow.log_metric(f"{prefix}/adjusted_p_value_all", float(item["adjusted_p_value_all"]))
 
 
 def log_campaign(
