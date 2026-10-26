@@ -19,6 +19,7 @@ from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
 from app.graph.workflow import PlanDecisionError, decide_plan, get_research, new_thread_id, revoke_approval
+from app.openai_check import check_openai_access
 from app.tasks import resume_research_task, run_campaign_task, run_research_task
 
 logging.basicConfig(level=logging.INFO)
@@ -117,6 +118,7 @@ def _enqueue(task, *args) -> None:
 def start_research_endpoint(body: StartResearchRequest):
     try:
         thread_id = new_thread_id(body.query, body.mode)
+        check_openai_access()
         _enqueue(run_research_task, thread_id, body.query, body.mode)
         return {"thread_id": thread_id, "status": "running", "mode": body.mode}
     except QueryNamesTooFewModels as exc:

@@ -45,3 +45,10 @@ def no_planner_variants(monkeypatch):
     import app.agents.campaign_planner as campaign_planner
 
     monkeypatch.setattr(campaign_planner, "FILL_VARIANTS", False)
+
+
+@pytest.fixture(autouse=True)
+def no_real_openai_check(monkeypatch):
+    import app.main as main
+
+    monkeypatch.setattr(main, "check_openai_access", lambda: None)
