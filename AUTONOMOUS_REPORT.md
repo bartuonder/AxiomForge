@@ -131,7 +131,7 @@ E2B: yaklaşık 35 dakikalık sandbox (hard-tuned 10 dk 35 sn × 3 eşzamanlı, 
 
 ### Açık kalanlar
 - Katı düzeltmede ayakta kalan ayar etkisi yok; ayar protokolü küçük (20% küme, 12 yapılandırma). Daha büyük bir arama ya da daha büyük ayarlama kümesi MLP bulgusunu değiştirebilir.
-- 17 regex kapısının genel yanlış alarm oranı hâlâ ölçülmedi; test kalıntısı temizliği, GitHub'da CI'ın gerçek koşusu (yalnız yerelde doğrulandı) ve Linux'ta testlerin davranışı doğrulanmadı.
+- 17 regex kapısının genel yanlış alarm oranı hâlâ ölçülmedi; test kalıntısı temizliği, GitHub'da CI'ın ilk koşusu kırmızıydı (temiz checkout'ta `tsc` için `next typegen` gerekiyordu), düzeltmeden sonra yeşil; Linux'ta backend 2664 test geçti.
 - Hakem isteminin sadeleştirilmesi (kanıt yok).
 
 ## Takip 4: ayarlı MLP bulgusunun yeniden sınanması (26 Ekim 2026)
