@@ -184,7 +184,7 @@ class TestPlanner:
     def test_past_campaigns_are_listed_in_the_prompt(self, llm):
         past = [{"title": "Earlier run", "spec": SPEC, "verdicts": "C1 replicated; C2 replicated"}]
         planner.run_campaign_planner("q", SOURCES, past)
-        assert "Campaigns that were already run on similar questions. Do not propose the same claim again unless the user query asks to repeat it:" in llm[0]
+        assert "Campaigns that were already run on similar questions, for your information." in llm[0]
         assert "- Earlier run: Tree-based models beat the MLP; The MLP beats logistic regression (C1 replicated; C2 replicated)" in llm[0]
 
     def test_without_a_past_the_prompt_has_no_such_section(self, llm):

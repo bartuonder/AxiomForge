@@ -273,6 +273,19 @@ def _past_listing(past: list[dict[str, Any]]) -> str:
 
 
 def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    try:
+        chosen = _plan(query, sources, past)
+    except CampaignUnsupported:
+        if not past:
+            raise
+        logger.info("campaign planner refused with %s past campaigns in the prompt; asking again without them", len(past))
+        chosen = _plan(query, sources, None)
+    for item in chosen:
+        item["repeats"] = find_repeats(item["spec"], past or [])
+    return chosen
+
+
+def _plan(query: str, sources: list[dict[str, str]], past: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is missing")
     listing = "\n\n".join(
@@ -282,8 +295,10 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
     prompt = f"User query:\n{query}\n\nSources:\n{listing or 'No source paper was found.'}"
     if past:
         prompt += (
-            "\n\nCampaigns that were already run on similar questions. "
-            "Do not propose the same claim again unless the user query asks to repeat it:\n" + _past_listing(past)
+            "\n\nCampaigns that were already run on similar questions, for your information. "
+            "The system marks repeated claims itself, so a claim that was run before may still be proposed, "
+            "especially when the user query asks to replicate, check or test a claim or names a paper; "
+            "never answer unsupported because a claim was run before. Prefer new variations when the sources allow:\n" + _past_listing(past)
         )
     valid: list[dict[str, Any]] = []
     errors: list[str] = []
@@ -321,7 +336,4 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
                 raise CampaignUnsupported(refusal)
             raise RuntimeError("campaign planner did not return candidates")
         raise RuntimeError("campaign planner returned no valid campaign: " + "; ".join(errors))
-    chosen = (_fill(valid) if FILL_VARIANTS else valid)[:CANDIDATES]
-    for item in chosen:
-        item["repeats"] = find_repeats(item["spec"], past or [])
-    return chosen
+    return (_fill(valid) if FILL_VARIANTS else valid)[:CANDIDATES]
