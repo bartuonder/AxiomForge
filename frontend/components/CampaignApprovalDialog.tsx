@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { sourceLabel, tuningLabel } from "@/lib/campaignView";
 import type { CampaignCandidate } from "@/lib/types";
 
 type CampaignApprovalDialogProps = {
@@ -64,8 +65,11 @@ export function CampaignApprovalDialog({ candidates, busy, onDecide }: CampaignA
                 <span className="block text-xs text-[#5c564e]">
                   About {minutes(estimate.estimated_seconds)} (up to {minutes(estimate.worst_case_seconds)} with retries), {estimate.sandboxes} sandboxes (up to {estimate.max_sandboxes})
                 </span>
-                {spec.source?.title ? (
-                  <span className="block text-xs text-[#5c564e]">Source: {spec.source.title}</span>
+                {tuningLabel(spec.tuning) ? (
+                  <span className="block text-xs font-semibold text-[#14472f]">{tuningLabel(spec.tuning)}</span>
+                ) : null}
+                {sourceLabel(spec.source) ? (
+                  <span className="block text-xs text-[#5c564e]">Source: {sourceLabel(spec.source)}</span>
                 ) : null}
                 {evidence.map((item) => (
                   <span key={`${item.claim}-${item.quote}`} className="block text-xs italic text-[#5c564e]">

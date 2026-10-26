@@ -32,6 +32,7 @@ export type CampaignClaim = {
   metrics: string[];
   subject: string[];
   other: string[];
+  quote?: string;
 };
 
 export type CampaignPlanSpec = {
@@ -39,7 +40,8 @@ export type CampaignPlanSpec = {
   models: string[];
   datasets: string[];
   claims: CampaignClaim[];
-  source?: { title?: string; url?: string; deviations?: string[] };
+  source?: { title?: string; citation?: string; url?: string; deviations?: string[] };
+  tuning?: { iterations?: number; folds?: number };
 };
 
 export type CampaignEstimate = {

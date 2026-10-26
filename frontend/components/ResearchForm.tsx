@@ -1,5 +1,6 @@
 "use client";
 
+import { arxivReferences } from "@/lib/campaignView";
 import type { ResearchMode } from "@/lib/types";
 
 type ResearchFormProps = {
@@ -16,12 +17,13 @@ const MODES: { value: ResearchMode; label: string; hint: string }[] = [
   {
     value: "campaign",
     label: "Campaign",
-    hint: "Replicate a claim across many datasets. Uses the sandbox for several minutes after you approve a plan.",
+    hint: "Replicate a claim across many datasets. Paste an arXiv link or id to use that paper. Uses the sandbox for several minutes after you approve a plan.",
   },
 ];
 
 export function ResearchForm({ query, mode, busy, onQueryChange, onModeChange, onSubmit }: ResearchFormProps) {
   const hint = MODES.find((item) => item.value === mode)?.hint ?? "";
+  const papers = arxivReferences(query);
   return (
     <form
       className="flex w-full flex-col gap-3"
@@ -47,6 +49,13 @@ export function ResearchForm({ query, mode, busy, onQueryChange, onModeChange, o
         ))}
         <span className="text-xs text-[#5c564e]">{hint}</span>
       </fieldset>
+      {papers.length > 0 ? (
+        <p className="text-xs text-[#14472f]">
+          {mode === "campaign"
+            ? `arXiv ${papers.join(", ")} will be fetched and used as the source; no search is run.`
+            : `arXiv ${papers.join(", ")} is named, but only campaign mode uses it as a source.`}
+        </p>
+      ) : null}
       <div className="flex w-full flex-col gap-3 sm:flex-row">
         <label className="sr-only" htmlFor="research-query">
           Research topic

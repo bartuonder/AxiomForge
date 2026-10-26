@@ -51,6 +51,19 @@ export async function fetchReport(threadId: string): Promise<string> {
   return body.markdown;
 }
 
+export async function startDemoCampaign(demo: string): Promise<string> {
+  const response = await fetch(`${API_URL}/start_campaign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ demo }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  const body = (await response.json()) as { campaign_id: string };
+  return body.campaign_id;
+}
+
 export async function fetchCampaigns(): Promise<CampaignSummary[]> {
   const response = await fetch(`${API_URL}/campaigns`, { cache: "no-store" });
   if (!response.ok) {

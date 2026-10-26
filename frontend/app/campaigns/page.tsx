@@ -1,17 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CampaignBadge } from "@/components/CampaignBadge";
-import { fetchCampaigns } from "@/lib/api";
+import { fetchCampaigns, startDemoCampaign } from "@/lib/api";
 import type { CampaignSummary } from "@/lib/types";
 
 const POLL_MS = 3000;
 const ACTIVE = new Set(["queued", "running"]);
+const DEMO = "grinsztajn-2022";
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<CampaignSummary[] | null>(null);
   const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
+  const router = useRouter();
+
+  const startDemo = async () => {
+    if (!window.confirm("Run the ready campaign " + DEMO + "? It uses the sandbox for about five minutes and no language model.")) {
+      return;
+    }
+    setStarting(true);
+    try {
+      router.push(`/campaign/${await startDemoCampaign(DEMO)}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The campaign could not be started");
+      setStarting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +66,14 @@ export default function CampaignsPage() {
       </Link>
       <p className="mt-8 text-xs font-semibold tracking-[0.18em] text-[#8a8175] uppercase">Replication</p>
       <h1 className="mt-2 text-4xl text-[#1c1915]">Campaigns</h1>
+      <button
+        type="button"
+        disabled={starting}
+        onClick={() => void startDemo()}
+        className="mt-6 h-11 cursor-pointer rounded-full bg-[#1f6b4a] px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#d5d0c6] disabled:text-[#6f675e]"
+      >
+        {starting ? "Starting" : `Run the ready campaign (${DEMO})`}
+      </button>
       {error ? <p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
       {campaigns && campaigns.length === 0 ? (
         <p className="mt-8 text-sm text-[#5c564e]">
