@@ -7,9 +7,7 @@ from app.graph.verifier import (
     instability_finding,
     instability_text,
     metric_summary,
-    models_dropped,
     performance_comparisons,
-    performance_dropped,
     rewrite_seeds,
     seeded_rows,
     stability_decision,
@@ -268,18 +266,3 @@ def test_performance_comparisons_need_confusion_counts_and_sizes():
     assert performance_comparisons(without_counts, 500.0) == []
     assert performance_comparisons(per_seed_runs(ROC), 100.0) == []
     assert performance_comparisons([], 500.0) == []
-
-
-def test_performance_dropped_uses_a_relative_limit():
-    assert performance_dropped({"f1": 0.9}, {"f1": 0.7}) is True
-    assert performance_dropped({"f1": 0.9}, {"f1": 0.85}) is False
-    assert performance_dropped({"f1": 0.0}, {"f1": 0.0}) is False
-    assert performance_dropped({"f1": 0.9}, {}) is False
-
-
-def test_models_dropped_notices_a_missing_model_or_a_collapse():
-    original = [row("A", 0.9), row("B", 0.9)]
-    assert models_dropped(original, [row("A", 0.9)]) is True
-    assert models_dropped(original, [row("A", 0.9), row("B", 0.5)]) is True
-    assert models_dropped(original, [row("A", 0.9), row("B", 0.89)]) is False
-    assert models_dropped([], []) is False

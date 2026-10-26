@@ -3,7 +3,6 @@ import pytest
 from app.tracking.mlflow_logger import (
     detect_algorithm,
     parse_dataset_profile,
-    parse_metrics,
     parse_model_results,
 )
 
@@ -78,16 +77,6 @@ def test_dataset_profile_accepts_scientific_ratios():
 def test_missing_dataset_profile_raises():
     with pytest.raises(RuntimeError, match="dataset profile missing"):
         parse_dataset_profile("model=SVM accuracy=0.9")
-
-
-def test_legacy_metrics_parse_both_separators():
-    assert parse_metrics("accuracy: 0.93 f1_score: 8.5e-01") == {"accuracy": 0.93, "f1": 0.85}
-    assert parse_metrics("accuracy=0.5") == {"accuracy": 0.5}
-
-
-def test_legacy_metrics_raise_when_empty():
-    with pytest.raises(RuntimeError, match="metrics missing"):
-        parse_metrics("nothing")
 
 
 @pytest.mark.parametrize(

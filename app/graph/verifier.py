@@ -18,7 +18,6 @@ ALPHA = 0.05
 CONCLUSION_METRIC = "roc_auc"
 PERFORMANCE_METRICS = ("roc_auc", "pr_auc", "f1")
 STABILITY_TEST = "Pitman-Morgan variance test on paired splits with Holm adjustment"
-DROP_LIMIT = 0.10
 MAX_CRITIC_ROUNDS = 2
 LEAKAGE_PROMPT = (
     "Bu makine öğrenmesi kodunda test setine data leakage (veri sızıntısı) var mı? "
@@ -443,39 +442,6 @@ def judge_data_leakage(code: str) -> tuple[bool, str]:
     if not isinstance(reason, str):
         reason = ""
     return leakage, reason.strip()
-
-
-def models_dropped(
-    original: list[dict[str, str | float]],
-    renewed: list[dict[str, str | float]],
-) -> bool:
-    found = {str(item["model"]): item for item in renewed}
-    if not original:
-        return False
-    for item in original:
-        other = found.get(str(item["model"]))
-        if other is None:
-            return True
-        score_names = ("accuracy", "f1", "roc_auc", "pr_auc")
-        if performance_dropped(
-            {name: float(item[name]) for name in score_names if name in item},
-            {name: float(other[name]) for name in score_names if name in other},
-        ):
-            return True
-    return False
-
-
-def performance_dropped(original: dict[str, float], renewed: dict[str, float]) -> bool:
-    for name in ("accuracy", "f1", "roc_auc", "pr_auc"):
-        if name not in original or name not in renewed:
-            continue
-        baseline = original[name]
-        if baseline <= 0:
-            continue
-        drop = (baseline - renewed[name]) / baseline
-        if drop > DROP_LIMIT:
-            return True
-    return False
 
 
 def has_split_loop(rows: list[dict[str, str | float]]) -> bool:
