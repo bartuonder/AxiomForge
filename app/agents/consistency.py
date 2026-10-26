@@ -160,6 +160,7 @@ _WHOLE_DATA = re.compile(
     re.IGNORECASE,
 )
 _AFTER_SPLIT = re.compile(r"\bafter\s+(?:the\s+)?(?:\w+[- ]){0,2}?(?:split\w*|partition\w*)", re.IGNORECASE)
+_FITTED_ON_TRAINING = re.compile(r"\b(?:fit|fitted|fitting)\s+(?:only\s+)?(?:on|to|with|using)\s+(?:the\s+)?(?:\w+\s+)?(?:training|train)\b", re.IGNORECASE)
 LEAKAGE_DESCRIPTION_NOTICE = (
     'Doğrulama veri sızıntısı olmadığını söylüyor ama makale ön işlemeyi veri bölünmeden önce ya da tüm veri üzerinde '
     'yapılmış gibi anlatıyor: "{sentence}". Ön işlemenin yalnız eğitim bölümüne uydurulduğunu, test bölümüne '
@@ -636,6 +637,7 @@ def leakage_description_issues(paper: str, verification_status: str) -> list[str
             and (_BEFORE_SPLIT.search(sentence) or _WHOLE_DATA.search(sentence))
             and not _AFTER_SPLIT.search(sentence)
             and not _NEGATION.search(sentence)
+            and not _FITTED_ON_TRAINING.search(sentence)
         ):
             return [LEAKAGE_DESCRIPTION_NOTICE.format(sentence=sentence.strip()[:200])]
     return []

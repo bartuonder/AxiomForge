@@ -27,6 +27,8 @@ def paper(sentence):
         "Normalization was applied to the full data prior to the train-test split.",
         "Missing values were imputed before the split using all of the data.",
         "PCA was fitted ahead of partitioning the samples.",
+        "The scaler was fitted on the full dataset, including the training and test rows.",
+        "Imputation was fitted on the whole data and the training rows were used afterwards.",
     ],
 )
 def test_a_leaky_preprocessing_description_is_flagged_when_verification_passed(sentence):
@@ -46,6 +48,16 @@ def test_a_leaky_preprocessing_description_is_flagged_when_verification_passed(s
         "The dataset has 1000 samples and 3 features.",
         "The data were split before training the models.",
         "No data leakage or execution errors were detected during the experiment.",
+        "The full dataset was split first, and the scaler was then fitted on the training rows of every split.",
+        "The whole data set was divided into folds; imputation was fitted using the training fold only.",
+        "A StandardScaler was fitted to the train part and applied to the full dataset of held-out rows.",
+        "The full dataset was split first; the scaler was fit on the training rows.",
+        "The full dataset was split first and the scaler was fitted with the training rows.",
+        "The full dataset was split first and the scaler was fitted on training rows.",
+        "The full dataset was split first and the scaler was fitted on the cleaned training rows.",
+        "The full dataset was split first and the scaler was fitted on the train part.",
+        "The whole data was split first, fitting on the training rows only for the scaler.",
+        "The scaler was fitted only on the training rows, while the full dataset served for the split.",
     ],
 )
 def test_an_honest_description_passes(sentence):
