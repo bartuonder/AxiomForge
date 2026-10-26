@@ -386,21 +386,27 @@ def _steps(values: dict, next_nodes: list[str], status: str) -> list[dict[str, s
     return steps
 
 
+class PlanDecisionError(RuntimeError):
+    def __init__(self, message: str, status_code: int) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 def decide_plan(thread_id: str, decision: str, selected: int | None = None) -> dict:
     normalized = decision.strip().upper()
     if normalized not in {"Y", "N"}:
-        raise RuntimeError("decision must be Y or N")
+        raise PlanDecisionError("decision must be Y or N", 422)
     config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
     with _open_graph() as checkpointer:
         checkpointer.setup()
         compiled = _compile(checkpointer)
         snapshot = compiled.get_state(config)
         if not snapshot.values:
-            raise RuntimeError("research thread was not found")
+            raise PlanDecisionError("research thread was not found", 404)
         if snapshot.next != ("approval_gate",):
-            raise RuntimeError("research thread is not waiting for approval")
+            raise PlanDecisionError("research thread is not waiting for approval", 409)
         if snapshot.values.get("approval_status"):
-            raise RuntimeError("research thread was already decided")
+            raise PlanDecisionError("research thread was already decided", 409)
         campaign = snapshot.values.get("mode") == "campaign"
         candidates = list(snapshot.values.get("campaign_specs") or []) if campaign else []
         hypotheses = [str(item["spec"]["title"]) for item in candidates] if campaign else list(snapshot.values.get("hypotheses", []))

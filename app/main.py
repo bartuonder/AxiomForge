@@ -18,7 +18,7 @@ from app.campaign.spec import CampaignSpecError
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
-from app.graph.workflow import decide_plan, get_research, new_thread_id, revoke_approval
+from app.graph.workflow import PlanDecisionError, decide_plan, get_research, new_thread_id, revoke_approval
 from app.tasks import resume_research_task, run_campaign_task, run_research_task
 
 logging.basicConfig(level=logging.INFO)
@@ -158,6 +158,8 @@ def approve_plan_endpoint(body: ApprovePlanRequest):
         return result
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PlanDecisionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except OpenAIError as exc:

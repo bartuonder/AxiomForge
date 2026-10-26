@@ -155,6 +155,52 @@ def test_the_endpoint_does_not_queue_a_rejection(client):
 def test_the_endpoint_refuses_a_second_decision(client):
     assert approve(client, decision="Y", selected=0).status_code == 200
     again = approve(client, decision="Y", selected=1)
-    assert again.status_code == 503
+    assert again.status_code == 409
     assert "already decided" in again.json()["detail"]
     assert len(client.queued) == 1
+
+
+@pytest.mark.parametrize(
+    ("setup", "decision", "status", "text"),
+    [
+        ("unknown", "Y", 404, "not found"),
+        ("busy", "Y", 409, "not waiting"),
+        ("decided", "Y", 409, "already decided"),
+        ("waiting", "maybe", 422, "Y or N"),
+    ],
+)
+def test_each_refusal_has_its_own_status(client, graph, setup, decision, status, text):
+    if setup == "unknown":
+        graph.values = {}
+    elif setup == "busy":
+        graph.next_nodes = ("experiment_node",)
+    elif setup == "decided":
+        graph.values = {**graph.values, "approval_status": "approved"}
+    response = approve(client, decision=decision, selected=0)
+    assert response.status_code == status and text in response.json()["detail"]
+    assert client.queued == []
+
+
+@pytest.mark.parametrize(
+    ("setup", "decision", "status"),
+    [("unknown", "Y", 404), ("busy", "Y", 409), ("decided", "Y", 409), ("waiting", "maybe", 422)],
+)
+def test_the_refusals_carry_their_status_code(graph, setup, decision, status):
+    if setup == "unknown":
+        graph.values = {}
+    elif setup == "busy":
+        graph.next_nodes = ("experiment_node",)
+    elif setup == "decided":
+        graph.values = {**graph.values, "approval_status": "approved"}
+    with pytest.raises(workflow.PlanDecisionError) as caught:
+        workflow.decide_plan("t", decision, 0)
+    assert caught.value.status_code == status and isinstance(caught.value, RuntimeError)
+
+
+def test_a_real_runtime_failure_is_still_a_503(client, graph, monkeypatch):
+    def broken(thread_id, decision, selected):
+        raise RuntimeError("checkpoint database is down")
+
+    monkeypatch.setattr(main, "decide_plan", broken)
+    response = approve(client, decision="Y", selected=0)
+    assert response.status_code == 503 and "checkpoint" in response.json()["detail"]
