@@ -556,3 +556,15 @@ def test_the_prompt_asks_for_variations_when_fewer_than_three_claims_exist():
     prompt = planner.SYSTEM_PROMPT
     assert "If the sources and the query allow fewer than three different claims" in prompt
     assert "vary the model groups, the metrics or the comparison" in prompt
+
+
+def test_the_prompt_maps_unrunnable_architectures_instead_of_refusing_them():
+    prompt = planner.SYSTEM_PROMPT
+    assert "transformers, ResNet or other deep networks, are mapped to the MLP stand-in" in prompt
+    assert "never answer unsupported because of an architecture that is not in the list" in prompt
+
+
+def test_the_prompt_never_inverts_a_negated_statement():
+    prompt = planner.SYSTEM_PROMPT
+    assert "A negated statement such as 'X does not outperform Y' is not the claim that Y outperforms X" in prompt
+    assert "propose the affirmative claim 'X outperforms Y'" in prompt and "never invert the direction" in prompt
