@@ -172,3 +172,11 @@ Kararsız iddia payı için Wilson %95 aralığı: varsayılan 0,52-0,92 (11/14)
 
 **Sonuç:** 7 çift ve 2 koşuda motor hiçbir çiftte çelişkili karar (iki yönde de replicated) üretmedi ve kararlarını gerçek, tutarlı farklara dayandırdı. Ama "yakın çift" etiketi kendi başına bir doğru cevap değildir: iki çift ön bilgiyi çürüttü, bu yüzden bu kontrol sahte pozitif oranını **ölçmez**, yalnız aşırı tutarsızlık (çelişki) olmadığını gösterir. Gerçek bir sahte pozitif oranı için iki özdeş modelin yalnız rastgele tohumla ayrıldığı bir boş (null) karşılaştırma gerekir; protokol `random_state`'i sabit tuttuğu için bu şimdilik kurulamıyor (açık iş).
 **Ayar etkileri (`near-tuned`):** 27 etkinin 24'ü testlenebilir, model içinde 1'i anlamlı, katı düzeltmede 0'ı.
+
+## Takip 6: frontend'in ilk gerçek denemesi (26 Ekim 2026)
+
+- Kullanıcı sunucuları açtırıp konsolu denedi. **9 veri setinde ağaç tabanlı modellerin daha iyi çıktığı sonuç göründü ve doğru**, ama sayfa "sayı cümbüşü" olarak geri bildirildi: kullanıcıya göre değil, geliştirici gözüyle yazılmış.
+- **Gerçek hata:** `Replicate the central claim of arXiv:2207.08815 on tabular data.` sorgusu planlayıcıdan "kaynakta yok / iddia yok" mesajıyla döndü. Worker logunda makale doğru çekilmişti; sorun, bellekteki 3 eski "Tree-based vs Neural Networks" kampanyasının prompt'a "daha önce yapıldı" diye girip modeli reddettirmesiydi. Aynı sorgu geçmişsiz üç plan, geçmişle üç ret üretti (3/3 tekrar). Düzeltme: geçmiş yalnız bilgi için verilir, 'replicate' isteyen sorguda reddetme yasağı eklendi, ret gelirse geçmişsiz bir kez daha sorulur; tekrar işaretleri yine geçmişle hesaplanır. 10 test, 10 mutasyon (1 hayatta kalan test ile kapatıldı); gerçek bellekle canlıda doğrulandı.
+- **Kullanıcıya dönük ders:** ekranda görünen hata metni asıl sebebi söylemiyordu. Hata mesajlarının sebepli ve sade yazılması `ROADMAP.md` B1-6'da.
+- **Bellek kirliliği:** benchmark ve test kampanyaları kullanıcının "geçmiş" listesine karışıyor; ayrım `ROADMAP.md` A2-6'da.
+- `ROADMAP.md` oluşturuldu: kalan işler (A) ve frontend / ürün yenileme listesi (B), önerilen sıra (C).
