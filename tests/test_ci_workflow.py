@@ -27,8 +27,13 @@ def test_the_backend_job_uses_the_python_of_the_docker_image():
 
 
 def test_the_frontend_job_checks_types_lint_tests_and_the_build():
-    assert commands("frontend") == ["npm ci", "npm test", "npx tsc --noEmit", "npm run lint", "npm run build"]
+    assert commands("frontend") == ["npm ci", "npm test", "npx next typegen", "npx tsc --noEmit", "npm run lint", "npm run build"]
     assert WORKFLOW["jobs"]["frontend"]["defaults"]["run"]["working-directory"] == "frontend"
+
+
+def test_the_route_types_are_generated_before_the_type_check():
+    steps = commands("frontend")
+    assert steps.index("npx next typegen") < steps.index("npx tsc --noEmit")
 
 
 def test_every_npm_script_the_workflow_calls_exists():
