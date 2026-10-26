@@ -10,6 +10,8 @@ from app.campaign.hard_benchmark import (
     hard_models,
     hard_spec,
     near_cases,
+    near_models,
+    near_spec,
     score_near_equal,
     wilson_interval,
 )
@@ -33,36 +35,47 @@ def plan(*claims):
 class TestCases:
     def test_every_pair_is_asked_in_both_directions(self):
         cases = near_cases()
-        assert len(cases) == 2 * len(NEAR_PAIRS) == 6
+        assert len(cases) == 2 * len(NEAR_PAIRS) == 14
         for number, (first, second) in enumerate(NEAR_PAIRS):
             forward, backward = [case for case in cases if case["pair"] == number]
             assert (forward["subject"], forward["other"]) == ([first], [second])
             assert (backward["subject"], backward["other"]) == ([second], [first])
 
     def test_ids_continue_after_the_known_claims_without_clashes(self):
-        assert [case["id"] for case in near_cases()] == ["N1", "N2", "N3", "N4", "N5", "N6"]
+        assert [case["id"] for case in near_cases()] == [f"N{number}" for number in range(1, 15)]
 
     def test_the_queries_name_both_models_with_the_right_verb(self):
         queries = [case["query"] for case in near_cases()]
         assert queries[0] == "Random forests outperform extremely randomized trees on tabular classification data."
         assert queries[2] == "Histogram gradient boosting outperforms gradient boosting on tabular classification data."
         assert queries[5] == "A linear support vector machine outperforms logistic regression on tabular classification data."
+        assert queries[6] == "LightGBM outperforms histogram gradient boosting on tabular classification data."
+        assert queries[8] == "XGBoost outperforms LightGBM on tabular classification data."
+        assert queries[12] == "XGBoost outperforms histogram gradient boosting on tabular classification data."
+        assert queries[10] == "Logistic regression outperforms linear discriminant analysis on tabular classification data."
+
+    def test_the_new_pairs_join_the_old_ones_at_the_end(self):
+        assert NEAR_PAIRS[:3] == [("RandomForest", "ExtraTrees"), ("HistGradientBoosting", "GradientBoosting"), ("LogisticRegression", "LinearSVC")]
+        assert set(NEAR_PAIRS[3:]) == {("LightGBM", "HistGradientBoosting"), ("XGBoost", "LightGBM"), ("LogisticRegression", "LDA"), ("XGBoost", "HistGradientBoosting")}
+
+    def test_no_pair_repeats_and_no_model_is_paired_with_itself(self):
+        assert len({frozenset(pair) for pair in NEAR_PAIRS}) == len(NEAR_PAIRS) and all(first != second for first, second in NEAR_PAIRS)
 
     def test_every_model_is_runnable_and_has_a_search_space(self):
         models = hard_models()
-        assert len(models) == len(set(models)) == 10
+        assert len(models) == len(set(models)) == 13
         assert set(models) <= set(ESTIMATORS) and set(models) <= set(SEARCH_SPACES)
 
     def test_the_claims_are_the_known_ones_then_the_near_equal_ones(self):
         claims = hard_claims()
-        assert [claim["id"] for claim in claims] == [f"B{n}" for n in range(1, 11)] + [f"N{n}" for n in range(1, 7)]
+        assert [claim["id"] for claim in claims] == [f"B{n}" for n in range(1, 11)] + [f"N{n}" for n in range(1, 15)]
         assert all(claim["metrics"] == ["roc_auc", "pr_auc", "f1"] and not claim["statement"].endswith(".") for claim in claims)
 
 
 class TestSpec:
     def test_the_spec_is_valid(self):
         spec = hard_spec()
-        assert spec["datasets"] == benchmark_keys() and len(spec["claims"]) == 16 and not spec["tuning"]
+        assert spec["datasets"] == benchmark_keys() and len(spec["claims"]) == 24 and not spec["tuning"]
 
     def test_the_tuning_reaches_the_spec(self):
         assert hard_spec({"iterations": 12, "folds": 3})["tuning"] == {"iterations": 12, "folds": 3}
@@ -71,11 +84,29 @@ class TestSpec:
         assert len(hard_spec(dataset_count=8)["datasets"]) == 8
 
 
+class TestNearSpec:
+    def test_only_the_near_equal_claims_are_asked(self):
+        spec = near_spec()
+        assert [claim["id"] for claim in spec["claims"]] == [f"N{n}" for n in range(1, 15)] and not spec["tuning"]
+
+    def test_only_the_models_of_the_pairs_are_run(self):
+        models = near_models()
+        assert len(models) == len(set(models)) == 9 and set(models) == {name for pair in NEAR_PAIRS for name in pair}
+        assert near_spec()["models"] == models
+
+    def test_the_tuning_and_the_dataset_count_are_forwarded(self):
+        spec = near_spec({"iterations": 12, "folds": 3}, dataset_count=8)
+        assert spec["tuning"] == {"iterations": 12, "folds": 3} and len(spec["datasets"]) == 8
+
+    def test_every_model_has_a_search_space(self):
+        assert set(near_models()) <= set(SEARCH_SPACES) and set(near_models()) <= set(ESTIMATORS)
+
+
 class TestNearEqual:
     def test_all_undecided_pairs_are_clean(self):
         score = score_near_equal(undecided())
         assert score["decisive_claims"] == 0 and score["decisive_rate"] == 0.0 and score["contradictory_pairs"] == 0
-        assert [pair["state"] for pair in score["pairs"]] == ["undecided"] * 3 and score["claims"] == 6
+        assert [pair["state"] for pair in score["pairs"]] == ["undecided"] * 7 and score["claims"] == 14
 
     def test_a_decisive_verdict_marks_its_pair(self):
         verdicts = {case["id"]: "inconclusive" for case in near_cases()}
@@ -83,7 +114,7 @@ class TestNearEqual:
         verdicts["N4"] = "contradicted"
         score = score_near_equal(analysis(verdicts))
         assert score["pairs"][1] == {"pair": ["HistGradientBoosting", "GradientBoosting"], "forward": "replicated", "backward": "contradicted", "state": "decisive"}
-        assert score["decisive_claims"] == 2 and score["decisive_rate"] == pytest.approx(2 / 6)
+        assert score["decisive_claims"] == 2 and score["decisive_rate"] == pytest.approx(2 / 14)
 
     def test_both_directions_replicated_is_contradictory(self):
         verdicts = {case["id"]: "inconclusive" for case in near_cases()}

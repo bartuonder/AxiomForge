@@ -10,6 +10,10 @@ NEAR_PAIRS: list[tuple[str, str]] = [
     ("RandomForest", "ExtraTrees"),
     ("HistGradientBoosting", "GradientBoosting"),
     ("LogisticRegression", "LinearSVC"),
+    ("LightGBM", "HistGradientBoosting"),
+    ("XGBoost", "LightGBM"),
+    ("LogisticRegression", "LDA"),
+    ("XGBoost", "HistGradientBoosting"),
 ]
 NEAR_NAMES = {
     "RandomForest": ("random forests", "outperform"),
@@ -18,6 +22,9 @@ NEAR_NAMES = {
     "GradientBoosting": ("gradient boosting", "outperforms"),
     "LogisticRegression": ("logistic regression", "outperforms"),
     "LinearSVC": ("a linear support vector machine", "outperforms"),
+    "LightGBM": ("LightGBM", "outperforms"),
+    "XGBoost": ("XGBoost", "outperforms"),
+    "LDA": ("linear discriminant analysis", "outperforms"),
 }
 WILSON_Z = 1.96
 
@@ -33,6 +40,10 @@ HARD_PLAN_CASES: list[dict[str, Any]] = [
 ]
 
 
+def _upper_first(text: str) -> str:
+    return text[:1].upper() + text[1:]
+
+
 def near_cases() -> list[dict[str, Any]]:
     cases = []
     for number, (first, second) in enumerate(NEAR_PAIRS):
@@ -43,7 +54,7 @@ def near_cases() -> list[dict[str, Any]]:
                     "pair": number,
                     "subject": [subject],
                     "other": [other],
-                    "query": f"{NEAR_NAMES[subject][0].capitalize()} {NEAR_NAMES[subject][1]} {NEAR_NAMES[other][0]} on tabular classification data.",
+                    "query": f"{_upper_first(NEAR_NAMES[subject][0])} {NEAR_NAMES[subject][1]} {NEAR_NAMES[other][0]} on tabular classification data.",
                 }
             )
     return cases
@@ -58,19 +69,30 @@ def hard_models() -> list[str]:
     return models
 
 
+def near_models() -> list[str]:
+    return list(dict.fromkeys(name for pair in NEAR_PAIRS for name in pair))
+
+
+def near_claims() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": case["id"],
+            "statement": case["query"].rstrip("."),
+            "metrics": ["roc_auc", "pr_auc", "f1"],
+            "subject": list(case["subject"]),
+            "other": list(case["other"]),
+        }
+        for case in near_cases()
+    ]
+
+
+def near_spec(tuning: dict[str, int] | None = None, pool: str = "benchmark", dataset_count: int | None = None) -> dict[str, Any]:
+    spec = assemble_spec("Near-equal model pairs", near_models(), near_claims(), pool=pool, dataset_count=dataset_count, tuning=tuning)
+    return validate_campaign(spec)
+
+
 def hard_claims() -> list[dict[str, Any]]:
-    claims = benchmark_claims()
-    for case in near_cases():
-        claims.append(
-            {
-                "id": case["id"],
-                "statement": case["query"].rstrip("."),
-                "metrics": ["roc_auc", "pr_auc", "f1"],
-                "subject": list(case["subject"]),
-                "other": list(case["other"]),
-            }
-        )
-    return claims
+    return benchmark_claims() + near_claims()
 
 
 def hard_spec(tuning: dict[str, int] | None = None, pool: str = "benchmark", dataset_count: int | None = None) -> dict[str, Any]:
