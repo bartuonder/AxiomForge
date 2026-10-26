@@ -97,7 +97,7 @@ START
   -> END
 ```
 
-`interrupt_before` iki yerdedir: `approval_gate` ve `campaign_collect_node`. Kampanya `run_campaign_task` içinde koşar; bitince `resume_campaign_task` grafı uyandırır. Graf henüz toplama noktasına gelmediyse görev 5 saniye arayla 40 kez yeniden dener; dispatch tekrar çalışsa bile kampanya ikinci kez kuyruğa girmez. 20 dakika ilerlemeyen kampanya durum sorgusunda `failed` görünür. Console adımları: Literature, Campaign plan, Campaign, Meta report, Claims.
+`interrupt_before` iki yerdedir: `approval_gate` ve `campaign_collect_node`. Kampanya `run_campaign_task` içinde koşar; bitince `resume_campaign_task` grafı uyandırır. Graf henüz toplama noktasına gelmediyse görev 5 saniye arayla 40 kez yeniden dener; dispatch tekrar çalışsa bile kampanya ikinci kez kuyruğa girmez. 20 dakika ilerlemeyen kampanya durum sorgusunda `failed` görünür. Her iki modda da son checkpoint'i 30 dakikadan eski olan, onay beklemeyen ve bitmemiş araştırma `failed` görünür (`STALE_RESEARCH_SECONDS`); `meta_consistency_node` son durumda (`Completed` ya da `NeedsReview`) makaleyi, durumunu ve yeniden yazım sayısını kampanyanın MLflow run'ına yazar. `POST /start_research` kuyruğa atmadan önce OpenAI anahtarını ve kotasını tek çağrıyla denetler, `POST /approve_plan` reddi 404, 409 ya da 422 ile bildirir. Console adımları: Literature, Campaign plan, Campaign, Meta report, Claims.
 
 ## Kalıcılık
 
