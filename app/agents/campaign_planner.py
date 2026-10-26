@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 from typing import Any
@@ -5,9 +6,9 @@ from typing import Any
 from openai import OpenAI
 
 from app.campaign.memory import find_repeats
-from app.campaign.planning import POOLS, PlanningError, assemble_spec, estimate_cost, map_models
+from app.campaign.planning import POOLS, PlanningError, assemble_spec, estimate_cost, map_models, tuning_note
 from app.campaign.protocol import ESTIMATORS
-from app.campaign.spec import CampaignSpecError
+from app.campaign.spec import CampaignSpecError, validate_campaign
 from app.campaign.stats import METRICS
 from app.campaign.tuning import DEFAULT_FOLDS, DEFAULT_ITERATIONS
 from app.config import OPENAI_API_KEY
@@ -69,6 +70,9 @@ JUDGE_PROMPT = (
     'Return only JSON: {"verdicts": [{"id": 1, "supports": true, "reason": "..."}]}.'
 )
 MAX_REASON_CHARS = 200
+FILL_VARIANTS = True
+VARIANTS = (("ROC-AUC only", True, False), ("tuned", False, True))
+NO_SEARCH_NOTE = "No hyperparameter search"
 
 
 class CampaignUnsupported(RuntimeError):
@@ -219,10 +223,45 @@ def _complete(user: str) -> str:
 
 
 def _signature(candidate: dict[str, Any]) -> tuple:
-    return tuple(
+    claims = tuple(
         (claim["statement"], tuple(claim["metrics"]), tuple(claim["subject"]), tuple(claim["other"]))
         for claim in candidate["spec"]["claims"]
     )
+    return claims + (tuple(sorted((candidate["spec"].get("tuning") or {}).items())),)
+
+
+def _variant(base: dict[str, Any], label: str, single_metric: bool, tuned: bool) -> dict[str, Any]:
+    spec = copy.deepcopy(base["spec"])
+    spec["title"] = f"{spec['title']} ({label})"
+    if single_metric:
+        for claim in spec["claims"]:
+            claim["metrics"], claim["metric"] = ["roc_auc"], "roc_auc"
+    if tuned:
+        spec["tuning"] = {"iterations": DEFAULT_ITERATIONS, "folds": DEFAULT_FOLDS}
+        note = tuning_note(spec["tuning"])
+        source = spec.setdefault("source", {})
+        source["deviations"] = [note if str(item).startswith(NO_SEARCH_NOTE) else item for item in source.get("deviations") or []]
+    spec = validate_campaign(spec)
+    return {"spec": spec, "estimate": estimate_cost(spec), "evidence": copy.deepcopy(base["evidence"])}
+
+
+def _fill(valid: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen = {_signature(item) for item in valid}
+    filled = list(valid)
+    for base in valid:
+        for label, single_metric, tuned in VARIANTS:
+            if len(filled) >= CANDIDATES:
+                return filled
+            try:
+                variant = _variant(base, label, single_metric, tuned)
+            except (PlanningError, CampaignSpecError) as exc:
+                logger.info("campaign planner could not vary %s: %s", base["spec"]["title"], exc)
+                continue
+            if _signature(variant) in seen:
+                continue
+            seen.add(_signature(variant))
+            filled.append(variant)
+    return filled
 
 
 def _past_listing(past: list[dict[str, Any]]) -> str:
@@ -282,7 +321,7 @@ def run_campaign_planner(query: str, sources: list[dict[str, str]], past: list[d
                 raise CampaignUnsupported(refusal)
             raise RuntimeError("campaign planner did not return candidates")
         raise RuntimeError("campaign planner returned no valid campaign: " + "; ".join(errors))
-    chosen = valid[:CANDIDATES]
+    chosen = (_fill(valid) if FILL_VARIANTS else valid)[:CANDIDATES]
     for item in chosen:
         item["repeats"] = find_repeats(item["spec"], past or [])
     return chosen

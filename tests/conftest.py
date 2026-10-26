@@ -38,3 +38,10 @@ def approve_judge(monkeypatch):
         return json.dumps({"verdicts": [{"id": item["id"], "supports": True, "reason": "stub"} for item in claims]})
 
     monkeypatch.setattr(campaign_planner, "_judge_complete", approve)
+
+
+@pytest.fixture(autouse=True)
+def no_planner_variants(monkeypatch):
+    import app.agents.campaign_planner as campaign_planner
+
+    monkeypatch.setattr(campaign_planner, "FILL_VARIANTS", False)
