@@ -133,3 +133,21 @@ E2B: yaklaşık 35 dakikalık sandbox (hard-tuned 10 dk 35 sn × 3 eşzamanlı, 
 - Katı düzeltmede ayakta kalan ayar etkisi yok; ayar protokolü küçük (20% küme, 12 yapılandırma). Daha büyük bir arama ya da daha büyük ayarlama kümesi MLP bulgusunu değiştirebilir.
 - 17 regex kapısının genel yanlış alarm oranı hâlâ ölçülmedi; test kalıntısı temizliği, GitHub'da CI'ın gerçek koşusu (yalnız yerelde doğrulandı) ve Linux'ta testlerin davranışı doğrulanmadı.
 - Hakem isteminin sadeleştirilmesi (kanıt yok).
+
+## Takip 4: ayarlı MLP bulgusunun yeniden sınanması (26 Ekim 2026)
+
+**Soru:** `hard-tuned` koşusunda ayarlı MLP 9 veri setinin hepsinde varsayılandan biraz kötüydü (−0,0022, 0/9, model içinde anlamlı). Neden ayarlama kümesinin küçüklüğü (%20 ≈ 1200 satır, 3 katlı) ve aramanın küçüklüğü (12 yapılandırma) müydü?
+
+**Yeni özellik:** spec'te `tuning.share` (0,1-0,6, varsayılan 0,2) ve CLI `--tuning-share`; rapor ve planlama notu payı yazıyor. 32 test, 24 mutasyon (hayatta kalanlar fazlalık denetimleriydi, koddan çıkarıldı ya da testle kapatıldı).
+
+**Deney** (MLP + HistGradientBoosting, ROC-AUC, 9 benchmark veri seti, aynı bölmeler ve tohumlar, E2B, LLM yok; her biri ≈6-8 dk):
+
+| Koşu | Ayarlama / değerlendirme satırı | MLP ayar etkisi (medyan fark) | Kazanç | Model içi düz. p | HGB ayar etkisi |
+|---|---|---|---|---|---|
+| `hard-tuned` (taban) | 1200 / 4800, 12 iterasyon | **−0,0022** | 0/9 | 0,0117 (anlamlı, olumsuz) | +0,0005 (6/9, n.s.) |
+| `mlp-share50` | 3000 / 3000, 12 iterasyon | −0,0005 | 3/9 | 1,0 (n.s.) | +0,0016 (7/9, p 0,078) |
+| `mlp-iter36` | 1200 / 4800, 36 iterasyon | −0,0006 | 2/9 | 0,92 (n.s.) | +0,0001 (5/9, n.s.) |
+
+**Sonuç:** "Ayar MLP'yi tutarlı biçimde kötüleştirir" bulgusu **küçük ayarlama kümesi ve küçük arama artefaktıydı**: ayarlama kümesi büyüyünce de, arama 3 kat büyüyünce de etki sıfıra yakın ve anlamsız. Ayar MLP'yi iyileştirmiyor da: etki hâlâ ≤0. Seçilen yapılandırmalar bunu destekliyor: 36 iterasyonda 9 veri setinin 4'ü varsayılan `alpha=1e-4`'ü, 7'si varsayılan `learning_rate_init=0,001`'i seçti (arama varsayılana yakınsıyor); %50 kümede daha büyük ağlar (200 nöron) 1 yerine 3 veri setinde seçildi. Yani sklearn MLP varsayılanı bu ızgaranın zaten iyi bir noktası. Dikkat: %50 koşuda değerlendirme kümesi 3000 satıra düştü, gürültü arttı; bu yüzden "iyileşmedi" demek "zarar vermedi"den daha güvenli bir okuma.
+
+**Sınır:** tek model, 9 veri seti, tek tohum seti; ızgara küçük ve ayrık. Ayar protokolünü HGB gibi güçlü modellerde bu kadar kanıtla değerlendirmek mümkün değil (etkiler binde bir basamakta).
