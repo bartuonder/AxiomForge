@@ -213,17 +213,4 @@ export type CampaignReport = {
   ledger: LedgerEntry[];
 };
 
-export const STEP_LABELS: Record<string, string> = {
-  literature_node: "Literature",
-  planner_node: "Planner",
-  experiment_node: "Experiment",
-  verifier_node: "Verifier",
-  report_node: "Report",
-  consistency_checker_node: "Claims",
-  campaign_planner_node: "Campaign plan",
-  campaign_node: "Campaign",
-  meta_report_node: "Meta report",
-  meta_consistency_node: "Claims",
-};
-
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";

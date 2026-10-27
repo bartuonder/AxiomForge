@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
+import { ApprovalDialog } from "../components/ApprovalDialog.tsx";
 import { ClaimCard } from "../components/ClaimCard.tsx";
 import { CampaignBadge } from "../components/CampaignBadge.tsx";
 import { CampaignControls } from "../components/CampaignControls.tsx";
@@ -9,10 +10,11 @@ import { DatasetChart } from "../components/DatasetChart.tsx";
 import { ErrorNotice } from "../components/ErrorNotice.tsx";
 import { LanguageProvider } from "../components/LanguageProvider.tsx";
 import { LiveProgress } from "../components/LiveProgress.tsx";
+import { ResearchStatus } from "../components/ResearchStatus.tsx";
 import { SummaryView } from "../components/SummaryView.tsx";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { VerdictBadge } from "../components/VerdictBadge.tsx";
-import type { PlainSummary, SummaryClaim } from "../lib/types.ts";
+import type { ExperimentSpec, PlainSummary, ResearchSnapshot, SummaryClaim } from "../lib/types.ts";
 
 const CLAIM: SummaryClaim = {
   id: "C1",
@@ -389,5 +391,128 @@ describe("ThemeToggle", () => {
 
   it("speaks English", () => {
     assert.match(render(<ThemeToggle serverTheme="light" />, "en"), /Switch to the dark theme/);
+  });
+});
+
+const SNAPSHOT: ResearchSnapshot = {
+  thread_id: "t",
+  status: "completed",
+  next: [],
+  active_step: "",
+  hypotheses: [],
+  experiment_specs: [],
+  selected_hypothesis: 0,
+  approval_status: "approved",
+  verification_status: "Passed",
+  verifier_feedback: "",
+  instability: { unstable: false, std_threshold: 0.05, flagged: [] },
+  research_status: "Completed",
+  consistency_feedback: "",
+  referee_notes: [],
+  error: "",
+  steps: [],
+};
+
+describe("ResearchStatus", () => {
+  it("shows the three checks of a single experiment in Turkish", () => {
+    const html = render(<ResearchStatus snapshot={SNAPSHOT} />);
+    assert.match(html, /aria-label="Araştırma denetimleri"/);
+    assert.match(html, /Doğrulama geçti/);
+    assert.match(html, /İddialar sonuçlarla uyuşuyor/);
+  });
+
+  it("shows a failed verification with its feedback", () => {
+    const html = render(<ResearchStatus snapshot={{ ...SNAPSHOT, verification_status: "Failed", verifier_feedback: "çıktı eksik", research_status: "" }} />);
+    assert.match(html, /Doğrulama başarısız/);
+    assert.match(html, /çıktı eksik/);
+    assert.match(html, /İddia kontrolü bekleniyor/);
+  });
+
+  it("waits while nothing was checked", () => {
+    assert.match(render(<ResearchStatus snapshot={{ ...SNAPSHOT, verification_status: "", research_status: "" }} />), /Doğrulama bekleniyor/);
+  });
+
+  it("warns about a high variance", () => {
+    const unstable = { unstable: true, std_threshold: 0.05, flagged: [{ model: "MLP", metric: "f1", std: 0.1234 }] };
+    const html = render(<ResearchStatus snapshot={{ ...SNAPSHOT, instability: unstable }} />);
+    assert.match(html, /Bölmeler arasında yüksek değişkenlik \(eşik 0\.05\)/);
+    assert.match(html, /MLP f1 std 0\.123/);
+  });
+
+  it("asks for a review after two rewrites", () => {
+    const html = render(<ResearchStatus snapshot={{ ...SNAPSHOT, research_status: "NeedsReview", consistency_feedback: "sayı uyuşmuyor" }} />);
+    assert.match(html, /İnceleme gerekli: iddia kontrolü iki yeniden yazımdan sonra da sorun buldu/);
+    assert.match(html, /sayı uyuşmuyor/);
+  });
+
+  it("shows the campaign checks in campaign mode", () => {
+    const html = render(<ResearchStatus snapshot={{ ...SNAPSHOT, mode: "campaign", campaign_status: "completed", campaign_mlflow_run_id: "abc123" }} />);
+    assert.match(html, /Kampanya bitti ve raporu izlenebilirlik denetimini geçti/);
+    assert.match(html, /MLflow koşusu abc123/);
+    assert.match(html, /Rapor, kampanya kanıtlarıyla uyuşuyor/);
+    assert.ok(!/Doğrulama/.test(html));
+  });
+
+  it("names a campaign that is still running with the plain status", () => {
+    const html = render(<ResearchStatus snapshot={{ ...SNAPSHOT, mode: "campaign", campaign_status: "running", research_status: "" }} />);
+    assert.match(html, /Kampanya: Çalışıyor/);
+    assert.match(html, /Rapor denetimi bekleniyor/);
+  });
+
+  it("keeps an unknown campaign status as it is and says when none was collected", () => {
+    assert.match(render(<ResearchStatus snapshot={{ ...SNAPSHOT, mode: "campaign", campaign_status: "strange", research_status: "" }} />), /Kampanya: strange/);
+    assert.match(render(<ResearchStatus snapshot={{ ...SNAPSHOT, mode: "campaign", campaign_status: "", research_status: "" }} />), /Kampanya henüz toplanmadı/);
+  });
+
+  it("flags a campaign report that needs review", () => {
+    const html = render(<ResearchStatus snapshot={{ ...SNAPSHOT, mode: "campaign", campaign_status: "needs_review", research_status: "NeedsReview" }} />);
+    assert.match(html, /Kampanya bitti ama kendi rapor denetimi sorun buldu/);
+    assert.match(html, /İnceleme gerekli: rapor denetimi iki yeniden yazımdan sonra da sorun buldu/);
+  });
+
+  it("lists the referee notes in a closed block", () => {
+    const html = render(<ResearchStatus snapshot={{ ...SNAPSHOT, referee_notes: ["not bir", "not iki"] }} />);
+    assert.match(html, /<details[^>]*><summary[^>]*>Hakem notları \(2\)/);
+    assert.match(html, /not iki/);
+  });
+
+  it("lists a single referee note too and none when there are none", () => {
+    assert.match(render(<ResearchStatus snapshot={{ ...SNAPSHOT, referee_notes: ["tek not"] }} />), /Hakem notları \(1\)/);
+    assert.ok(!/Hakem notları/.test(render(<ResearchStatus snapshot={SNAPSHOT} />)));
+  });
+
+  it("speaks English", () => {
+    assert.match(render(<ResearchStatus snapshot={SNAPSHOT} />, "en"), /Verification passed/);
+  });
+});
+
+describe("ApprovalDialog", () => {
+  const specs: ExperimentSpec[] = [{ statement: "s", models: ["a", "b"], dataset: "churn", params: { MLP: { alpha: 0.01 } } }, { statement: "t", models: ["a", "b"], dataset: "credit", params: {} }];
+  const noop = () => undefined;
+
+  it("asks which hypothesis to run, with the dataset and the parameters", () => {
+    const html = render(<ApprovalDialog hypotheses={["Birinci", "İkinci"]} specs={specs} busy={false} onDecide={noop} />);
+    assert.match(html, /Plan duraklatıldı/);
+    assert.match(html, /Çalıştırılacak varsayımı seçin/);
+    assert.match(html, /Yalnız seçtiğiniz varsayım test edilir\./);
+    assert.match(html, /Veri seti: churn · MLP\.alpha = 0\.01/);
+    assert.match(html, /Veri seti: credit · varsayılan parametreler/);
+  });
+
+  it("starts with nothing chosen and the approve button off", () => {
+    const html = render(<ApprovalDialog hypotheses={["Birinci"]} specs={specs} busy={false} onDecide={noop} />);
+    assert.match(html, /<button type="button" disabled=""[^>]*>Onayla<\/button>/);
+    assert.match(html, /Reddet<\/button>/);
+    assert.ok(!/checked=""/.test(html));
+  });
+
+  it("locks the form while a decision is being sent", () => {
+    assert.match(render(<ApprovalDialog hypotheses={["Birinci"]} specs={specs} busy onDecide={noop} />), /<fieldset[^>]*disabled=""/);
+  });
+
+  it("speaks English", () => {
+    const html = render(<ApprovalDialog hypotheses={["One"]} specs={specs} busy={false} onDecide={noop} />, "en");
+    assert.match(html, /Choose the hypothesis to run/);
+    assert.match(html, /Dataset: churn/);
   });
 });
