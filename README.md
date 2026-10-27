@@ -34,7 +34,7 @@ Faz 14 kampanya genişletmeleridir (otonom oturum, ayrıntı ve ölçümler `AUT
 
 Faz 14'ün ikinci turu (26 Ekim 2026, ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 2' ve 'Takip 3'): ayar etkilerinin Holm ailesi artık bir modelin üç ölçütüdür ve katı (tüm model ve ölçütler) düzeltmede kaç etkinin ayakta kaldığı raporun Limitations bölümünde yazılır (`adjusted_p_value_all`, `significant_all`); meta makale kapısı reddedilen taslağı yeniden yazım turuna gösterir (geçiş oranı 6/10 → 10/10) ve kapsamlı 'all datasets tested' ifadelerini kabul eder; planlayıcı makaleden gelen iddialar için ek bir hakem çağrısıyla alıntının iddiayı desteklediğini denetler, olumsuz cümleyi ters çevirmez, çalıştırılamayan mimarileri MLP vekiline eşler ve 3'ten az aday önerirse 'ROC-AUC only' ve 'tuned' varyantlarıyla tamamlanır; spec'te `revisions` ile HF veri seti commit'leri sabitlenebilir (`--pin-from`); meta makale, durumu ve yeniden yazım sayısı kampanyanın MLflow run'ına (`paper.md`), deney hattının `statistical_decision.json` dosyası da MLflow'a yazılır; `/approve_plan` 404/409/422 döner; deney hattında 30 dakikadır checkpoint yazmayan araştırma `failed` görünür; araştırma kuyruğa girmeden OpenAI anahtarı ve kotası tek çağrıyla denetlenir (`app/openai_check.py`); konsol ayarlı kampanyayı ve künyeyi gösterir, arXiv kimliğini bildirir ve hazır kampanya için onaylı başlatma düğmesi sunar (`npm test` Node test koşucusuyla); `.github/workflows/ci.yml` backend ve frontend testlerini koşar (GitHub'da yeşil; ilk koşu temiz checkout'ta `next typegen` eksikliğinden kırmızıydı); `tools/` altında kıyas ve simülasyon araçları durur. Ölçümler: zor kıyasta motor 10/10 ve yakın çiftlerde 0/6 karar, planlayıcı 8 muğlak sorguda 8/8 (düzeltmeden sonra), düzeltilmiş t testi muhafazakâr (boş durumda ret %0,7-2, orta fark gücü 10 bölmede %72).
 
-Kullanıcıya dönük yenileme (27 Ekim 2026, ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 7'): konsol "herkes" için yeniden yazıldı. Sonuç sayfası tek cümlelik özet, sade karar rozeti, güven göstergesi, veri seti başına çubuk grafik ve katlanır sayılarla açılır; Özet / Ayrıntılı rapor / Kanıtlar sekmeleri, terim sözlüğü balonları, TR/EN anahtarı, sebepli ve öneri veren hata kutuları, test koşularını gizleyen geçmiş ve Markdown rapor indirme eklendi. Güvence tarafında isteğe bağlı API anahtarı ve günlük başlatma sınırı, karar makinesinin sahte pozitif ölçümü (boş farkta karar oranı %2,1; küçük farkta güç düşük) ve bellek listeleme / silme aracı geldi. Konsol için Dockerfile ve compose servisi eklendi.
+Kullanıcıya dönük yenileme (27 Ekim 2026, ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 7'): konsol "herkes" için yeniden yazıldı. Sonuç sayfası tek cümlelik özet, sade karar rozeti, güven göstergesi, veri seti başına çubuk grafik ve katlanır sayılarla açılır; Özet / Ayrıntılı rapor / Kanıtlar sekmeleri, terim sözlüğü balonları, TR/EN anahtarı, sebepli ve öneri veren hata kutuları, test koşularını gizleyen geçmiş ve Markdown rapor indirme eklendi. Güvence tarafında isteğe bağlı API anahtarı ve günlük başlatma sınırı, karar makinesinin sahte pozitif ölçümü (boş farkta karar oranı %2,1; küçük farkta güç düşük) ve bellek listeleme / silme aracı geldi. Konsol için Dockerfile ve compose servisi eklendi. Aynı günün ikinci turunda (`AUTONOMOUS_REPORT.md` 'Takip 8'): kampanya iptali ve yeniden başlatma, bayat kampanyanın `failed` görünmesi, işçi ölünce kampanya görevinin yeniden teslimi, canlı ilerlemede çalışan veri setleri ve tahmini kalan süre, sistemi izleyen koyu tema, tek deney hattı ekranlarının Türkçe/İngilizce olması, 12 tarayıcı testi ve gerçek modellerle tohum-farkı boş karşılaştırması (`tools/null_seed.py`) eklendi.
 
 Kalan işler `ROADMAP.md` içindedir.
 
@@ -118,6 +118,8 @@ app/friendly_errors.py       hata kodları ve kullanıcı dilinde sebep + öneri
 app/guard.py                 isteğe bağlı API anahtarı ve günlük başlatma sınırı
 tools/null_calibration.py    karar makinesinin boş farkta sahte pozitif oranı (Monte Carlo)
 tools/memory_report.py       planlayıcının okuduğu geçmiş kampanyaları listeler, onayla siler
+tools/null_seed.py           her modeli yalnız rastgele tohumu farklı kopyasıyla karşılaştırır (gerçek model boş karşılaştırması)
+frontend/e2e/                Playwright tarayıcı testleri (API taklit edilir); `npm run e2e`
 docker-compose.yml           Redis, pgvector PostgreSQL, MLflow, API, Celery işçisi ve konsol
 Dockerfile                   API, işçi ve MLflow için tek imaj
 requirements.txt
@@ -188,7 +190,7 @@ Testler LLM, E2B, MLflow, Postgres ve Redis çağırmaz. Bu servisler düğüm t
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Konsol testleri (yardımcı kitaplıklar ve bileşenlerin sunucuda TR/EN çizimi) `frontend` dizininde `npm test` ile koşar.
+Konsol testleri (yardımcı kitaplıklar ve bileşenlerin sunucuda TR/EN çizimi) `frontend` dizininde `npm test` ile koşar. Tarayıcı testleri (Playwright, API tarayıcıda taklit edilir, arka uç gerekmez) önce `npm run build`, sonra `npm run e2e` ile koşar; yerelde kurulu Edge için `PW_CHANNEL=msedge`, yoksa `npx playwright install chromium` gerekir. CI'da ayrı bir `e2e` işi bunu yapar.
 
 ## Uçlar
 
@@ -295,6 +297,10 @@ Belirtim eşzamanlı doğrulanır; geçersizse `422` döner ve hiçbir şey sakl
 ### `GET /campaigns`, `GET /campaign/{campaign_id}`, `GET /campaign/{campaign_id}/report`
 
 `/campaigns` `campaigns` (sıralı kimlikler) ve `items` döner; `items` en yeni başta, her biri `id`, `title`, `statement` (ilk iddia cümlesi), `origin` (api / console / cli), `status`, `updated`, `datasets`, `finished`, `failed` ve `verdicts` taşır. `/campaign/{id}` durumu döner: `status`, her veri setinin `status`, `attempts`, `seconds`, `error` alanları, bitince `verdicts` (iddia kimliği, cümle ve karar), `issues`, `finished_datasets` ve `failed_datasets`. Geçersiz kimlik `400`, bilinmeyen kampanya `404` döner. `/campaign/{id}/report` rapor hazırsa `{"markdown": ..., "ledger": [...]}` döner, değilse `404 report not ready`.
+
+### `POST /campaign/{campaign_id}/cancel`, `POST /campaign/{campaign_id}/retry`
+
+İkisi de API anahtarı tanımlıysa onu ister. İptal sıradaki kampanyayı hemen `cancelled` yapar; çalışan kampanyada iptal isteği bırakır (`cancel_requested`), şu an çalışan veri setleri biter, kalanlar hiç başlamaz ve kampanya analiz üretmeden `cancelled` olur. Bitmiş kampanya için `409`, bilinmeyen kampanya için `404` döner. Yeniden başlatma yalnız `failed` ya da `cancelled` (20 dakika ilerlemeyip bayat sayılanlar dahil) kampanyada çalışır, kayıtlı belirtimle kampanyayı baştan kuyruğa alır, `recoveries` sayacını artırır ve bir günlük başlatma hakkı harcar; kuyruk kapalıysa `503` döner ve kampanya `failed` kalır. 20 dakikadır ilerlemeyen `queued` / `running` kampanya durum ve liste uçlarında `failed` (`stale: true`) görünür; depoya yazılmaz. Kampanya görevi `acks_late` ile çalışır: işçi ölürse ileti (en çok 2 saat sonra) yeniden teslim edilir, bitmiş kampanya ise yeniden çalıştırılmaz.
 
 ### `GET /campaign/{campaign_id}/summary`, `GET /glossary`, `GET /vocabulary`
 
