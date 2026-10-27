@@ -14,6 +14,7 @@ from app.agents.experiment import QueryNamesTooFewModels
 from app.campaign import store as campaign_store
 from app.campaign.demos import demo_spec
 from app.campaign.service import campaign_summary, queue_campaign, reject_campaign
+from app.campaign.summary import build_summary
 from app.campaign.spec import CampaignSpecError
 from app.celery_app import celery_app
 from app.config import REDIS_URL
@@ -208,6 +209,21 @@ def _campaign_state(campaign_id: str) -> dict:
 @app.get("/campaign/{campaign_id}")
 def campaign_status(campaign_id: str):
     return _campaign_state(campaign_id)
+
+
+@app.get("/campaign/{campaign_id}/summary")
+def campaign_plain_summary(campaign_id: str, lang: str = "tr"):
+    state = _campaign_state(campaign_id)
+    try:
+        return build_summary(
+            state,
+            campaign_store.load_spec(campaign_id),
+            campaign_store.load_analysis(campaign_id),
+            campaign_store.load_ledger(campaign_id),
+            lang,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/campaign/{campaign_id}/report")

@@ -313,6 +313,7 @@ def test_the_summary_counts_datasets_and_keeps_the_verdicts():
         "title": "T",
         "status": "completed",
         "updated": "2026-10-24T10:00:00+00:00",
+        "origin": "unknown",
         "datasets": 4,
         "finished": 2,
         "failed": 1,

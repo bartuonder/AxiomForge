@@ -25,14 +25,15 @@ def _verdicts(analysis: dict[str, Any]) -> list[dict[str, Any]]:
     return [{"id": claim["id"], "statement": claim["statement"], "verdict": claim["verdict"]} for claim in analysis.get("claims", [])]
 
 
-def _initial_state(campaign_id: str, spec: dict[str, Any], status: str) -> dict[str, Any]:
-    return {
+def _initial_state(campaign_id: str, spec: dict[str, Any], status: str, origin: str | None = None) -> dict[str, Any]:
+    state = {
         "id": campaign_id,
         "title": spec["title"],
         "status": status,
         "spec_sha256": spec_digest(spec),
         "datasets": {dataset: {"status": "queued"} for dataset in spec["datasets"]},
     }
+    return {**state, "origin": origin} if origin else state
 
 
 def campaign_summary(state: dict[str, Any]) -> dict[str, Any]:
@@ -42,6 +43,7 @@ def campaign_summary(state: dict[str, Any]) -> dict[str, Any]:
         "title": state.get("title", ""),
         "status": state["status"],
         "updated": state.get("updated", ""),
+        "origin": state.get("origin", "unknown"),
         "datasets": len(statuses),
         "finished": statuses.count("finished"),
         "failed": statuses.count("failed"),
@@ -49,10 +51,11 @@ def campaign_summary(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def queue_campaign(raw_spec: Any) -> tuple[str, dict[str, Any]]:
+def queue_campaign(raw_spec: Any, origin: str = "api") -> tuple[str, dict[str, Any]]:
     spec = validate_campaign(raw_spec)
     campaign_id = store.new_campaign_id()
-    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued") | {"queued": store.now()})
+    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued", origin) | {"queued": store.now()})
+    store.save_spec(campaign_id, spec)
     return campaign_id, spec
 
 
@@ -61,11 +64,12 @@ def campaign_id_for(thread_id: str, spec: dict[str, Any]) -> str:
     return "g-" + hashlib.sha256(f"{thread_id}\n{canonical}".encode("utf-8")).hexdigest()[:32]
 
 
-def queue_once(campaign_id: str, raw_spec: Any) -> tuple[dict[str, Any], bool]:
+def queue_once(campaign_id: str, raw_spec: Any, origin: str = "console") -> tuple[dict[str, Any], bool]:
     spec = validate_campaign(raw_spec)
     if store.load_state(campaign_id) is not None:
         return spec, False
-    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued") | {"queued": store.now()})
+    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued", origin) | {"queued": store.now()})
+    store.save_spec(campaign_id, spec)
     return spec, True
 
 
@@ -100,8 +104,9 @@ def execute_campaign(
     if queued is not None and queued.get("spec_sha256") not in (None, spec_digest(spec)):
         raise CampaignSpecError("the specification changed after it was queued")
     lock = threading.Lock()
-    state = _initial_state(campaign_id, spec, "running") | {"started": store.now()}
+    state = _initial_state(campaign_id, spec, "running", (queued or {}).get("origin") or "cli") | {"started": store.now()}
     store.save_state(campaign_id, state)
+    store.save_spec(campaign_id, spec)
 
     def on_update(dataset: str, result: dict[str, Any]) -> None:
         with lock:
