@@ -3,6 +3,7 @@ import logging
 import psycopg
 
 from app.config import DATABASE_URL
+from app.friendly_errors import tag_error
 
 logger = logging.getLogger("axiomforge")
 
@@ -37,7 +38,7 @@ def _ensure_table(connection: psycopg.Connection) -> None:
 
 
 def describe_error(exc: BaseException) -> str:
-    return (str(exc) or type(exc).__name__)[:MAX_MESSAGE_LENGTH]
+    return tag_error(exc)
 
 
 def record_error(thread_id: str, message: str) -> None:

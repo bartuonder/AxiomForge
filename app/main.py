@@ -15,6 +15,8 @@ from app.campaign import store as campaign_store
 from app.campaign.demos import demo_spec
 from app.campaign.service import campaign_summary, queue_campaign, reject_campaign
 from app.campaign.summary import build_summary
+from app.campaign.vocabulary import LANGUAGES
+from app.friendly_errors import explain_error
 from app.campaign.spec import CampaignSpecError
 from app.celery_app import celery_app
 from app.config import REDIS_URL
@@ -131,11 +133,14 @@ def start_research_endpoint(body: StartResearchRequest):
 
 
 @app.get("/research/{thread_id}")
-def research_status(thread_id: str):
+def research_status(thread_id: str, lang: str = "tr"):
+    if lang not in LANGUAGES:
+        raise HTTPException(status_code=422, detail=f"language must be one of: {', '.join(LANGUAGES)}")
     try:
-        return get_research(thread_id)
+        status = get_research(thread_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {**status, "error_info": explain_error(status.get("error"), lang)}
 
 
 @app.get("/reports/{thread_id}")

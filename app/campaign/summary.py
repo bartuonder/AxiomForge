@@ -1,5 +1,6 @@
 from typing import Any
 
+from app.friendly_errors import explain_error
 from app.campaign.vocabulary import (
     GLOSSARY,
     LANGUAGES,
@@ -256,4 +257,5 @@ def build_summary(state: dict[str, Any], spec: dict[str, Any] | None, analysis: 
         "datasets": [{"key": key, "label": pretty_dataset(key, language)} for key in keys],
         "glossary": GLOSSARY[language],
         "error": state.get("error") or None,
+        "error_info": explain_error(state.get("error"), language),
     }
