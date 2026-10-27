@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -17,6 +18,8 @@ logger = logging.getLogger("axiomforge")
 
 PROGRESS_FIELDS = ("status", "attempts", "seconds", "error")
 STALE_SECONDS = 1200
+HEARTBEAT_SECONDS = 15
+ALIVE_SECONDS = 90
 ACTIVE = {"queued", "running"}
 RETRYABLE = {"failed", "cancelled"}
 
@@ -66,6 +69,33 @@ def campaign_summary(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def is_alive(campaign_id: str, now: float | None = None) -> bool:
+    age = store.heartbeat_age(campaign_id, now)
+    return age is not None and age <= ALIVE_SECONDS
+
+
+@contextmanager
+def _beating(campaign_id: str):
+    stop = threading.Event()
+
+    def beat() -> None:
+        while True:
+            try:
+                store.beat(campaign_id)
+            except OSError:
+                logger.exception("campaign %s: could not write the heartbeat", campaign_id)
+            if stop.wait(HEARTBEAT_SECONDS):
+                return
+
+    thread = threading.Thread(target=beat, name="campaign-heartbeat", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join()
+
+
 def effective_state(state: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     if state.get("status") not in ACTIVE:
         return state
@@ -75,8 +105,9 @@ def effective_state(state: dict[str, Any], now: datetime | None = None) -> dict[
         return _with_cancel_request(state)
     if updated.tzinfo is None:
         updated = updated.replace(tzinfo=timezone.utc)
-    idle = ((now or _now()) - updated).total_seconds()
-    if idle <= STALE_SECONDS:
+    clock = now or _now()
+    idle = (clock - updated).total_seconds()
+    if idle <= STALE_SECONDS or is_alive(str(state["id"]), clock.timestamp()):
         return _with_cancel_request(state)
     return {**state, "status": "failed", "stale": True, "error": f"the campaign has reported no progress for {int(idle // 60)} minutes; its worker may have stopped"}
 
@@ -203,7 +234,8 @@ def execute_campaign(
             store.save_state(campaign_id, state)
 
     try:
-        outcome = run_campaign(spec, execute, workers, on_update, seeds, attempts, lambda: store.cancel_requested(campaign_id))
+        with _beating(campaign_id):
+            outcome = run_campaign(spec, execute, workers, on_update, seeds, attempts, lambda: store.cancel_requested(campaign_id))
         if outcome.get("cancelled"):
             with lock:
                 state.update(status="cancelled", finished=store.now())

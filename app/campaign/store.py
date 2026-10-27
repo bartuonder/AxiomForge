@@ -15,6 +15,7 @@ _LOCK = threading.Lock()
 REPLACE_ATTEMPTS = 20
 REPLACE_PAUSE_SECONDS = 0.02
 CANCEL_FLAG = "cancel.flag"
+HEARTBEAT_FILE = "heartbeat"
 
 
 class CampaignStoreError(ValueError):
@@ -84,6 +85,18 @@ def cancel_requested(campaign_id: str) -> bool:
 
 def clear_cancel(campaign_id: str) -> None:
     (campaign_dir(campaign_id) / CANCEL_FLAG).unlink(missing_ok=True)
+
+
+def beat(campaign_id: str) -> None:
+    _write(campaign_dir(campaign_id) / HEARTBEAT_FILE, repr(time.time()))
+
+
+def heartbeat_age(campaign_id: str, now: float | None = None) -> float | None:
+    try:
+        beaten = float((campaign_dir(campaign_id) / HEARTBEAT_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return max(0.0, (time.time() if now is None else now) - beaten)
 
 
 def save_artifacts(
