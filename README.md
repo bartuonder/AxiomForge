@@ -313,7 +313,7 @@ API anahtarı tanımlıysa onu ister. Başarısız ya da 30 dakika ilerlemeyen (
 
 ### Erişim koruması: `API_KEY`, `DAILY_START_LIMIT`, `GET /usage`
 
-`CELERY_VISIBILITY_TIMEOUT` (saniye, varsayılan 7200) kampanya görevinin işçi öldüğünde yeniden teslim edilmeden önce bekleme süresidir ve en uzun kampanyadan uzun olmalıdır. `.env` içinde `API_KEY` tanımlıysa `POST /experiments`, `/start_research`, `/approve_plan` ve `/start_campaign` `X-API-Key` başlığı ister (yoksa ya da yanlışsa `401`, `[unauthorized]`); tanımlı değilse uçlar açıktır. `DAILY_START_LIMIT` (varsayılan 100, `0` sınırsız) günlük başlatma sayısını sınırlar; aşılırsa `429` (`[daily_limit]`). Sayaç `reports/usage.json` dosyasındadır, `GET /usage` bugünkü kullanımı ve kalan hakkı verir. Konsol anahtarı `NEXT_PUBLIC_API_KEY` ile gönderir ve iki durumu da sade dille anlatır.
+`CELERY_VISIBILITY_TIMEOUT` (saniye, varsayılan 7200) kampanya görevinin işçi öldüğünde yeniden teslim edilmeden önce bekleme süresidir; çalışan kampanya 15 saniyede bir nabız yazdığından kopya teslimler canlı işçiyi bekler, ölü işçinin kampanyası ise yeniden çalışır. `.env` içinde `API_KEY` tanımlıysa `POST /experiments`, `/start_research`, `/approve_plan` ve `/start_campaign` `X-API-Key` başlığı ister (yoksa ya da yanlışsa `401`, `[unauthorized]`); tanımlı değilse uçlar açıktır. `DAILY_START_LIMIT` (varsayılan 100, `0` sınırsız) günlük başlatma sayısını sınırlar; aşılırsa `429` (`[daily_limit]`). Sayaç `reports/usage.json` dosyasındadır, `GET /usage` bugünkü kullanımı ve kalan hakkı verir. Konsol anahtarı `NEXT_PUBLIC_API_KEY` ile gönderir ve iki durumu da sade dille anlatır.
 
 ### `POST /approve_plan`
 
