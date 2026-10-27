@@ -22,7 +22,8 @@ from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
 from app.guard import require_key, spend_start, usage
-from app.graph.workflow import PlanDecisionError, decide_plan, get_research, new_thread_id, revoke_approval
+from app.graph.errors import clear_error, record_error
+from app.graph.workflow import PlanDecisionError, decide_plan, get_research, new_thread_id, plan_research_retry, revoke_approval
 from app.openai_check import check_openai_access
 from app.tasks import resume_research_task, run_campaign_task, run_research_task
 
@@ -144,6 +145,31 @@ def research_status(thread_id: str, lang: str = "tr"):
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {**status, "error_info": explain_error(status.get("error"), lang)}
+
+
+@app.post("/research/{thread_id}/retry", dependencies=[Depends(require_key)])
+def research_retry(thread_id: str):
+    try:
+        plan = plan_research_retry(thread_id)
+    except PlanDecisionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    spend_start()
+    try:
+        if plan["action"] == "campaign":
+            spec, _ = retry_campaign(plan["campaign_id"])
+            task, arguments = run_campaign_task, (plan["campaign_id"], spec, thread_id)
+        else:
+            task, arguments = resume_research_task, (thread_id,)
+        clear_error(thread_id)
+        _enqueue(task, *arguments)
+    except CampaignControlError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except HTTPException as exc:
+        record_error(thread_id, str(exc.detail))
+        raise
+    return {"thread_id": thread_id, "status": "running", "action": plan["action"]}
 
 
 @app.get("/reports/{thread_id}")

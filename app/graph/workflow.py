@@ -9,6 +9,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.agents.experiment import require_models, requested_models
 from app.campaign import store as campaign_store
+from app.campaign.service import effective_state
 from app.config import DATABASE_URL
 from app.graph.campaign_nodes import FINAL_STATUSES as CAMPAIGN_FINAL, campaign_collect_node, campaign_dispatch_node, meta_consistency_node, meta_report_node, route_after_meta_consistency
 from app.graph.errors import describe_error, read_error, record_error
@@ -198,12 +199,16 @@ def new_thread_id(query: str, mode: str = "experiment") -> str:
     return str(uuid.uuid4())
 
 
-def get_research(thread_id: str) -> dict:
+def _load_snapshot(thread_id: str) -> Any:
     config = {"configurable": {"thread_id": thread_id}}
-    error = read_error(thread_id)
     with _open_graph() as checkpointer:
         compiled = _compile(checkpointer)
-        snapshot = compiled.get_state(config)
+        return compiled.get_state(config)
+
+
+def get_research(thread_id: str) -> dict:
+    error = read_error(thread_id)
+    snapshot = _load_snapshot(thread_id)
     values = dict(snapshot.values or {})
     next_nodes = [str(node) for node in (snapshot.next or ())]
     error = error or _stale_campaign_error(values) or _stale_research_error(values, next_nodes, getattr(snapshot, "created_at", None))
@@ -230,8 +235,46 @@ def get_research(thread_id: str) -> dict:
         "consistency_feedback": values.get("consistency_feedback") or "",
         "referee_notes": list(values.get("referee_notes") or []),
         "error": error,
+        "can_retry": _can_retry(values, next_nodes, status),
         "steps": _steps(values, next_nodes, status),
     }
+
+
+def research_retry_plan(values: dict, next_nodes: list[str], status: str, campaign: dict | None) -> dict:
+    if not values:
+        raise PlanDecisionError("research thread was not found", 404)
+    if status != "failed":
+        raise PlanDecisionError(f"the research is {status}, so there is nothing to start again", 409)
+    waiting_for_user = next_nodes[:1] == ["approval_gate"] and values.get("approval_status") != "approved"
+    if not next_nodes or waiting_for_user:
+        raise PlanDecisionError("the research has no step left to run again", 409)
+    campaign_id = str(values.get("campaign_id") or "")
+    if values.get("mode") == "campaign" and campaign_id and not values.get("campaign_analysis") and campaign and campaign.get("status") in {"failed", "cancelled"}:
+        return {"action": "campaign", "campaign_id": campaign_id}
+    return {"action": "resume"}
+
+
+def _can_retry(values: dict, next_nodes: list[str], status: str) -> bool:
+    try:
+        research_retry_plan(values, next_nodes, status, None)
+    except PlanDecisionError:
+        return False
+    return True
+
+
+def plan_research_retry(thread_id: str) -> dict:
+    snapshot = _load_snapshot(thread_id)
+    values = dict(snapshot.values or {})
+    next_nodes = [str(node) for node in (snapshot.next or ())]
+    error = read_error(thread_id) or _stale_campaign_error(values) or _stale_research_error(values, next_nodes, getattr(snapshot, "created_at", None))
+    campaign = None
+    campaign_id = str(values.get("campaign_id") or "")
+    if values.get("mode") == "campaign" and campaign_id:
+        try:
+            campaign = effective_state(campaign_store.load_state(campaign_id) or {"status": ""})
+        except (campaign_store.CampaignStoreError, OSError, ValueError):
+            campaign = None
+    return research_retry_plan(values, next_nodes, _research_status(values, next_nodes, error), campaign)
 
 
 def _now() -> datetime:

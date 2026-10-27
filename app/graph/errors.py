@@ -19,6 +19,7 @@ UPSERT = (
     "ON CONFLICT (thread_id) DO UPDATE SET message = EXCLUDED.message, created_at = now()"
 )
 SELECT = "SELECT message FROM research_errors WHERE thread_id = %s"
+DELETE = "DELETE FROM research_errors WHERE thread_id = %s"
 
 _memory: dict[str, str] = {}
 _table_ready = False
@@ -50,6 +51,16 @@ def record_error(thread_id: str, message: str) -> None:
             connection.execute(UPSERT, (thread_id, text))
     except Exception:
         logger.exception("could not persist research error thread_id=%s", thread_id)
+
+
+def clear_error(thread_id: str) -> None:
+    _memory.pop(thread_id, None)
+    try:
+        with _connect() as connection:
+            _ensure_table(connection)
+            connection.execute(DELETE, (thread_id,))
+    except Exception:
+        logger.exception("could not clear research error thread_id=%s", thread_id)
 
 
 def read_error(thread_id: str) -> str:
