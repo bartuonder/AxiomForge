@@ -13,6 +13,7 @@ import { SummaryView } from "@/components/SummaryView";
 import { Tabs } from "@/components/Tabs";
 import { fetchCampaignReport, fetchCampaignSummary } from "@/lib/api";
 import { friendlyApiError } from "@/lib/apiErrors";
+import { downloadText, reportFilename } from "@/lib/download";
 import type { CampaignReport, PlainSummary } from "@/lib/types";
 
 type CampaignViewProps = {
@@ -82,6 +83,13 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
         <div className="space-y-4">
           <h2 className="text-xl text-[#1c1915]">{t("campaign.reportTitle")}</h2>
           <p className="text-sm text-[#5c564e]">{t("campaign.reportHint")}</p>
+          <button
+            type="button"
+            onClick={() => downloadText(reportFilename(summary?.title || campaignId, campaignId), report.markdown)}
+            className="rounded-full border border-[#1f6b4a] px-4 py-1.5 text-sm font-semibold text-[#1f6b4a] hover:bg-[#eef6f1]"
+          >
+            {t("campaign.download")}
+          </button>
           <article className="paper space-y-4 text-[17px] leading-8 text-[#1c1915]">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{withoutLedgerTable(report.markdown)}</ReactMarkdown>
           </article>
