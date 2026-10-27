@@ -169,3 +169,23 @@ def test_the_endpoint_prefers_the_stored_specification_for_the_title(client):
     finished_campaign()
     store.save_spec("done", {**SPEC, "title": "A better title"})
     assert client.get("/campaign/done/summary").json()["title"] == "A better title"
+
+
+class TestGlossaryAndListSentence:
+    def test_the_glossary_endpoint_serves_the_terms(self, client):
+        from app.campaign.vocabulary import GLOSSARY
+
+        assert client.get("/glossary").json() == {"language": "tr", "terms": GLOSSARY["tr"]}
+        assert client.get("/glossary", params={"lang": "en"}).json() == {"language": "en", "terms": GLOSSARY["en"]}
+
+    def test_an_unknown_glossary_language_is_a_422(self, client):
+        assert client.get("/glossary", params={"lang": "de"}).status_code == 422
+
+    def test_the_list_carries_the_first_claim_sentence(self):
+        state = {"id": "a", "status": "completed", "verdicts": [{"id": "C1", "statement": "Trees beat nets", "verdict": "replicated"}]}
+        assert service.campaign_summary(state)["statement"] == "Trees beat nets"
+        assert service.campaign_summary({"id": "a", "status": "queued"})["statement"] == ""
+
+    def test_the_list_verdicts_stay_small(self):
+        state = {"id": "a", "status": "completed", "verdicts": [{"id": "C1", "statement": "Trees beat nets", "verdict": "replicated"}]}
+        assert service.campaign_summary(state)["verdicts"] == [{"id": "C1", "verdict": "replicated"}]
