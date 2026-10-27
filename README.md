@@ -34,7 +34,9 @@ Faz 14 kampanya genişletmeleridir (otonom oturum, ayrıntı ve ölçümler `AUT
 
 Faz 14'ün ikinci turu (26 Ekim 2026, ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 2' ve 'Takip 3'): ayar etkilerinin Holm ailesi artık bir modelin üç ölçütüdür ve katı (tüm model ve ölçütler) düzeltmede kaç etkinin ayakta kaldığı raporun Limitations bölümünde yazılır (`adjusted_p_value_all`, `significant_all`); meta makale kapısı reddedilen taslağı yeniden yazım turuna gösterir (geçiş oranı 6/10 → 10/10) ve kapsamlı 'all datasets tested' ifadelerini kabul eder; planlayıcı makaleden gelen iddialar için ek bir hakem çağrısıyla alıntının iddiayı desteklediğini denetler, olumsuz cümleyi ters çevirmez, çalıştırılamayan mimarileri MLP vekiline eşler ve 3'ten az aday önerirse 'ROC-AUC only' ve 'tuned' varyantlarıyla tamamlanır; spec'te `revisions` ile HF veri seti commit'leri sabitlenebilir (`--pin-from`); meta makale, durumu ve yeniden yazım sayısı kampanyanın MLflow run'ına (`paper.md`), deney hattının `statistical_decision.json` dosyası da MLflow'a yazılır; `/approve_plan` 404/409/422 döner; deney hattında 30 dakikadır checkpoint yazmayan araştırma `failed` görünür; araştırma kuyruğa girmeden OpenAI anahtarı ve kotası tek çağrıyla denetlenir (`app/openai_check.py`); konsol ayarlı kampanyayı ve künyeyi gösterir, arXiv kimliğini bildirir ve hazır kampanya için onaylı başlatma düğmesi sunar (`npm test` Node test koşucusuyla); `.github/workflows/ci.yml` backend ve frontend testlerini koşar (GitHub'da yeşil; ilk koşu temiz checkout'ta `next typegen` eksikliğinden kırmızıydı); `tools/` altında kıyas ve simülasyon araçları durur. Ölçümler: zor kıyasta motor 10/10 ve yakın çiftlerde 0/6 karar, planlayıcı 8 muğlak sorguda 8/8 (düzeltmeden sonra), düzeltilmiş t testi muhafazakâr (boş durumda ret %0,7-2, orta fark gücü 10 bölmede %72).
 
-Kalan işler ve frontend yenileme planı `ROADMAP.md` içindedir (ilk gerçek denemede sonuç sayfasının kullanıcıya göre olmadığı görüldü).
+Kullanıcıya dönük yenileme (27 Ekim 2026, ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 7'): konsol "herkes" için yeniden yazıldı. Sonuç sayfası tek cümlelik özet, sade karar rozeti, güven göstergesi, veri seti başına çubuk grafik ve katlanır sayılarla açılır; Özet / Ayrıntılı rapor / Kanıtlar sekmeleri, terim sözlüğü balonları, TR/EN anahtarı, sebepli ve öneri veren hata kutuları, test koşularını gizleyen geçmiş ve Markdown rapor indirme eklendi. Güvence tarafında isteğe bağlı API anahtarı ve günlük başlatma sınırı, karar makinesinin sahte pozitif ölçümü (boş farkta karar oranı %2,1; küçük farkta güç düşük) ve bellek listeleme / silme aracı geldi. Konsol için Dockerfile ve compose servisi eklendi.
+
+Kalan işler `ROADMAP.md` içindedir.
 
 Faz 13 ajanlı kampanya orkestrasyonudur: araştırma grafı artık tek veri setli deneye ek olarak kampanya motorunu da sürer. Mod açıkça verilir: `POST /start_research` gövdesinde `mode` `experiment` (varsayılan, eski hat) ya da `campaign` olabilir; `auto` yoktur ve bilinmeyen mod `422` döner, çünkü LLM'e kendi başına E2B harcatma yetkisi verilmez. Kampanya hattı: `literature_node` → `campaign_planner_node` → `approval_gate` → `campaign_dispatch_node` → (durur) → `campaign_collect_node` → `meta_report_node` ⇄ `meta_consistency_node`. `campaign/planning.py` kampanyayı deterministik kurar: makaledeki model adlarını estimator'a eşler (ResNet, FT-Transformer gibi mimariler MLP'ye eşlenir ve bu raporda sapma notu olur, eşlenemeyen model reddedilir), 5-10 veri seti seçer, istatistiksel güç kontrolü yapar (en küçük ulaşılabilir Holm düzeltmeli p 0,05'in altında değilse spec reddedilir: 3 ölçütte en az 7, pratikte 8-9 veri seti) ve süre tahmini verir. `agents/campaign_planner.py` yalnız iddiaları ayrıştırır: üç aday kampanya önerir, her iddia makale özetinden ya da sorgudan birebir `source_quote` ile kanıtlanmak zorundadır (alıntı metinde yoksa aday atılır), makale tablo sınıflandırması hakkında değilse gerekçeli `unsupported` döner; geçmiş kampanyalar hafızadan okunur ve tekrar eden iddialar adayda `repeats` olarak işaretlenir. Onay `selected` ile üç adaydan biridir. `campaign_dispatch_node` kampanyayı idempotent kuyruğa atar (kimlik thread ve spec özetinden türer, aynı düğüm yeniden çalışsa ikinci kampanya açılmaz); `run_campaign_task` bitince `resume_campaign_task` grafı uyandırır, graf henüz toplama noktasına gelmediyse 5 sn arayla 40 kez yeniden dener. 20 dakika ilerleme olmayan kampanya `failed` sayılır (bayat işçi). `agents/meta_report.py` makaleyi birleştirir: Abstract, Methodology, Results, Limitations, Conclusion ve kanıt defteri deterministiktir (kampanya raporu ve `campaign/meta_evidence.py` cümleleri, her sayısal satırda `[E#]`), yalnız Introduction ve Discussion'ı LLM yazar (Introduction'da sonuç, rakam ve karar yok; Discussion'a yalnız sistemin hesapladığı olgular verilir, rakam yok, neden açıklamaları hedge'li). `agents/consistency_meta.py` LLM'siz kapıdır: atıf izlenebilirliği, prose bölümlerinde rakam, kesinlik fiilleri (`confirmed`, `proved`), karar sözcüklerinin gerçek karara uyumu, hedge'siz neden, genelleme (`always`, `all tabular`), çalıştırılmamış model ya da veri seti adı, uydurma kaynak başlığı, Abstract'ta iddia kararı, Methodology'de sapmalar ve Limitations'ta başarısız veri setleri. Kapı yazıcıyı en çok iki kez geri gönderir; sonra `Completed` ya da `NeedsReview` olur (kampanyanın kendi denetimi sorun bulduysa her halükarda `NeedsReview`). Karar etiketi `contradicted`'tır (`reversed` değil); tek veri setli hipotez kararlarıyla aynı sözcük. Biten kampanya vektör hafızaya `campaign` sonucuyla yazılır ve MLflow run kimliği durumda görünür. Konsolda mod seçilir, kampanya onay penceresi üç adayı iddiaları, modelleri, veri setleri, tahmini süre ve sandbox sayısı, kaynak alıntısı ve daha önce çalıştırıldı uyarısıyla gösterir.
 
@@ -109,8 +111,14 @@ tests/                       pytest testleri: ayrıştırma, model adları, spes
 test_memory.py               hafızaya yazıp okuma denemesi
 pytest.ini                   test dizini ve import yolu
 GRAPH.md                     araştırma grafının mimarisi
-frontend/                    Next.js araştırma konsolu
-docker-compose.yml           Redis, pgvector PostgreSQL, MLflow, API ve Celery işçisi
+frontend/                    Next.js araştırma konsolu (TR/EN, sade özet, grafik, sözlük); Dockerfile ve Node testleri
+app/campaign/vocabulary.py   modeller, veri setleri, ölçütler, kararlar ve terimler için TR/EN sade adlar
+app/campaign/summary.py      kampanya durumundan sade özet (karar cümlesi, güven, grafik noktaları)
+app/friendly_errors.py       hata kodları ve kullanıcı dilinde sebep + öneri
+app/guard.py                 isteğe bağlı API anahtarı ve günlük başlatma sınırı
+tools/null_calibration.py    karar makinesinin boş farkta sahte pozitif oranı (Monte Carlo)
+tools/memory_report.py       planlayıcının okuduğu geçmiş kampanyaları listeler, onayla siler
+docker-compose.yml           Redis, pgvector PostgreSQL, MLflow, API, Celery işçisi ve konsol
 Dockerfile                   API, işçi ve MLflow için tek imaj
 requirements.txt
 requirements-dev.txt          requirements.txt ve pytest
@@ -169,7 +177,7 @@ API, Celery işçisi ve MLflow sunucusu tek imajdan (`Dockerfile`) çalışır. 
 docker compose up -d --build
 ```
 
-API `http://127.0.0.1:8000`, MLflow `http://127.0.0.1:5000` adresindedir. Konteynerler `DATABASE_URL`, `REDIS_URL` ve `MLFLOW_TRACKING_URI` değerlerini compose içinden alır (`postgres`, `redis`, `mlflow` servis adları). `OPENAI_API_KEY` ve `E2B_API_KEY` yerel `.env` dosyasından gelir; dosya imaja girmez ve yoksa compose yine çalışır. Makaleler `reports` hacmindedir ve API ile işçi aynı hacmi paylaşır. MLflow verisi `mlflow` hacmindedir. Konsol (Next.js) konteynerde değildir, `npm run dev` ile yerelde açılır. Yerel yolu kullanırken konteynerdeki API, işçi ve MLflow'u açmayın, 5000 ve 8000 portları çakışır: yalnız `docker compose up -d redis postgres` çalıştırın.
+API `http://127.0.0.1:8000`, MLflow `http://127.0.0.1:5000` adresindedir. Konteynerler `DATABASE_URL`, `REDIS_URL` ve `MLFLOW_TRACKING_URI` değerlerini compose içinden alır (`postgres`, `redis`, `mlflow` servis adları). `OPENAI_API_KEY` ve `E2B_API_KEY` yerel `.env` dosyasından gelir; dosya imaja girmez ve yoksa compose yine çalışır. Makaleler `reports` hacmindedir ve API ile işçi aynı hacmi paylaşır. MLflow verisi `mlflow` hacmindedir. Konsol (Next.js) `frontend` servisidir ve `http://127.0.0.1:3000` adresindedir; API adresi ve isteğe bağlı API anahtarı imaj yapılırken `NEXT_PUBLIC_API_URL` ve `NEXT_PUBLIC_API_KEY` yapı argümanlarıyla gömülür. Yerelde geliştirirken `npm run dev` de kullanılır. Yerel yolu kullanırken konteynerdeki API, işçi ve MLflow'u açmayın, 5000 ve 8000 portları çakışır: yalnız `docker compose up -d redis postgres` çalıştırın.
 
 ## Testler
 
@@ -179,6 +187,8 @@ Testler LLM, E2B, MLflow, Postgres ve Redis çağırmaz. Bu servisler düğüm t
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -m pytest
 ```
+
+Konsol testleri (yardımcı kitaplıklar ve bileşenlerin sunucuda TR/EN çizimi) `frontend` dizininde `npm test` ile koşar.
 
 ## Uçlar
 
@@ -284,7 +294,15 @@ Belirtim eşzamanlı doğrulanır; geçersizse `422` döner ve hiçbir şey sakl
 
 ### `GET /campaigns`, `GET /campaign/{campaign_id}`, `GET /campaign/{campaign_id}/report`
 
-`/campaigns` `campaigns` (sıralı kimlikler) ve `items` döner; `items` en yeni başta, her biri `id`, `title`, `status`, `updated`, `datasets`, `finished`, `failed` ve `verdicts` taşır. `/campaign/{id}` durumu döner: `status`, her veri setinin `status`, `attempts`, `seconds`, `error` alanları, bitince `verdicts` (iddia kimliği, cümle ve karar), `issues`, `finished_datasets` ve `failed_datasets`. Geçersiz kimlik `400`, bilinmeyen kampanya `404` döner. `/campaign/{id}/report` rapor hazırsa `{"markdown": ..., "ledger": [...]}` döner, değilse `404 report not ready`.
+`/campaigns` `campaigns` (sıralı kimlikler) ve `items` döner; `items` en yeni başta, her biri `id`, `title`, `statement` (ilk iddia cümlesi), `origin` (api / console / cli), `status`, `updated`, `datasets`, `finished`, `failed` ve `verdicts` taşır. `/campaign/{id}` durumu döner: `status`, her veri setinin `status`, `attempts`, `seconds`, `error` alanları, bitince `verdicts` (iddia kimliği, cümle ve karar), `issues`, `finished_datasets` ve `failed_datasets`. Geçersiz kimlik `400`, bilinmeyen kampanya `404` döner. `/campaign/{id}/report` rapor hazırsa `{"markdown": ..., "ledger": [...]}` döner, değilse `404 report not ready`.
+
+### `GET /campaign/{campaign_id}/summary`, `GET /glossary`, `GET /vocabulary`
+
+`/campaign/{id}/summary?lang=tr|en` kampanyayı herkesin okuyacağı dille özetler: tek cümlelik başlık, her iddia için sade karar etiketi ve tonu, güven düzeyi, "kaç veri setinde üstün" sayıları, veri seti başına skor grafiği noktaları, genel sıralama, yöntem maddeleri, dikkat notları, ilerleme ve (varsa) `error_info` (başlık, sebep, öneri, teknik ayrıntı). Bilinmeyen dil `422` döner. `/glossary?lang=` terim sözlüğünü, `/vocabulary?lang=` model, veri seti ve ölçüt adlarını verir. Karar mantığı değişmez, bu uçlar yalnız sunar.
+
+### Erişim koruması: `API_KEY`, `DAILY_START_LIMIT`, `GET /usage`
+
+`.env` içinde `API_KEY` tanımlıysa `POST /experiments`, `/start_research`, `/approve_plan` ve `/start_campaign` `X-API-Key` başlığı ister (yoksa ya da yanlışsa `401`, `[unauthorized]`); tanımlı değilse uçlar açıktır. `DAILY_START_LIMIT` (varsayılan 100, `0` sınırsız) günlük başlatma sayısını sınırlar; aşılırsa `429` (`[daily_limit]`). Sayaç `reports/usage.json` dosyasındadır, `GET /usage` bugünkü kullanımı ve kalan hakkı verir. Konsol anahtarı `NEXT_PUBLIC_API_KEY` ile gönderir ve iki durumu da sade dille anlatır.
 
 ### `POST /approve_plan`
 
