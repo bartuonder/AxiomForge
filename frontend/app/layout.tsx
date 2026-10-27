@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
+import Script from "next/script";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import { THEME_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const display = Fraunces({
@@ -20,8 +22,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="tr" className={`${display.variable} ${sans.variable} h-full antialiased`}>
-      <body className="min-h-full bg-[#f4f0e6] text-[#1c1915]">
+    <html lang="tr" suppressHydrationWarning className={`${display.variable} ${sans.variable} h-full antialiased`}>
+      <body className="min-h-full bg-page text-ink">
+        <Script id="theme" strategy="beforeInteractive">
+          {THEME_SCRIPT}
+        </Script>
         <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>

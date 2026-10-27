@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { displayTitle, hiddenTestCount, isUserCampaign, visibleCampaigns } from "../lib/campaignList.ts";
 import { barPercent, chartRange, etaMinutes, formatNumber, formatSigned, minutes, ratio, tonePalette, TONES, winner } from "../lib/format.ts";
+import { otherTheme, parseTheme, resolveTheme, THEME_SCRIPT, THEME_STORAGE_KEY } from "../lib/theme.ts";
 import { DEFAULT_LANGUAGE, LANGUAGES, MESSAGES, parseLanguage, translate } from "../lib/i18n.ts";
 
 describe("i18n", () => {
@@ -149,5 +150,47 @@ describe("campaign list", () => {
     assert.equal(displayTitle({ ...items[0], title: "  " }, "x"), "Trees beat nets");
     assert.equal(displayTitle({ ...items[0], title: "", statement: " " }, "Unnamed"), "Unnamed");
     assert.equal(displayTitle({ ...items[0], title: "", statement: undefined }, "Unnamed"), "Unnamed");
+  });
+});
+
+describe("theme", () => {
+  it("accepts only the two known themes", () => {
+    assert.equal(parseTheme("dark"), "dark");
+    assert.equal(parseTheme("light"), "light");
+    for (const value of ["", "auto", "DARK", null, undefined]) {
+      assert.equal(parseTheme(value), null);
+    }
+  });
+
+  it("follows the system until the user chooses", () => {
+    assert.equal(resolveTheme(null, true), "dark");
+    assert.equal(resolveTheme(null, false), "light");
+    assert.equal(resolveTheme("light", true), "light");
+    assert.equal(resolveTheme("dark", false), "dark");
+  });
+
+  it("switches to the other theme", () => {
+    assert.equal(otherTheme("dark"), "light");
+    assert.equal(otherTheme("light"), "dark");
+  });
+
+  it("runs before the page paints and uses the same storage key", () => {
+    assert.ok(THEME_SCRIPT.includes(`"${THEME_STORAGE_KEY}"`));
+    const document = { documentElement: { dataset: {} as Record<string, string> } };
+    const storage = { getItem: () => "dark" };
+    new Function("document", "localStorage", THEME_SCRIPT)(document, storage);
+    assert.equal(document.documentElement.dataset.theme, "dark");
+  });
+
+  it("ignores a stored value that is not a theme and a storage that throws", () => {
+    const document = { documentElement: { dataset: {} as Record<string, string> } };
+    new Function("document", "localStorage", THEME_SCRIPT)(document, { getItem: () => "blue" });
+    assert.equal(document.documentElement.dataset.theme, undefined);
+    new Function("document", "localStorage", THEME_SCRIPT)(document, {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+    });
+    assert.equal(document.documentElement.dataset.theme, undefined);
   });
 });

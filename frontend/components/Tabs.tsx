@@ -14,7 +14,7 @@ export function Tabs({ items, active, onChange }: TabsProps) {
   const current = items.find((item) => item.id === active) ?? items[0];
   return (
     <div>
-      <div role="tablist" className="flex gap-1 border-b border-[#d7d0c4]">
+      <div role="tablist" className="flex gap-1 border-b border-line">
         {items.map((item) => (
           <button
             key={item.id}
@@ -25,7 +25,7 @@ export function Tabs({ items, active, onChange }: TabsProps) {
             aria-controls={`panel-${item.id}`}
             onClick={() => onChange(item.id)}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold ${
-              item.id === current.id ? "border-[#1f6b4a] text-[#1f6b4a]" : "border-transparent text-[#5c564e] hover:text-[#1c1915]"
+              item.id === current.id ? "border-accent text-accent" : "border-transparent text-muted hover:text-ink"
             }`}
           >
             {item.label}

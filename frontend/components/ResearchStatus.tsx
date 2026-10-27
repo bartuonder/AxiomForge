@@ -14,10 +14,10 @@ type ResearchStatusProps = {
 };
 
 const TONE_STYLES: Record<Tone, { box: string; dot: string }> = {
-  good: { box: "border-[#b9d8c7] bg-[#eef6f1] text-[#14472f]", dot: "bg-[#1f6b4a]" },
-  warn: { box: "border-[#c9a227] bg-[#fbf3d6] text-[#5c4a0c]", dot: "bg-[#c9a227]" },
-  bad: { box: "border-[#d9a99e] bg-[#faeeea] text-[#6e2a1c]", dot: "bg-[#9b3d2b]" },
-  wait: { box: "border-[#d7d0c4] bg-white text-[#5c564e]", dot: "bg-[#d7d0c4]" },
+  good: { box: "border-accent-line bg-accent-tint text-accent-ink", dot: "bg-accent" },
+  warn: { box: "border-warn bg-warn-tint text-warn-ink", dot: "bg-warn" },
+  bad: { box: "border-danger-line bg-danger-tint text-danger-ink", dot: "bg-danger" },
+  wait: { box: "border-line bg-card text-muted", dot: "bg-line" },
 };
 
 function verificationRow(snapshot: ResearchSnapshot): StatusRow {
@@ -119,7 +119,7 @@ export function ResearchStatus({ snapshot }: ResearchStatusProps) {
         ))}
       </ul>
       {notes.length > 0 ? (
-        <details className="mt-3 rounded border border-[#d7d0c4] bg-white px-4 py-3 text-sm text-[#5c564e]">
+        <details className="mt-3 rounded border border-line bg-card px-4 py-3 text-sm text-muted">
           <summary className="cursor-pointer font-semibold">
             Referee notes ({notes.length}), advisory: they did not decide the status
           </summary>

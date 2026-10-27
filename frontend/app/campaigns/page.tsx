@@ -84,8 +84,8 @@ export default function CampaignsPage() {
     <>
       <SiteHeader />
       <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
-        <h1 className="text-4xl text-[#1c1915]">{t("list.title")}</h1>
-        <p className="mt-2 text-[#5c564e]">{t("list.subtitle")}</p>
+        <h1 className="text-4xl text-ink">{t("list.title")}</h1>
+        <p className="mt-2 text-muted">{t("list.subtitle")}</p>
 
         <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
           <input
@@ -93,11 +93,11 @@ export default function CampaignsPage() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("list.search")}
             aria-label={t("list.search")}
-            className="h-11 flex-1 rounded-full border border-[#d7d0c4] bg-white px-5 text-sm outline-none focus:border-[#1f6b4a]"
+            className="h-11 flex-1 rounded-full border border-line bg-card px-5 text-sm outline-none focus:border-accent"
           />
           {hidden > 0 || showTests ? (
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-[#5c564e]">
-              <input type="checkbox" checked={showTests} onChange={(event) => setShowTests(event.target.checked)} className="h-4 w-4 accent-[#1f6b4a]" />
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+              <input type="checkbox" checked={showTests} onChange={(event) => setShowTests(event.target.checked)} className="h-4 w-4 accent-accent" />
               {t("list.showTests")} ({hidden})
             </label>
           ) : null}
@@ -107,37 +107,37 @@ export default function CampaignsPage() {
           type="button"
           disabled={starting}
           onClick={() => void startDemo()}
-          className="mt-6 h-11 cursor-pointer rounded-full bg-[#1f6b4a] px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#d5d0c6] disabled:text-[#6f675e]"
+          className="mt-6 h-11 cursor-pointer rounded-full bg-accent px-5 text-sm font-semibold text-on-solid disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-soft"
         >
           {starting ? t("list.starting") : t("list.runDemo")}
         </button>
 
-        {error ? <p className="mt-6 text-sm text-[#9b3d2b]">{error}</p> : null}
-        {campaigns && campaigns.length === 0 ? <p className="mt-8 text-sm text-[#5c564e]">{t("list.empty")}</p> : null}
+        {error ? <p className="mt-6 text-sm text-danger">{error}</p> : null}
+        {campaigns && campaigns.length === 0 ? <p className="mt-8 text-sm text-muted">{t("list.empty")}</p> : null}
         {campaigns && campaigns.length > 0 && shown.length === 0 ? (
-          <p className="mt-8 text-sm text-[#5c564e]">{!showTests && hidden === campaigns.length && !query.trim() ? t("list.onlyTests", { count: hidden }) : t("list.emptyFiltered")}</p>
+          <p className="mt-8 text-sm text-muted">{!showTests && hidden === campaigns.length && !query.trim() ? t("list.onlyTests", { count: hidden }) : t("list.emptyFiltered")}</p>
         ) : null}
 
         <ul className="mt-8 space-y-4">
           {shown.map((campaign) => (
             <li key={campaign.id}>
-              <Link href={`/campaign/${campaign.id}`} className="block rounded-2xl border border-[#d7d0c4] bg-white p-5 hover:border-[#1f6b4a]">
+              <Link href={`/campaign/${campaign.id}`} className="block rounded-2xl border border-line bg-card p-5 hover:border-accent">
                 <div className="flex items-start justify-between gap-4">
-                  <p className="text-lg leading-snug text-[#1c1915]">{displayTitle(campaign, t("list.unnamed"))}</p>
+                  <p className="text-lg leading-snug text-ink">{displayTitle(campaign, t("list.unnamed"))}</p>
                   <CampaignBadge status={campaign.status} />
                 </div>
-                {campaign.statement ? <p className="mt-1 text-sm text-[#5c564e]">{campaign.statement}</p> : null}
+                {campaign.statement ? <p className="mt-1 text-sm text-muted">{campaign.statement}</p> : null}
                 {campaign.verdicts.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {campaign.verdicts.map((item) => (
-                      <span key={item.id} className="flex items-center gap-1 text-xs text-[#5c564e]">
+                      <span key={item.id} className="flex items-center gap-1 text-xs text-muted">
                         <span className="font-semibold">{item.id}</span>
                         <VerdictBadge label={VERDICT_KEYS[item.verdict]?.[language] ?? item.verdict} tone={VERDICT_TONES[item.verdict] ?? "muted"} />
                       </span>
                     ))}
                   </div>
                 ) : null}
-                <p className="mt-3 text-xs text-[#8a8175]">
+                <p className="mt-3 text-xs text-faint">
                   {t("list.progress", { finished: campaign.finished, total: campaign.datasets })}
                   {campaign.failed ? ` · ${t("list.failedSets", { count: campaign.failed })}` : ""}
                   {!isUserCampaign(campaign.origin) ? ` · ${t("list.test")}` : ` · ${t(`list.from.${campaign.origin}` as MessageKey)}`}

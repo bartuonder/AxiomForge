@@ -10,7 +10,7 @@ export function LedgerTable({ ledger }: LedgerTableProps) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] border-collapse text-left text-sm">
         <thead>
-          <tr className="border-b border-[#d7d0c4] text-xs tracking-[0.12em] text-[#8a8175] uppercase">
+          <tr className="border-b border-line text-xs tracking-[0.12em] text-faint uppercase">
             <th className="py-2 pr-4">Id</th>
             <th className="py-2 pr-4">Kind</th>
             <th className="py-2 pr-4">Key</th>
@@ -19,11 +19,11 @@ export function LedgerTable({ ledger }: LedgerTableProps) {
         </thead>
         <tbody>
           {ledger.map((entry) => (
-            <tr key={entry.id} id={entry.id} className="border-b border-[#e4ddd2] align-top">
-              <td className="py-2 pr-4 font-semibold text-[#1f6b4a]">{entry.id}</td>
-              <td className="py-2 pr-4 text-[#5c564e]">{entry.kind}</td>
-              <td className="py-2 pr-4 text-[#1c1915]">{entry.key}</td>
-              <td className="py-2 text-[#5c564e]">{describeEntry(entry)}</td>
+            <tr key={entry.id} id={entry.id} className="border-b border-line-soft align-top">
+              <td className="py-2 pr-4 font-semibold text-accent">{entry.id}</td>
+              <td className="py-2 pr-4 text-muted">{entry.kind}</td>
+              <td className="py-2 pr-4 text-ink">{entry.key}</td>
+              <td className="py-2 text-muted">{describeEntry(entry)}</td>
             </tr>
           ))}
         </tbody>

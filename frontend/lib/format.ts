@@ -5,11 +5,11 @@ export type Tone = "positive" | "negative" | "neutral" | "warning" | "muted";
 export type TonePalette = { badge: string; soft: string; bar: string; text: string };
 
 export const TONES: Record<Tone, TonePalette> = {
-  positive: { badge: "border-[#b9d8c7] bg-[#eef6f1] text-[#14472f]", soft: "border-[#b9d8c7] bg-[#f4faf6]", bar: "bg-[#1f6b4a]", text: "text-[#14472f]" },
-  negative: { badge: "border-[#d9a99e] bg-[#faeeea] text-[#6e2a1c]", soft: "border-[#e6c2b9] bg-[#fdf6f4]", bar: "bg-[#b4452f]", text: "text-[#6e2a1c]" },
-  neutral: { badge: "border-[#c5cdd6] bg-[#eef1f5] text-[#2f3b4a]", soft: "border-[#d4dae1] bg-[#f6f8fa]", bar: "bg-[#5b6b7d]", text: "text-[#2f3b4a]" },
-  warning: { badge: "border-[#e0c46a] bg-[#fbf3d6] text-[#5c4a0c]", soft: "border-[#ead9a0] bg-[#fdf9e8]", bar: "bg-[#c9a227]", text: "text-[#5c4a0c]" },
-  muted: { badge: "border-[#d7d0c4] bg-white text-[#5c564e]", soft: "border-[#e4ddd2] bg-[#faf8f3]", bar: "bg-[#a3988c]", text: "text-[#5c564e]" },
+  positive: { badge: "border-accent-line bg-accent-tint text-accent-ink", soft: "border-accent-line bg-good-soft", bar: "bg-accent", text: "text-accent-ink" },
+  negative: { badge: "border-danger-line bg-danger-tint text-danger-ink", soft: "border-bad-soft-line bg-bad-soft", bar: "bg-bad-bar", text: "text-danger-ink" },
+  neutral: { badge: "border-calm-line bg-calm-tint text-calm-ink", soft: "border-calm-soft-line bg-calm-soft", bar: "bg-calm-bar", text: "text-calm-ink" },
+  warning: { badge: "border-warn-line bg-warn-tint text-warn-ink", soft: "border-warn-soft-line bg-warn-soft", bar: "bg-warn", text: "text-warn-ink" },
+  muted: { badge: "border-line bg-card text-muted", soft: "border-line-soft bg-panel", bar: "bg-dim", text: "text-muted" },
 };
 
 export function tonePalette(tone: string): TonePalette {

@@ -83,21 +83,21 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
       label: t("campaign.tab.report"),
       content: report ? (
         <div className="space-y-4">
-          <h2 className="text-xl text-[#1c1915]">{t("campaign.reportTitle")}</h2>
-          <p className="text-sm text-[#5c564e]">{t("campaign.reportHint")}</p>
+          <h2 className="text-xl text-ink">{t("campaign.reportTitle")}</h2>
+          <p className="text-sm text-muted">{t("campaign.reportHint")}</p>
           <button
             type="button"
             onClick={() => downloadText(reportFilename(summary?.title || campaignId, campaignId), report.markdown)}
-            className="rounded-full border border-[#1f6b4a] px-4 py-1.5 text-sm font-semibold text-[#1f6b4a] hover:bg-[#eef6f1]"
+            className="rounded-full border border-accent px-4 py-1.5 text-sm font-semibold text-accent hover:bg-accent-tint"
           >
             {t("campaign.download")}
           </button>
-          <article className="paper space-y-4 text-[17px] leading-8 text-[#1c1915]">
+          <article className="paper space-y-4 text-[17px] leading-8 text-ink">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{withoutLedgerTable(report.markdown)}</ReactMarkdown>
           </article>
         </div>
       ) : (
-        <p className="text-sm text-[#5c564e]">{t("campaign.waiting")}</p>
+        <p className="text-sm text-muted">{t("campaign.waiting")}</p>
       ),
     },
     {
@@ -105,12 +105,12 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
       label: t("campaign.tab.evidence"),
       content: report ? (
         <div className="space-y-3">
-          <h2 className="text-xl text-[#1c1915]">{t("campaign.evidenceTitle")}</h2>
-          <p className="text-sm text-[#5c564e]">{t("campaign.evidenceHint")}</p>
+          <h2 className="text-xl text-ink">{t("campaign.evidenceTitle")}</h2>
+          <p className="text-sm text-muted">{t("campaign.evidenceHint")}</p>
           <LedgerTable ledger={report.ledger} />
         </div>
       ) : (
-        <p className="text-sm text-[#5c564e]">{t("campaign.waiting")}</p>
+        <p className="text-sm text-muted">{t("campaign.waiting")}</p>
       ),
     },
   ];
@@ -119,23 +119,23 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
     <>
       <SiteHeader />
       <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
-        <Link href="/campaigns" className="text-sm font-semibold text-[#1f6b4a]">
+        <Link href="/campaigns" className="text-sm font-semibold text-accent">
           {t("campaign.back")}
         </Link>
-        {error && !summary ? <p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
-        {!summary && !error ? <p className="mt-8 text-sm text-[#5c564e]">{t("campaign.loading")}</p> : null}
+        {error && !summary ? <p className="mt-8 text-sm text-danger">{error}</p> : null}
+        {!summary && !error ? <p className="mt-8 text-sm text-muted">{t("campaign.loading")}</p> : null}
         {summary ? (
           <>
             <header className="mt-6 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 <CampaignBadge status={summary.status.code} />
                 {summary.status.code === "running" || summary.status.code === "queued" ? (
-                  <span className="text-xs text-[#5c564e]">{t("campaign.progress", { finished: summary.progress.finished, total: summary.progress.total })}</span>
+                  <span className="text-xs text-muted">{t("campaign.progress", { finished: summary.progress.finished, total: summary.progress.total })}</span>
                 ) : null}
               </div>
-              <h1 className="text-3xl leading-tight text-[#1c1915] sm:text-4xl">{summary.title || campaignId}</h1>
+              <h1 className="text-3xl leading-tight text-ink sm:text-4xl">{summary.title || campaignId}</h1>
               {summary.source ? (
-                <p className="text-sm text-[#5c564e]">
+                <p className="text-sm text-muted">
                   <span className="font-semibold">{t("campaign.source")}:</span> {summary.source.title}
                   {summary.source.citation ? ` (${summary.source.citation})` : ""}
                 </p>

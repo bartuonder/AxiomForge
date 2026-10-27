@@ -13,7 +13,7 @@ export function SummaryView({ summary }: { summary: PlainSummary }) {
   if (summary.claims.length === 0) {
     const code = summary.status.code;
     if (code === "cancelled" || code === "failed") {
-      return <p className="text-[#5c564e]">{code === "cancelled" ? t("campaign.stoppedNote") : t("campaign.failedNote")}</p>;
+      return <p className="text-muted">{code === "cancelled" ? t("campaign.stoppedNote") : t("campaign.failedNote")}</p>;
     }
     return (
       <section>
@@ -23,7 +23,7 @@ export function SummaryView({ summary }: { summary: PlainSummary }) {
   }
   return (
     <div className="space-y-10">
-      {summary.claims.length > 1 ? <p className="text-lg text-[#1c1915]">{summary.headline}</p> : null}
+      {summary.claims.length > 1 ? <p className="text-lg text-ink">{summary.headline}</p> : null}
       <div className="space-y-8">
         {summary.claims.map((claim, index) => (
           <ClaimCard key={claim.id} claim={claim} compact={summary.claims.length > COMPACT_FROM} open={index === 0} />
@@ -32,16 +32,16 @@ export function SummaryView({ summary }: { summary: PlainSummary }) {
 
       <section className="grid gap-8 sm:grid-cols-2">
         <div className="space-y-3">
-          <h2 className="text-xl text-[#1c1915]">{t("campaign.howTitle")}</h2>
-          <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-[#5c564e]">
+          <h2 className="text-xl text-ink">{t("campaign.howTitle")}</h2>
+          <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
             {summary.method.map((step) => (
               <li key={step}>{step}</li>
             ))}
           </ul>
         </div>
         <div className="space-y-3">
-          <h2 className="text-xl text-[#1c1915]">{t("campaign.cautionTitle")}</h2>
-          <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-[#5c4a0c]">
+          <h2 className="text-xl text-ink">{t("campaign.cautionTitle")}</h2>
+          <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-warn-ink">
             {summary.cautions.map((caution) => (
               <li key={caution}>{caution}</li>
             ))}
@@ -51,14 +51,14 @@ export function SummaryView({ summary }: { summary: PlainSummary }) {
 
       {summary.ranking.length > 0 ? (
         <section className="space-y-3">
-          <h2 className="text-xl text-[#1c1915]">{t("campaign.rankingTitle")}</h2>
-          <p className="text-sm text-[#5c564e]">{t("campaign.rankingHint")}</p>
+          <h2 className="text-xl text-ink">{t("campaign.rankingTitle")}</h2>
+          <p className="text-sm text-muted">{t("campaign.rankingHint")}</p>
           <ol className="space-y-2">
             {summary.ranking.map((item) => (
-              <li key={item.model} className="flex items-center gap-3 rounded-xl border border-[#e4ddd2] bg-white px-4 py-2 text-sm">
-                <span className="w-6 font-semibold text-[#1f6b4a]">{item.position}</span>
-                <span className="flex-1 text-[#1c1915]">{item.label}</span>
-                <span className="text-xs text-[#8a8175] tabular-nums">{item.average_rank.toFixed(1)}</span>
+              <li key={item.model} className="flex items-center gap-3 rounded-xl border border-line-soft bg-card px-4 py-2 text-sm">
+                <span className="w-6 font-semibold text-accent">{item.position}</span>
+                <span className="flex-1 text-ink">{item.label}</span>
+                <span className="text-xs text-faint tabular-nums">{item.average_rank.toFixed(1)}</span>
               </li>
             ))}
           </ol>
@@ -66,12 +66,12 @@ export function SummaryView({ summary }: { summary: PlainSummary }) {
       ) : null}
 
       <section className="space-y-3">
-        <h2 className="text-xl text-[#1c1915]">
+        <h2 className="text-xl text-ink">
           <Term id="dataset">{t("campaign.datasetsTitle")}</Term>
         </h2>
         <ul className="flex flex-wrap gap-2">
           {summary.datasets.map((item) => (
-            <li key={item.key} className="rounded-full border border-[#d7d0c4] bg-white px-3 py-1 text-xs text-[#5c564e]">
+            <li key={item.key} className="rounded-full border border-line bg-card px-3 py-1 text-xs text-muted">
               {item.label}
             </li>
           ))}
@@ -79,12 +79,12 @@ export function SummaryView({ summary }: { summary: PlainSummary }) {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-xl text-[#1c1915]">{t("campaign.glossaryTitle")}</h2>
+        <h2 className="text-xl text-ink">{t("campaign.glossaryTitle")}</h2>
         <dl className="grid gap-3 sm:grid-cols-2">
           {Object.entries(summary.glossary).map(([key, entry]) => (
-            <div key={key} className="rounded-xl border border-[#e4ddd2] bg-white p-3">
-              <dt className="text-sm font-semibold text-[#1f6b4a]">{entry.term}</dt>
-              <dd className="mt-1 text-xs leading-5 text-[#5c564e]">{entry.explanation}</dd>
+            <div key={key} className="rounded-xl border border-line-soft bg-card p-3">
+              <dt className="text-sm font-semibold text-accent">{entry.term}</dt>
+              <dd className="mt-1 text-xs leading-5 text-muted">{entry.explanation}</dd>
             </div>
           ))}
         </dl>

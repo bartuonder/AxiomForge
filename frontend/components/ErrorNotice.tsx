@@ -14,7 +14,7 @@ export function ErrorNotice({ info, fallback }: ErrorNoticeProps) {
     return null;
   }
   return (
-    <section role="alert" className="mx-auto w-full max-w-3xl space-y-3 rounded-2xl border border-[#d9a99e] bg-[#faeeea] p-5 text-[#6e2a1c]">
+    <section role="alert" className="mx-auto w-full max-w-3xl space-y-3 rounded-2xl border border-danger-line bg-danger-tint p-5 text-danger-ink">
       <h2 className="text-lg font-semibold">{info ? info.title : t("error.title")}</h2>
       {info ? (
         <>

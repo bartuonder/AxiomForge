@@ -30,14 +30,14 @@ export function ResearchForm({ query, mode, busy, onQueryChange, onModeChange, o
   const papers = arxivReferences(query);
   return (
     <form
-      className="mx-auto flex w-full max-w-3xl flex-col gap-5 rounded-3xl border border-[#d7d0c4] bg-white p-6 shadow-[0_20px_60px_rgba(28,25,21,0.06)]"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5 rounded-3xl border border-line bg-card p-6 shadow-[0_20px_60px_rgba(28,25,21,0.06)]"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
       <div className="space-y-2">
-        <label className="text-sm font-semibold text-[#1c1915]" htmlFor="research-query">
+        <label className="text-sm font-semibold text-ink" htmlFor="research-query">
           {t("form.label")}
         </label>
         <textarea
@@ -47,15 +47,15 @@ export function ResearchForm({ query, mode, busy, onQueryChange, onModeChange, o
           disabled={busy}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder={mode === "campaign" ? t("form.placeholder.campaign") : t("form.placeholder.experiment")}
-          className="w-full resize-none rounded-2xl border border-[#d7d0c4] bg-[#fbf9f4] px-4 py-3 text-[15px] leading-6 text-[#1c1915] outline-none placeholder:text-[#a3988c] focus:border-[#1f6b4a] disabled:bg-[#f7f4ee]"
+          className="w-full resize-none rounded-2xl border border-line bg-field px-4 py-3 text-[15px] leading-6 text-ink outline-none placeholder:text-dim focus:border-accent disabled:bg-panel3"
         />
         {papers.length > 0 ? (
-          <p className="text-xs text-[#14472f]">{t(mode === "campaign" ? "form.arxiv" : "form.arxivIgnored", { ids: papers.join(", ") })}</p>
+          <p className="text-xs text-accent-ink">{t(mode === "campaign" ? "form.arxiv" : "form.arxivIgnored", { ids: papers.join(", ") })}</p>
         ) : null}
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-semibold tracking-[0.12em] text-[#8a8175] uppercase">{t("form.examples")}</p>
+        <p className="text-xs font-semibold tracking-[0.12em] text-faint uppercase">{t("form.examples")}</p>
         <div className="flex flex-wrap gap-2">
           {EXAMPLES.map((example) => (
             <button
@@ -63,7 +63,7 @@ export function ResearchForm({ query, mode, busy, onQueryChange, onModeChange, o
               type="button"
               disabled={busy}
               onClick={() => onQueryChange(t(example.query))}
-              className="rounded-full border border-[#d7d0c4] bg-[#fbf9f4] px-4 py-1.5 text-left text-sm text-[#1c1915] hover:border-[#1f6b4a] disabled:text-[#a3988c]"
+              className="rounded-full border border-line bg-field px-4 py-1.5 text-left text-sm text-ink hover:border-accent disabled:text-dim"
             >
               {t(example.label)}
             </button>
@@ -76,23 +76,23 @@ export function ResearchForm({ query, mode, busy, onQueryChange, onModeChange, o
         {MODES.map((item) => (
           <label
             key={item.value}
-            className={`flex cursor-pointer gap-3 rounded-2xl border p-4 text-sm ${mode === item.value ? "border-[#1f6b4a] bg-[#eef6f1]" : "border-[#e4ddd2] bg-white"}`}
+            className={`flex cursor-pointer gap-3 rounded-2xl border p-4 text-sm ${mode === item.value ? "border-accent bg-accent-tint" : "border-line-soft bg-card"}`}
           >
-            <input type="radio" name="mode" value={item.value} checked={mode === item.value} onChange={() => onModeChange(item.value)} className="mt-1 h-4 w-4 accent-[#1f6b4a]" />
+            <input type="radio" name="mode" value={item.value} checked={mode === item.value} onChange={() => onModeChange(item.value)} className="mt-1 h-4 w-4 accent-accent" />
             <span>
-              <span className="block font-semibold text-[#1c1915]">{t(item.label)}</span>
-              <span className="mt-1 block text-xs leading-5 text-[#5c564e]">{t(item.hint)}</span>
+              <span className="block font-semibold text-ink">{t(item.label)}</span>
+              <span className="mt-1 block text-xs leading-5 text-muted">{t(item.hint)}</span>
             </span>
           </label>
         ))}
       </fieldset>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs leading-5 text-[#8a8175]">{t("form.cost")}</p>
+        <p className="text-xs leading-5 text-faint">{t("form.cost")}</p>
         <button
           type="submit"
           disabled={busy || query.trim().length === 0}
-          className="h-12 shrink-0 cursor-pointer rounded-full bg-[#1f6b4a] px-7 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#d5d0c6] disabled:text-[#6f675e]"
+          className="h-12 shrink-0 cursor-pointer rounded-full bg-accent px-7 text-sm font-semibold text-on-solid disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-soft"
         >
           {busy ? t("form.running") : t("form.start")}
         </button>

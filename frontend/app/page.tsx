@@ -107,17 +107,17 @@ export default function Home() {
       <SiteHeader />
       <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-12 px-6 py-12">
         <section className="mx-auto max-w-3xl space-y-4 text-center">
-          <h1 className="text-4xl leading-tight text-[#1c1915] sm:text-5xl">{t("hero.title")}</h1>
-          <p className="text-lg leading-8 text-[#5c564e]">{t("hero.subtitle")}</p>
+          <h1 className="text-4xl leading-tight text-ink sm:text-5xl">{t("hero.title")}</h1>
+          <p className="text-lg leading-8 text-muted">{t("hero.subtitle")}</p>
         </section>
 
         {!threadId ? (
           <section className="grid gap-4 sm:grid-cols-3" aria-label={t("how.title")}>
             {HOW_STEPS.map((step, index) => (
-              <div key={step.title} className="rounded-2xl border border-[#e4ddd2] bg-white p-5">
-                <p className="text-xs font-semibold tracking-[0.16em] text-[#1f6b4a]">{index + 1}</p>
-                <h2 className="mt-1 text-lg text-[#1c1915]">{t(step.title)}</h2>
-                <p className="mt-2 text-sm leading-6 text-[#5c564e]">{t(step.text)}</p>
+              <div key={step.title} className="rounded-2xl border border-line-soft bg-card p-5">
+                <p className="text-xs font-semibold tracking-[0.16em] text-accent">{index + 1}</p>
+                <h2 className="mt-1 text-lg text-ink">{t(step.title)}</h2>
+                <p className="mt-2 text-sm leading-6 text-muted">{t(step.text)}</p>
               </div>
             ))}
           </section>
@@ -131,8 +131,8 @@ export default function Home() {
         {showProgress ? (
           <section className="space-y-6">
             <div className="text-center">
-              <h2 className="text-2xl text-[#1c1915]">{t("progress.title")}</h2>
-              <p className="mt-1 text-sm text-[#5c564e]">{t("progress.hint")}</p>
+              <h2 className="text-2xl text-ink">{t("progress.title")}</h2>
+              <p className="mt-1 text-sm text-muted">{t("progress.hint")}</p>
             </div>
             <AgentTimeline steps={steps} />
           </section>
@@ -142,12 +142,12 @@ export default function Home() {
         {campaignPaused ? <CampaignApprovalDialog candidates={candidates} busy={busy} onDecide={(decision, selected) => void onDecide(decision, selected)} /> : null}
         {snapshot?.campaign_id ? (
           <p className="text-center text-sm">
-            <Link href={`/campaign/${snapshot.campaign_id}`} className="font-semibold text-[#1f6b4a]">
+            <Link href={`/campaign/${snapshot.campaign_id}`} className="font-semibold text-accent">
               {t("progress.follow")}
             </Link>
           </p>
         ) : null}
-        {snapshot?.status === "rejected" ? <p className="text-center text-sm text-[#5c564e]">{t("progress.rejected")}</p> : null}
+        {snapshot?.status === "rejected" ? <p className="text-center text-sm text-muted">{t("progress.rejected")}</p> : null}
       </main>
     </>
   );

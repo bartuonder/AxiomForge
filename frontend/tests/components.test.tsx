@@ -10,6 +10,7 @@ import { ErrorNotice } from "../components/ErrorNotice.tsx";
 import { LanguageProvider } from "../components/LanguageProvider.tsx";
 import { LiveProgress } from "../components/LiveProgress.tsx";
 import { SummaryView } from "../components/SummaryView.tsx";
+import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { VerdictBadge } from "../components/VerdictBadge.tsx";
 import type { PlainSummary, SummaryClaim } from "../lib/types.ts";
 
@@ -67,17 +68,17 @@ describe("VerdictBadge", () => {
     const html = render(<VerdictBadge label="Doğrulandı" tone="positive" />);
     assert.match(html, /Doğrulandı/);
     assert.match(html, /✓/);
-    assert.match(html, /bg-\[#eef6f1\]/);
+    assert.match(html, /bg-accent-tint/);
   });
 
   it("uses another icon and colour for a refuted verdict", () => {
     const html = render(<VerdictBadge label="Çürütüldü" tone="negative" />);
     assert.match(html, /✕/);
-    assert.match(html, /bg-\[#faeeea\]/);
+    assert.match(html, /bg-danger-tint/);
   });
 
   it("falls back for an unknown tone", () => {
-    assert.match(render(<VerdictBadge label="?" tone="strange" />), /bg-white/);
+    assert.match(render(<VerdictBadge label="?" tone="strange" />), /bg-card/);
   });
 
   it("is larger when asked", () => {
@@ -89,20 +90,20 @@ describe("VerdictBadge", () => {
 describe("ConfidenceMeter", () => {
   it("fills three segments for high confidence", () => {
     const html = render(<ConfidenceMeter confidence={CLAIM.confidence} />);
-    assert.equal((html.match(/bg-\[#1f6b4a\]/g) ?? []).length, 3);
+    assert.equal((html.match(/bg-accent/g) ?? []).length, 3);
     assert.match(html, /Yüksek güven/);
     assert.match(html, /Tüm ölçütlerde aynı sonuç çıktı\./);
   });
 
   it("fills one segment for low confidence", () => {
     const html = render(<ConfidenceMeter confidence={{ level: "low", label: "Düşük güven", reason: "Kanıt yok." }} />);
-    assert.equal((html.match(/bg-\[#a3988c\]/g) ?? []).length, 1);
-    assert.equal((html.match(/bg-\[#e4ddd2\]/g) ?? []).length, 2);
+    assert.equal((html.match(/bg-dim/g) ?? []).length, 1);
+    assert.equal((html.match(/bg-line-soft/g) ?? []).length, 2);
   });
 
   it("fills two segments for medium confidence", () => {
     const html = render(<ConfidenceMeter confidence={{ level: "medium", label: "Orta güven", reason: "x" }} />);
-    assert.equal((html.match(/bg-\[#c9a227\]/g) ?? []).length, 2);
+    assert.equal((html.match(/bg-warn/g) ?? []).length, 2);
   });
 });
 
@@ -133,8 +134,8 @@ describe("DatasetChart", () => {
 
   it("bolds the winner of each dataset", () => {
     const html = render(<DatasetChart chart={CLAIM.chart} />);
-    assert.match(html, /font-semibold text-\[#1c1915\]">0,850</);
-    assert.match(html, /font-semibold text-\[#1c1915\]">0,910</);
+    assert.match(html, /font-semibold text-ink">0,850</);
+    assert.match(html, /font-semibold text-ink">0,910</);
   });
 });
 
@@ -369,6 +370,24 @@ describe("CampaignBadge", () => {
   it("knows the cancelled state", () => {
     const html = render(<CampaignBadge status="cancelled" />);
     assert.match(html, /İptal edildi/);
-    assert.match(html, /bg-\[#f3efe7\]/);
+    assert.match(html, /bg-stopped-tint/);
+  });
+});
+
+describe("ThemeToggle", () => {
+  it("offers the dark theme on a light page", () => {
+    const html = render(<ThemeToggle serverTheme="light" />);
+    assert.match(html, /aria-label="Koyu temaya geç"/);
+    assert.match(html, /☾/);
+  });
+
+  it("offers the light theme on a dark page", () => {
+    const html = render(<ThemeToggle serverTheme="dark" />);
+    assert.match(html, /aria-label="Açık temaya geç"/);
+    assert.match(html, /☀/);
+  });
+
+  it("speaks English", () => {
+    assert.match(render(<ThemeToggle serverTheme="light" />, "en"), /Switch to the dark theme/);
   });
 });

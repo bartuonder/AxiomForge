@@ -39,20 +39,20 @@ export function CampaignControls({ summary, onDone }: CampaignControlsProps) {
   }
   return (
     <div className="space-y-2">
-      {actions.cancel && live.cancel_requested ? <p className="text-sm text-[#5c564e]">{t("campaign.cancelling")}</p> : null}
+      {actions.cancel && live.cancel_requested ? <p className="text-sm text-muted">{t("campaign.cancelling")}</p> : null}
       {actions.cancel && !live.cancel_requested && !asking ? (
-        <button type="button" onClick={() => setAsking(true)} className={`${BUTTON} border-[#9b3d2b] text-[#9b3d2b] hover:bg-[#faeeea]`}>
+        <button type="button" onClick={() => setAsking(true)} className={`${BUTTON} border-danger text-danger hover:bg-danger-tint`}>
           {t("campaign.cancel")}
         </button>
       ) : null}
       {actions.cancel && !live.cancel_requested && asking ? (
-        <div className="space-y-2 rounded-2xl border border-[#d9a99e] bg-[#faeeea] p-4" role="alertdialog">
-          <p className="text-sm text-[#6e2a1c]">{t("campaign.cancelAsk")}</p>
+        <div className="space-y-2 rounded-2xl border border-danger-line bg-danger-tint p-4" role="alertdialog">
+          <p className="text-sm text-danger-ink">{t("campaign.cancelAsk")}</p>
           <div className="flex gap-2">
-            <button type="button" disabled={busy} onClick={() => void send(cancelCampaign)} className={`${BUTTON} border-[#9b3d2b] bg-[#9b3d2b] text-white`}>
+            <button type="button" disabled={busy} onClick={() => void send(cancelCampaign)} className={`${BUTTON} border-danger bg-danger text-on-solid`}>
               {busy ? t("campaign.controlBusy") : t("campaign.cancelYes")}
             </button>
-            <button type="button" disabled={busy} onClick={() => setAsking(false)} className={`${BUTTON} border-[#d7d0c4] text-[#5c564e]`}>
+            <button type="button" disabled={busy} onClick={() => setAsking(false)} className={`${BUTTON} border-line text-muted`}>
               {t("campaign.cancelNo")}
             </button>
           </div>
@@ -60,15 +60,15 @@ export function CampaignControls({ summary, onDone }: CampaignControlsProps) {
       ) : null}
       {actions.retry ? (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" disabled={busy} onClick={() => void send(retryCampaign)} className={`${BUTTON} border-[#1f6b4a] text-[#1f6b4a] hover:bg-[#eef6f1]`}>
+          <button type="button" disabled={busy} onClick={() => void send(retryCampaign)} className={`${BUTTON} border-accent text-accent hover:bg-accent-tint`}>
             {busy ? t("campaign.controlBusy") : t("campaign.retry")}
           </button>
-          <span className="text-xs text-[#5c564e]">{t("campaign.retryHint")}</span>
+          <span className="text-xs text-muted">{t("campaign.retryHint")}</span>
         </div>
       ) : null}
-      {recoveries > 0 ? <p className="text-xs text-[#5c564e]">{t("campaign.restarted", { count: recoveries })}</p> : null}
+      {recoveries > 0 ? <p className="text-xs text-muted">{t("campaign.restarted", { count: recoveries })}</p> : null}
       {error ? (
-        <p role="alert" className="text-sm text-[#9b3d2b]">
+        <p role="alert" className="text-sm text-danger">
           {error}
         </p>
       ) : null}

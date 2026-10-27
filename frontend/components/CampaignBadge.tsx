@@ -5,12 +5,12 @@ import type { MessageKey } from "@/lib/i18n";
 import type { CampaignStatus } from "@/lib/types";
 
 const STYLES: Record<CampaignStatus, string> = {
-  queued: "border-[#d7d0c4] bg-white text-[#5c564e]",
-  running: "border-[#c9a227] bg-[#fbf3d6] text-[#5c4a0c]",
-  completed: "border-[#b9d8c7] bg-[#eef6f1] text-[#14472f]",
-  needs_review: "border-[#c9a227] bg-[#fbf3d6] text-[#5c4a0c]",
-  failed: "border-[#d9a99e] bg-[#faeeea] text-[#6e2a1c]",
-  cancelled: "border-[#d7d0c4] bg-[#f3efe7] text-[#5c564e]",
+  queued: "border-line bg-card text-muted",
+  running: "border-warn bg-warn-tint text-warn-ink",
+  completed: "border-accent-line bg-accent-tint text-accent-ink",
+  needs_review: "border-warn bg-warn-tint text-warn-ink",
+  failed: "border-danger-line bg-danger-tint text-danger-ink",
+  cancelled: "border-line bg-stopped-tint text-muted",
 };
 
 type CampaignBadgeProps = {

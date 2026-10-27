@@ -67,20 +67,20 @@ export function PaperView({ threadId }: PaperViewProps) {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-6 py-16">
-      <Link href="/" className="text-sm font-semibold text-[#1f6b4a]">
+      <Link href="/" className="text-sm font-semibold text-accent">
         Back to console
       </Link>
-      <p className="mt-8 text-xs font-semibold tracking-[0.18em] text-[#8a8175] uppercase">Workshop paper</p>
-      <h1 className="mt-2 text-4xl text-[#1c1915]">Research report</h1>
+      <p className="mt-8 text-xs font-semibold tracking-[0.18em] text-faint uppercase">Workshop paper</p>
+      <h1 className="mt-2 text-4xl text-ink">Research report</h1>
       {snapshot && !STOPPED.has(snapshot.status) ? <ResearchStatus snapshot={snapshot} /> : null}
       {running ? (
-        <p className="mt-8 text-sm text-[#5c564e]">
+        <p className="mt-8 text-sm text-muted">
           The research is still running: {STEP_LABELS[snapshot.active_step] ?? snapshot.active_step}.
         </p>
       ) : null}
-      {error && !markdown ? <p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
+      {error && !markdown ? <p className="mt-8 text-sm text-danger">{error}</p> : null}
       {markdown ? (
-        <article className="paper mt-10 space-y-4 text-[17px] leading-8 text-[#1c1915]">
+        <article className="paper mt-10 space-y-4 text-[17px] leading-8 text-ink">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
         </article>
       ) : null}

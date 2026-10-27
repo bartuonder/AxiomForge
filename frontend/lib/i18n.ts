@@ -152,6 +152,8 @@ const tr = {
   "status.needs_review": "İnceleme gerekli",
   "status.failed": "Başarısız",
   "status.cancelled": "İptal edildi",
+  "theme.toDark": "Koyu temaya geç",
+  "theme.toLight": "Açık temaya geç",
 
   "error.title": "Bir sorun oluştu",
   "error.hint": "Ne yapabilirsiniz?",
@@ -309,6 +311,8 @@ const en: Record<MessageKey, string> = {
   "status.needs_review": "Needs review",
   "status.failed": "Failed",
   "status.cancelled": "Cancelled",
+  "theme.toDark": "Switch to the dark theme",
+  "theme.toLight": "Switch to the light theme",
 
   "error.title": "Something went wrong",
   "error.hint": "What can you do?",
