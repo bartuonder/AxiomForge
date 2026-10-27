@@ -1,6 +1,7 @@
 import {
   API_URL,
   type CampaignReport,
+  type PlainSummary,
   type CampaignState,
   type CampaignSummary,
   type ResearchMode,
@@ -19,8 +20,8 @@ export async function startResearch(query: string, mode: ResearchMode): Promise<
   return response.json();
 }
 
-export async function fetchResearch(threadId: string): Promise<ResearchSnapshot> {
-  const response = await fetch(`${API_URL}/research/${threadId}`, { cache: "no-store" });
+export async function fetchResearch(threadId: string, language: string = "tr"): Promise<ResearchSnapshot> {
+  const response = await fetch(`${API_URL}/research/${threadId}?lang=${language}`, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(await readError(response));
   }
@@ -75,6 +76,32 @@ export async function fetchCampaigns(): Promise<CampaignSummary[]> {
 
 export async function fetchCampaign(campaignId: string): Promise<CampaignState> {
   const response = await fetch(`${API_URL}/campaign/${encodeURIComponent(campaignId)}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return response.json();
+}
+
+export async function fetchCampaignSummary(campaignId: string, language: string): Promise<PlainSummary> {
+  const response = await fetch(`${API_URL}/campaign/${encodeURIComponent(campaignId)}/summary?lang=${language}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return response.json();
+}
+
+export async function fetchGlossary(language: string): Promise<Record<string, { term: string; explanation: string }>> {
+  const response = await fetch(`${API_URL}/glossary?lang=${language}`);
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return ((await response.json()) as { terms: Record<string, { term: string; explanation: string }> }).terms;
+}
+
+export type Vocabulary = { models: Record<string, string>; datasets: Record<string, string>; metrics: Record<string, string> };
+
+export async function fetchVocabulary(language: string): Promise<Vocabulary> {
+  const response = await fetch(`${API_URL}/vocabulary?lang=${language}`);
   if (!response.ok) {
     throw new Error(await readError(response));
   }

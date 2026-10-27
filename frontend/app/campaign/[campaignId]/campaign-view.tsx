@@ -5,9 +5,14 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CampaignBadge } from "@/components/CampaignBadge";
+import { ErrorNotice } from "@/components/ErrorNotice";
 import { LedgerTable } from "@/components/LedgerTable";
-import { fetchCampaign, fetchCampaignReport } from "@/lib/api";
-import type { CampaignReport, CampaignState } from "@/lib/types";
+import { useLanguage } from "@/components/LanguageProvider";
+import { SiteHeader } from "@/components/SiteHeader";
+import { SummaryView } from "@/components/SummaryView";
+import { Tabs } from "@/components/Tabs";
+import { fetchCampaignReport, fetchCampaignSummary } from "@/lib/api";
+import type { CampaignReport, PlainSummary } from "@/lib/types";
 
 type CampaignViewProps = {
   campaignId: string;
@@ -23,9 +28,11 @@ function withoutLedgerTable(markdown: string): string {
 }
 
 export function CampaignView({ campaignId }: CampaignViewProps) {
-  const [state, setState] = useState<CampaignState | null>(null);
+  const { language, t } = useLanguage();
+  const [summary, setSummary] = useState<PlainSummary | null>(null);
   const [report, setReport] = useState<CampaignReport | null>(null);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState("summary");
 
   useEffect(() => {
     let cancelled = false;
@@ -33,25 +40,25 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
     const tick = async () => {
       let settled = false;
       try {
-        const next = await fetchCampaign(campaignId);
+        const next = await fetchCampaignSummary(campaignId, language);
         if (cancelled) {
           return;
         }
-        setState(next);
+        setSummary(next);
         setError("");
-        if (FINISHED.has(next.status)) {
+        if (FINISHED.has(next.status.code)) {
           const loaded = await fetchCampaignReport(campaignId);
           if (cancelled) {
             return;
           }
           setReport(loaded);
           settled = true;
-        } else if (next.status === "failed") {
+        } else if (next.status.code === "failed") {
           settled = true;
         }
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Campaign request failed");
+          setError(caught instanceof Error ? caught.message : t("campaign.loadError"));
         }
       }
       if (!cancelled && !settled) {
@@ -63,72 +70,77 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [campaignId]);
+  }, [campaignId, language, t]);
 
-  return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-16">
-      <Link href="/campaigns" className="text-sm font-semibold text-[#1f6b4a]">
-        Back to campaigns
-      </Link>
-      <p className="mt-8 text-xs font-semibold tracking-[0.18em] text-[#8a8175] uppercase">Replication campaign</p>
-      <h1 className="mt-2 text-4xl text-[#1c1915]">{state?.title || campaignId}</h1>
-      {state ? (
-        <div className="mt-4 flex items-center gap-3">
-          <CampaignBadge status={state.status} />
-          <span className="text-xs text-[#8a8175]">{state.id}</span>
-        </div>
-      ) : null}
-      {error && !state ? <p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
-      {state?.error ? <p className="mt-6 text-sm text-[#9b3d2b]">{state.error}</p> : null}
-      {state?.issues?.length ? (
-        <ul className="mt-6 list-disc space-y-1 pl-5 text-sm text-[#5c4a0c]">
-          {state.issues.map((issue) => (
-            <li key={issue}>{issue}</li>
-          ))}
-        </ul>
-      ) : null}
-      {state?.verdicts?.length ? (
-        <ul className="mt-8 space-y-2">
-          {state.verdicts.map((item) => (
-            <li key={item.id} className="text-[#1c1915]">
-              <span className="font-semibold">{item.id}</span> {item.statement}:{" "}
-              <span className="font-semibold text-[#14472f]">{item.verdict.replace("_", " ")}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {state ? (
-        <section className="mt-10">
-          <h2 className="text-xl text-[#1c1915]">Datasets</h2>
-          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-            {Object.entries(state.datasets).map(([key, item]) => (
-              <li
-                key={key}
-                className="flex items-center justify-between rounded-lg border border-[#d7d0c4] bg-white px-4 py-2 text-sm"
-              >
-                <span className="text-[#1c1915]">{key}</span>
-                <span className={item.status === "failed" ? "text-[#9b3d2b]" : "text-[#5c564e]"}>
-                  {item.status}
-                  {item.seconds !== undefined ? ` · ${item.seconds.toFixed(0)} s` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {report ? (
-        <>
-          <article className="paper mt-12 space-y-4 text-[17px] leading-8 text-[#1c1915]">
+  const tabs = [
+    { id: "summary", label: t("campaign.tab.summary"), content: summary ? <SummaryView summary={summary} /> : null },
+    {
+      id: "report",
+      label: t("campaign.tab.report"),
+      content: report ? (
+        <div className="space-y-4">
+          <h2 className="text-xl text-[#1c1915]">{t("campaign.reportTitle")}</h2>
+          <p className="text-sm text-[#5c564e]">{t("campaign.reportHint")}</p>
+          <article className="paper space-y-4 text-[17px] leading-8 text-[#1c1915]">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{withoutLedgerTable(report.markdown)}</ReactMarkdown>
           </article>
-          <section className="mt-12">
-            <h2 className="text-xl text-[#1c1915]">Evidence ledger</h2>
-            <div className="mt-4">
-              <LedgerTable ledger={report.ledger} />
+        </div>
+      ) : (
+        <p className="text-sm text-[#5c564e]">{t("campaign.waiting")}</p>
+      ),
+    },
+    {
+      id: "evidence",
+      label: t("campaign.tab.evidence"),
+      content: report ? (
+        <div className="space-y-3">
+          <h2 className="text-xl text-[#1c1915]">{t("campaign.evidenceTitle")}</h2>
+          <p className="text-sm text-[#5c564e]">{t("campaign.evidenceHint")}</p>
+          <LedgerTable ledger={report.ledger} />
+        </div>
+      ) : (
+        <p className="text-sm text-[#5c564e]">{t("campaign.waiting")}</p>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <SiteHeader />
+      <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
+        <Link href="/campaigns" className="text-sm font-semibold text-[#1f6b4a]">
+          {t("campaign.back")}
+        </Link>
+        {error && !summary ? <p className="mt-8 text-sm text-[#9b3d2b]">{error}</p> : null}
+        {!summary && !error ? <p className="mt-8 text-sm text-[#5c564e]">{t("campaign.loading")}</p> : null}
+        {summary ? (
+          <>
+            <header className="mt-6 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <CampaignBadge status={summary.status.code} />
+                {summary.status.code === "running" || summary.status.code === "queued" ? (
+                  <span className="text-xs text-[#5c564e]">{t("campaign.progress", { finished: summary.progress.finished, total: summary.progress.total })}</span>
+                ) : null}
+              </div>
+              <h1 className="text-3xl leading-tight text-[#1c1915] sm:text-4xl">{summary.title || campaignId}</h1>
+              {summary.source ? (
+                <p className="text-sm text-[#5c564e]">
+                  <span className="font-semibold">{t("campaign.source")}:</span> {summary.source.title}
+                  {summary.source.citation ? ` (${summary.source.citation})` : ""}
+                </p>
+              ) : null}
+            </header>
+            {summary.error_info ? (
+              <div className="mt-8">
+                <ErrorNotice info={summary.error_info} />
+              </div>
+            ) : null}
+            <div className="mt-8">
+              <Tabs items={tabs} active={tab} onChange={setTab} />
             </div>
-          </section>
-        </>
-      ) : null}
-    </main>
+          </>
+        ) : null}
+      </main>
+    </>
   );
 }

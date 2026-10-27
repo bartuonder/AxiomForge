@@ -1,3 +1,7 @@
+"use client";
+
+import { useLanguage } from "@/components/LanguageProvider";
+import type { MessageKey } from "@/lib/i18n";
 import type { CampaignStatus } from "@/lib/types";
 
 const STYLES: Record<CampaignStatus, string> = {
@@ -8,22 +12,16 @@ const STYLES: Record<CampaignStatus, string> = {
   failed: "border-[#d9a99e] bg-[#faeeea] text-[#6e2a1c]",
 };
 
-const LABELS: Record<CampaignStatus, string> = {
-  queued: "queued",
-  running: "running",
-  completed: "completed",
-  needs_review: "needs review",
-  failed: "failed",
-};
-
 type CampaignBadgeProps = {
   status: CampaignStatus;
 };
 
 export function CampaignBadge({ status }: CampaignBadgeProps) {
+  const { t } = useLanguage();
+  const known = status in STYLES;
   return (
-    <span className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${STYLES[status] ?? STYLES.queued}`}>
-      {LABELS[status] ?? status}
+    <span className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${known ? STYLES[status] : STYLES.queued}`}>
+      {known ? t(`status.${status}` as MessageKey) : status}
     </span>
   );
 }

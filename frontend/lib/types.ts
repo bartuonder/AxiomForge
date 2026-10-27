@@ -66,8 +66,17 @@ export type CampaignCandidate = {
   repeats?: string[];
 };
 
+export type ErrorInfo = {
+  code: string;
+  title: string;
+  message: string;
+  hint: string;
+  technical: string;
+};
+
 export type ResearchSnapshot = {
   thread_id: string;
+  error_info?: ErrorInfo | null;
   mode?: ResearchMode;
   campaign_specs?: CampaignCandidate[];
   selected_campaign?: number;
@@ -104,6 +113,8 @@ export type CampaignSummary = {
   title: string;
   status: CampaignStatus;
   updated: string;
+  origin?: string;
+  statement?: string;
   datasets: number;
   finished: number;
   failed: number;
@@ -127,6 +138,64 @@ export type CampaignState = {
   issues?: string[];
   error?: string;
   mlflow_run_id?: string;
+};
+
+export type SummaryVerdict = { code: string; label: string; tone: string; meaning: string };
+
+export type SummaryConfidence = { level: "high" | "medium" | "low"; label: string; reason: string };
+
+export type SummaryMetric = {
+  metric: string;
+  label: string;
+  meaning: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  total: number;
+  median_difference: number;
+  significant: boolean;
+  testable: boolean;
+};
+
+export type SummaryChart = {
+  metric: string;
+  metric_label: string;
+  subject_label: string;
+  other_label: string;
+  points: { dataset: string; label: string; subject: number; other: number }[];
+};
+
+export type SummaryClaim = {
+  id: string;
+  statement: string;
+  verdict: SummaryVerdict;
+  headline: string;
+  confidence: SummaryConfidence;
+  primary_metric: string;
+  datasets_for: number;
+  datasets_against: number;
+  datasets_total: number;
+  metrics: SummaryMetric[];
+  chart: SummaryChart;
+};
+
+export type PlainSummary = {
+  language: string;
+  campaign_id: string;
+  title: string;
+  source: { title: string; citation: string } | null;
+  status: { code: CampaignStatus; label: string; tone: string };
+  progress: { finished: number; failed: number; total: number; percent: number };
+  headline: string;
+  verdict_counts: Record<string, number>;
+  claims: SummaryClaim[];
+  ranking: { model: string; label: string; average_rank: number; position: number }[];
+  method: string[];
+  cautions: string[];
+  datasets: { key: string; label: string }[];
+  glossary: Record<string, { term: string; explanation: string }>;
+  error: string | null;
+  error_info: ErrorInfo | null;
 };
 
 export type LedgerEntry = {

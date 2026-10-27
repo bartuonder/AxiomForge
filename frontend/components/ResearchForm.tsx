@@ -1,6 +1,8 @@
 "use client";
 
+import { useLanguage } from "@/components/LanguageProvider";
 import { arxivReferences } from "@/lib/campaignView";
+import type { MessageKey } from "@/lib/i18n";
 import type { ResearchMode } from "@/lib/types";
 
 type ResearchFormProps = {
@@ -12,68 +14,87 @@ type ResearchFormProps = {
   onSubmit: () => void;
 };
 
-const MODES: { value: ResearchMode; label: string; hint: string }[] = [
-  { value: "experiment", label: "Experiment", hint: "One dataset, two or more models named in the question." },
-  {
-    value: "campaign",
-    label: "Campaign",
-    hint: "Replicate a claim across many datasets. Paste an arXiv link or id to use that paper. Uses the sandbox for several minutes after you approve a plan.",
-  },
+const MODES: { value: ResearchMode; label: MessageKey; hint: MessageKey }[] = [
+  { value: "campaign", label: "form.mode.campaign", hint: "form.mode.campaign.hint" },
+  { value: "experiment", label: "form.mode.experiment", hint: "form.mode.experiment.hint" },
+];
+
+const EXAMPLES: { label: MessageKey; query: MessageKey }[] = [
+  { label: "example.trees.label", query: "example.trees.query" },
+  { label: "example.paper.label", query: "example.paper.query" },
+  { label: "example.boost.label", query: "example.boost.query" },
 ];
 
 export function ResearchForm({ query, mode, busy, onQueryChange, onModeChange, onSubmit }: ResearchFormProps) {
-  const hint = MODES.find((item) => item.value === mode)?.hint ?? "";
+  const { t } = useLanguage();
   const papers = arxivReferences(query);
   return (
     <form
-      className="flex w-full flex-col gap-3"
+      className="mx-auto flex w-full max-w-3xl flex-col gap-5 rounded-3xl border border-[#d7d0c4] bg-white p-6 shadow-[0_20px_60px_rgba(28,25,21,0.06)]"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
-      <fieldset className="flex flex-wrap items-center gap-4" disabled={busy}>
-        <legend className="sr-only">Mode</legend>
-        {MODES.map((item) => (
-          <label key={item.value} className="flex cursor-pointer items-center gap-2 text-sm text-[#1c1915]">
-            <input
-              type="radio"
-              name="mode"
-              value={item.value}
-              checked={mode === item.value}
-              onChange={() => onModeChange(item.value)}
-              className="h-4 w-4 accent-[#1f6b4a]"
-            />
-            {item.label}
-          </label>
-        ))}
-        <span className="text-xs text-[#5c564e]">{hint}</span>
-      </fieldset>
-      {papers.length > 0 ? (
-        <p className="text-xs text-[#14472f]">
-          {mode === "campaign"
-            ? `arXiv ${papers.join(", ")} will be fetched and used as the source; no search is run.`
-            : `arXiv ${papers.join(", ")} is named, but only campaign mode uses it as a source.`}
-        </p>
-      ) : null}
-      <div className="flex w-full flex-col gap-3 sm:flex-row">
-        <label className="sr-only" htmlFor="research-query">
-          Research topic
+      <div className="space-y-2">
+        <label className="text-sm font-semibold text-[#1c1915]" htmlFor="research-query">
+          {t("form.label")}
         </label>
-        <input
+        <textarea
           id="research-query"
           value={query}
+          rows={2}
           disabled={busy}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={mode === "campaign" ? "Which claim should be replicated?" : "What should the agents study?"}
-          className="h-12 flex-1 rounded-full border border-[#d7d0c4] bg-white px-5 text-[15px] text-[#1c1915] outline-none placeholder:text-[#a3988c] focus:border-[#1f6b4a] disabled:bg-[#f7f4ee]"
+          placeholder={mode === "campaign" ? t("form.placeholder.campaign") : t("form.placeholder.experiment")}
+          className="w-full resize-none rounded-2xl border border-[#d7d0c4] bg-[#fbf9f4] px-4 py-3 text-[15px] leading-6 text-[#1c1915] outline-none placeholder:text-[#a3988c] focus:border-[#1f6b4a] disabled:bg-[#f7f4ee]"
         />
+        {papers.length > 0 ? (
+          <p className="text-xs text-[#14472f]">{t(mode === "campaign" ? "form.arxiv" : "form.arxivIgnored", { ids: papers.join(", ") })}</p>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-semibold tracking-[0.12em] text-[#8a8175] uppercase">{t("form.examples")}</p>
+        <div className="flex flex-wrap gap-2">
+          {EXAMPLES.map((example) => (
+            <button
+              key={example.query}
+              type="button"
+              disabled={busy}
+              onClick={() => onQueryChange(t(example.query))}
+              className="rounded-full border border-[#d7d0c4] bg-[#fbf9f4] px-4 py-1.5 text-left text-sm text-[#1c1915] hover:border-[#1f6b4a] disabled:text-[#a3988c]"
+            >
+              {t(example.label)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <fieldset className="grid gap-3 sm:grid-cols-2" disabled={busy}>
+        <legend className="sr-only">Mode</legend>
+        {MODES.map((item) => (
+          <label
+            key={item.value}
+            className={`flex cursor-pointer gap-3 rounded-2xl border p-4 text-sm ${mode === item.value ? "border-[#1f6b4a] bg-[#eef6f1]" : "border-[#e4ddd2] bg-white"}`}
+          >
+            <input type="radio" name="mode" value={item.value} checked={mode === item.value} onChange={() => onModeChange(item.value)} className="mt-1 h-4 w-4 accent-[#1f6b4a]" />
+            <span>
+              <span className="block font-semibold text-[#1c1915]">{t(item.label)}</span>
+              <span className="mt-1 block text-xs leading-5 text-[#5c564e]">{t(item.hint)}</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs leading-5 text-[#8a8175]">{t("form.cost")}</p>
         <button
           type="submit"
           disabled={busy || query.trim().length === 0}
-          className="h-12 cursor-pointer rounded-full bg-[#1f6b4a] px-6 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#d5d0c6] disabled:text-[#6f675e]"
+          className="h-12 shrink-0 cursor-pointer rounded-full bg-[#1f6b4a] px-7 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#d5d0c6] disabled:text-[#6f675e]"
         >
-          {busy ? "Running" : mode === "campaign" ? "Start Campaign" : "Start Research"}
+          {busy ? t("form.running") : t("form.start")}
         </button>
       </div>
     </form>
