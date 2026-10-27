@@ -45,3 +45,30 @@ def test_every_npm_script_the_workflow_calls_exists():
 def test_the_lock_file_the_cache_key_names_exists():
     step = next(step for step in WORKFLOW["jobs"]["frontend"]["steps"] if str(step.get("uses", "")).startswith("actions/setup-node"))
     assert (ROOT / step["with"]["cache-dependency-path"]).exists()
+
+
+def test_the_browser_job_installs_a_browser_builds_the_app_and_runs_the_specs():
+    assert commands("e2e") == ["npm ci", "npx playwright install --with-deps chromium", "npm run build", "npm run e2e"]
+    assert WORKFLOW["jobs"]["e2e"]["defaults"]["run"]["working-directory"] == "frontend"
+
+
+def test_the_app_is_built_before_the_browser_specs_start_it():
+    steps = commands("e2e")
+    assert steps.index("npm run build") < steps.index("npm run e2e")
+
+
+def test_the_browser_job_uses_the_scripts_and_the_lock_file_that_exist():
+    scripts = json.loads((ROOT / "frontend" / "package.json").read_text(encoding="utf-8"))["scripts"]
+    assert "e2e" in scripts and "build" in scripts
+    step = next(step for step in WORKFLOW["jobs"]["e2e"]["steps"] if str(step.get("uses", "")).startswith("actions/setup-node"))
+    assert (ROOT / step["with"]["cache-dependency-path"]).exists()
+
+
+def test_the_browser_specs_have_a_config_and_a_folder():
+    assert (ROOT / "frontend" / "playwright.config.ts").exists()
+    assert list((ROOT / "frontend" / "e2e").glob("*.spec.ts"))
+
+
+def test_the_node_test_runner_does_not_pick_up_the_browser_specs():
+    scripts = json.loads((ROOT / "frontend" / "package.json").read_text(encoding="utf-8"))["scripts"]
+    assert "e2e" not in scripts["test"] and ".spec." not in scripts["test"]
