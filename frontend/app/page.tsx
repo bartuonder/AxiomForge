@@ -9,6 +9,7 @@ import { CampaignApprovalDialog } from "@/components/CampaignApprovalDialog";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ResearchForm } from "@/components/ResearchForm";
+import { RetryResearch } from "@/components/RetryResearch";
 import { SiteHeader } from "@/components/SiteHeader";
 import { approvePlan, fetchResearch, startResearch } from "@/lib/api";
 import { friendlyApiError } from "@/lib/apiErrors";
@@ -126,6 +127,7 @@ export default function Home() {
         <ResearchForm query={query} mode={mode} busy={busy || runLocked} onQueryChange={setQuery} onModeChange={setMode} onSubmit={() => void onStart()} />
 
         {failed ? <ErrorNotice info={snapshot?.error_info} fallback={snapshot?.error} /> : null}
+        {failed && snapshot?.can_retry ? <RetryResearch threadId={threadId} /> : null}
         {error && !failed ? <ErrorNotice fallback={error} /> : null}
 
         {showProgress ? (

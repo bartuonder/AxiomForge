@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ResearchStatus } from "@/components/ResearchStatus";
+import { RetryResearch } from "@/components/RetryResearch";
 import { SiteHeader } from "@/components/SiteHeader";
 import { fetchReport, fetchResearch } from "@/lib/api";
 import { friendlyApiError } from "@/lib/apiErrors";
@@ -26,6 +27,7 @@ export function PaperView({ threadId }: PaperViewProps) {
   const [markdown, setMarkdown] = useState("");
   const [error, setError] = useState("");
   const [snapshot, setSnapshot] = useState<ResearchSnapshot | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!threadId) {
@@ -41,6 +43,9 @@ export function PaperView({ threadId }: PaperViewProps) {
           return;
         }
         setSnapshot(next);
+        if (!STOPPED.has(next.status) && !FINISHED.has(next.status)) {
+          setError("");
+        }
         if (FINISHED.has(next.status)) {
           const report = await fetchReport(threadId);
           if (cancelled) {
@@ -67,7 +72,7 @@ export function PaperView({ threadId }: PaperViewProps) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [threadId, language, t]);
+  }, [threadId, language, t, reload]);
 
   const running = snapshot !== null && !FINISHED.has(snapshot.status) && !STOPPED.has(snapshot.status);
 
@@ -92,6 +97,7 @@ export function PaperView({ threadId }: PaperViewProps) {
           </div>
         ) : null}
         {error && !markdown ? <ErrorNotice fallback={error} /> : null}
+        {snapshot?.status === "failed" && snapshot.can_retry ? <RetryResearch threadId={threadId} onDone={() => setReload((count) => count + 1)} /> : null}
         {markdown ? (
           <article className="paper mt-10 space-y-4 text-[17px] leading-8 text-ink">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>

@@ -97,6 +97,7 @@ export type ResearchSnapshot = {
   consistency_feedback: string;
   referee_notes: string[];
   error: string;
+  can_retry?: boolean;
   steps: ResearchStep[];
 };
 

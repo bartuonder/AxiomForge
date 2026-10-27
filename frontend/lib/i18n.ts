@@ -184,6 +184,8 @@ const tr = {
   "paper.running": "Araştırma sürüyor: {step}.",
   "paper.stopped": "Araştırma durdu ({status}).",
   "paper.notReady": "Rapor henüz hazır değil.",
+  "research.retry": "Kaldığı yerden yeniden dene",
+  "research.retryHint": "Biten adımlar korunur; yalnızca durduğu adımdan devam edilir.",
   "theme.toDark": "Koyu temaya geç",
   "theme.toLight": "Açık temaya geç",
 
@@ -375,6 +377,8 @@ const en: Record<MessageKey, string> = {
   "paper.running": "The research is still running: {step}.",
   "paper.stopped": "The research stopped ({status}).",
   "paper.notReady": "The report is not ready yet.",
+  "research.retry": "Try again from where it stopped",
+  "research.retryHint": "Finished steps are kept; only the step that stopped is run again.",
   "theme.toDark": "Switch to the dark theme",
   "theme.toLight": "Switch to the light theme",
 

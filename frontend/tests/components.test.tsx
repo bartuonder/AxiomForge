@@ -10,6 +10,7 @@ import { DatasetChart } from "../components/DatasetChart.tsx";
 import { ErrorNotice } from "../components/ErrorNotice.tsx";
 import { LanguageProvider } from "../components/LanguageProvider.tsx";
 import { LiveProgress } from "../components/LiveProgress.tsx";
+import { RetryResearch } from "../components/RetryResearch.tsx";
 import { ResearchStatus } from "../components/ResearchStatus.tsx";
 import { SummaryView } from "../components/SummaryView.tsx";
 import { Term } from "../components/Term.tsx";
@@ -543,5 +544,20 @@ describe("Term", () => {
   it("shows only the words when the glossary has no entry", () => {
     assert.equal(withGlossary(<Term id="unknown">kelime</Term>), "kelime");
     assert.equal(render(<Term id="dataset">kelime</Term>), "kelime");
+  });
+});
+
+describe("RetryResearch", () => {
+  it("offers to run the stopped step again and says what is kept", () => {
+    const html = render(<RetryResearch threadId="t-1" />);
+    assert.match(html, /<button[^>]*>Kaldığı yerden yeniden dene<\/button>/);
+    assert.match(html, /Biten adımlar korunur/);
+    assert.ok(!/role="alert"/.test(html));
+  });
+
+  it("speaks English", () => {
+    const html = render(<RetryResearch threadId="t-1" />, "en");
+    assert.match(html, /Try again from where it stopped/);
+    assert.match(html, /Finished steps are kept/);
   });
 });
