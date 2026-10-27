@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { SiteHeader } from "@/components/SiteHeader";
 import { VerdictBadge } from "@/components/VerdictBadge";
 import { fetchCampaigns, startDemoCampaign } from "@/lib/api";
+import { friendlyApiError } from "@/lib/apiErrors";
 import { displayTitle, hiddenTestCount, isUserCampaign, visibleCampaigns } from "@/lib/campaignList";
 import type { MessageKey } from "@/lib/i18n";
 import type { CampaignSummary } from "@/lib/types";
@@ -42,7 +43,7 @@ export default function CampaignsPage() {
     try {
       router.push(`/campaign/${await startDemoCampaign(DEMO)}`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error.request"));
+      setError(friendlyApiError(caught instanceof Error ? caught.message : "", t) || t("error.request"));
       setStarting(false);
     }
   };
@@ -62,7 +63,7 @@ export default function CampaignsPage() {
         active = items.some((item) => ACTIVE.has(item.status));
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : t("error.request"));
+          setError(friendlyApiError(caught instanceof Error ? caught.message : "", t) || t("error.request"));
         }
       }
       if (!cancelled && active) {

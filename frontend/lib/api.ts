@@ -8,10 +8,16 @@ import {
   type ResearchSnapshot,
 } from "@/lib/types";
 
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "";
+
+function postHeaders(): Record<string, string> {
+  return API_KEY ? { "Content-Type": "application/json", "X-API-Key": API_KEY } : { "Content-Type": "application/json" };
+}
+
 export async function startResearch(query: string, mode: ResearchMode): Promise<{ thread_id: string }> {
   const response = await fetch(`${API_URL}/start_research`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: postHeaders(),
     body: JSON.stringify({ query, mode }),
   });
   if (!response.ok) {
@@ -35,7 +41,7 @@ export async function approvePlan(
 ): Promise<void> {
   const response = await fetch(`${API_URL}/approve_plan`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: postHeaders(),
     body: JSON.stringify({ thread_id: threadId, decision, selected }),
   });
   if (!response.ok) {
@@ -55,7 +61,7 @@ export async function fetchReport(threadId: string): Promise<string> {
 export async function startDemoCampaign(demo: string): Promise<string> {
   const response = await fetch(`${API_URL}/start_campaign`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: postHeaders(),
     body: JSON.stringify({ demo }),
   });
   if (!response.ok) {

@@ -139,6 +139,8 @@ const tr = {
   "error.hint": "Ne yapabilirsiniz?",
   "error.technical": "Teknik ayrıntı",
   "error.request": "Sunucuya ulaşılamadı. Sunucunun çalıştığından emin olup yeniden deneyin.",
+  "error.unauthorized": "Bu işlem için geçerli bir erişim anahtarı gerekiyor. Yöneticinizden anahtarı isteyin.",
+  "error.dailyLimit": "Bugünkü başlatma hakkı ({limit}) doldu. Yarın yeniden deneyin ya da yöneticinizden limiti artırmasını isteyin.",
 
   "result.title": "Araştırma raporu",
 } as const;
@@ -276,6 +278,8 @@ const en: Record<MessageKey, string> = {
   "error.hint": "What can you do?",
   "error.technical": "Technical detail",
   "error.request": "The server could not be reached. Make sure it is running and try again.",
+  "error.unauthorized": "A valid access key is needed for this action. Ask your administrator for the key.",
+  "error.dailyLimit": "Today's limit of starts ({limit}) has been reached. Try again tomorrow or ask your administrator to raise the limit.",
 
   "result.title": "Research report",
 };

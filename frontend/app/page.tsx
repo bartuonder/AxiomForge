@@ -11,6 +11,7 @@ import { useLanguage } from "@/components/LanguageProvider";
 import { ResearchForm } from "@/components/ResearchForm";
 import { SiteHeader } from "@/components/SiteHeader";
 import { approvePlan, fetchResearch, startResearch } from "@/lib/api";
+import { friendlyApiError } from "@/lib/apiErrors";
 import type { ResearchMode, ResearchSnapshot } from "@/lib/types";
 
 const EXPERIMENT_STEPS = ["literature_node", "planner_node", "experiment_node", "verifier_node", "report_node", "consistency_checker_node"];
@@ -49,7 +50,7 @@ export default function Home() {
         }
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : t("error.request"));
+          setError(friendlyApiError(caught instanceof Error ? caught.message : "", t) || t("error.request"));
         }
       }
     };
@@ -69,7 +70,7 @@ export default function Home() {
       const started = await startResearch(query.trim(), mode);
       setThreadId(started.thread_id);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error.request"));
+      setError(friendlyApiError(caught instanceof Error ? caught.message : "", t) || t("error.request"));
     } finally {
       setBusy(false);
     }
@@ -84,7 +85,7 @@ export default function Home() {
     try {
       await approvePlan(threadId, decision, selected);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error.request"));
+      setError(friendlyApiError(caught instanceof Error ? caught.message : "", t) || t("error.request"));
     } finally {
       setBusy(false);
     }

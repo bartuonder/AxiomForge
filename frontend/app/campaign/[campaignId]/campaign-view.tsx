@@ -12,6 +12,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SummaryView } from "@/components/SummaryView";
 import { Tabs } from "@/components/Tabs";
 import { fetchCampaignReport, fetchCampaignSummary } from "@/lib/api";
+import { friendlyApiError } from "@/lib/apiErrors";
 import type { CampaignReport, PlainSummary } from "@/lib/types";
 
 type CampaignViewProps = {
@@ -58,7 +59,7 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
         }
       } catch (caught) {
         if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : t("campaign.loadError"));
+          setError(friendlyApiError(caught instanceof Error ? caught.message : "", t) || t("campaign.loadError"));
         }
       }
       if (!cancelled && !settled) {
