@@ -118,7 +118,7 @@ queue_campaign        belirtim doğrulanır, durum queued yazılır
   -> save_artifacts   report.md, ledger.json, analysis.json, scripts/
 ```
 
-Durumlar `queued`, `running`, `completed`, `needs_review` (rapor denetimi sorun buldu) ve `failed` (beklenmedik hata ya da sandbox anahtarı yok). Bir veri setinin düşmesi kampanyayı düşürmez; veri seti `failed` yazılır, rapor onu limitasyonlarda ve kanıt defterinde anar. Hiçbir veri seti bitmezse rapor yine yazılır ve hiçbir iddianın değerlendirilemediğini söyler. Giriş noktaları: `python -m app.campaign`, `POST /start_campaign` (Celery görevi `axiomforge.run_campaign`) ve `execute_campaign`.
+Durumlar `queued`, `running`, `completed`, `needs_review` (rapor denetimi sorun buldu), `cancelled` (kullanıcı durdurdu; analiz üretilmez, graf `campaign cancelled` hatasıyla biter) ve `failed` (beklenmedik hata ya da sandbox anahtarı yok). Bir veri setinin düşmesi kampanyayı düşürmez; veri seti `failed` yazılır, rapor onu limitasyonlarda ve kanıt defterinde anar. Hiçbir veri seti bitmezse rapor yine yazılır ve hiçbir iddianın değerlendirilemediğini söyler. Giriş noktaları: `python -m app.campaign`, `POST /start_campaign` (Celery görevi `axiomforge.run_campaign`) ve `execute_campaign`.
 
 ## Sunum katmanı (karar vermez)
 
