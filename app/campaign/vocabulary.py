@@ -126,6 +126,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "completed": "Tamamlandı",
         "needs_review": "İnceleme gerekli",
         "failed": "Başarısız",
+        "cancelled": "İptal edildi",
     },
     "en": {
         "queued": "Queued",
@@ -133,6 +134,7 @@ STATUS_LABELS: dict[str, dict[str, str]] = {
         "completed": "Completed",
         "needs_review": "Needs review",
         "failed": "Failed",
+        "cancelled": "Cancelled",
     },
 }
 

@@ -1,5 +1,7 @@
+import math
 from typing import Any
 
+from app.campaign.runner import DEFAULT_WORKERS
 from app.friendly_errors import explain_error
 from app.campaign.vocabulary import (
     GLOSSARY,
@@ -12,7 +14,9 @@ from app.campaign.vocabulary import (
 )
 from app.seeds import SPLIT_SEEDS
 
-STATUS_TONES = {"completed": "positive", "needs_review": "warning", "failed": "negative", "running": "neutral", "queued": "muted"}
+STATUS_TONES = {"completed": "positive", "needs_review": "warning", "failed": "negative", "running": "neutral", "queued": "muted", "cancelled": "muted"}
+ACTIVE = ("queued", "running")
+RETRYABLE = ("failed", "cancelled")
 VERDICT_ORDER = ("replicated", "contradicted", "partially_replicated", "inconclusive", "not_testable")
 AGREEING_SHARE = 0.8
 
@@ -219,6 +223,21 @@ def _progress(state: dict[str, Any]) -> dict[str, int]:
     return {"finished": finished, "failed": failed, "total": total, "percent": round(100 * (finished + failed) / total) if total else 0}
 
 
+def _live(state: dict[str, Any], language: str) -> dict[str, Any]:
+    datasets = state.get("datasets") or {}
+    statuses = [item.get("status") for item in datasets.values()]
+    remaining = sum(1 for item in statuses if item in ("queued", "running"))
+    seconds = [float(item["seconds"]) for item in datasets.values() if item.get("seconds") is not None]
+    eta = None
+    if state.get("status") == "running" and seconds and remaining:
+        eta = math.ceil(math.ceil(remaining / DEFAULT_WORKERS) * sum(seconds) / len(seconds))
+    return {
+        "running": [{"key": key, "label": pretty_dataset(key, language)} for key, item in datasets.items() if item.get("status") == "running"],
+        "eta_seconds": eta,
+        "cancel_requested": bool(state.get("cancel_requested")),
+    }
+
+
 def _counts(claims: list[dict[str, Any]]) -> dict[str, int]:
     return {code: sum(1 for claim in claims if claim["verdict"]["code"] == code) for code in VERDICT_ORDER}
 
@@ -248,6 +267,9 @@ def build_summary(state: dict[str, Any], spec: dict[str, Any] | None, analysis: 
         "source": {"title": source["title"], "citation": source.get("citation", "")} if source.get("title") else None,
         "status": {"code": status, "label": STATUS_LABELS[language].get(status, status), "tone": STATUS_TONES.get(status, "neutral")},
         "progress": _progress(state),
+        "live": _live(state, language),
+        "actions": {"cancel": status in ACTIVE, "retry": status in RETRYABLE},
+        "recoveries": int(state.get("recoveries") or 0),
         "headline": _headline_line(claims, counts, language),
         "verdict_counts": counts,
         "claims": claims,
