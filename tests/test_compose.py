@@ -46,3 +46,8 @@ def test_the_api_and_the_worker_keep_the_reports_volume_that_holds_the_usage_cou
 def test_the_build_context_leaves_out_dependencies_and_builds():
     ignored = (ROOT / "frontend" / ".dockerignore").read_text(encoding="utf-8").split()
     assert {"node_modules", ".next"} <= set(ignored)
+
+
+def test_the_build_context_leaves_out_the_browser_tests_and_their_output():
+    ignored = set((ROOT / "frontend" / ".dockerignore").read_text(encoding="utf-8").split())
+    assert {"e2e", "test-results", "playwright-report", "playwright.config.ts"} <= ignored
