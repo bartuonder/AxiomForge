@@ -189,3 +189,18 @@ class TestGlossaryAndListSentence:
     def test_the_list_verdicts_stay_small(self):
         state = {"id": "a", "status": "completed", "verdicts": [{"id": "C1", "statement": "Trees beat nets", "verdict": "replicated"}]}
         assert service.campaign_summary(state)["verdicts"] == [{"id": "C1", "verdict": "replicated"}]
+
+
+class TestVocabularyEndpoint:
+    def test_the_names_are_served(self, client):
+        from app.campaign.vocabulary import DATASET_NAMES, METRIC_LABELS, MODEL_NAMES
+
+        body = client.get("/vocabulary").json()
+        assert body == {"language": "tr", "models": MODEL_NAMES["tr"], "datasets": DATASET_NAMES["tr"], "metrics": {key: value["name"] for key, value in METRIC_LABELS["tr"].items()}}
+
+    def test_the_language_can_be_chosen(self, client):
+        body = client.get("/vocabulary", params={"lang": "en"}).json()
+        assert body["models"]["RandomForest"] == "Random forest" and body["metrics"]["roc_auc"] == "ROC-AUC"
+
+    def test_an_unknown_language_is_a_422(self, client):
+        assert client.get("/vocabulary", params={"lang": "de"}).status_code == 422

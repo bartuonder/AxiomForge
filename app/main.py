@@ -15,7 +15,7 @@ from app.campaign import store as campaign_store
 from app.campaign.demos import demo_spec
 from app.campaign.service import campaign_summary, queue_campaign, reject_campaign
 from app.campaign.summary import build_summary
-from app.campaign.vocabulary import GLOSSARY, LANGUAGES
+from app.campaign.vocabulary import DATASET_NAMES, GLOSSARY, LANGUAGES, METRIC_LABELS, MODEL_NAMES
 from app.friendly_errors import explain_error
 from app.campaign.spec import CampaignSpecError
 from app.celery_app import celery_app
@@ -221,6 +221,18 @@ def glossary(lang: str = "tr"):
     if lang not in LANGUAGES:
         raise HTTPException(status_code=422, detail=f"language must be one of: {', '.join(LANGUAGES)}")
     return {"language": lang, "terms": GLOSSARY[lang]}
+
+
+@app.get("/vocabulary")
+def vocabulary(lang: str = "tr"):
+    if lang not in LANGUAGES:
+        raise HTTPException(status_code=422, detail=f"language must be one of: {', '.join(LANGUAGES)}")
+    return {
+        "language": lang,
+        "models": MODEL_NAMES[lang],
+        "datasets": DATASET_NAMES[lang],
+        "metrics": {key: value["name"] for key, value in METRIC_LABELS[lang].items()},
+    }
 
 
 @app.get("/campaign/{campaign_id}/summary")
