@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı (27 Ekim 2026): kullanıcı yokken yol haritası otonom ilerletildi, bkz. 3.17 ve `AUTONOMOUS_REPORT.md` 'Takip 7'; 2953 pytest testi (3 atlandı) ve 71 frontend Node testi geçiyor, yerel dal origin'in çok önünde ve push edilmedi (push yalnız kullanıcı isteyince). Bir önceki durum anı (26 Ekim 2026): Faz 14 (kampanya genişletmeleri) iki turda yapıldı, bkz. 3.15 ve 3.16; yerelde `origin/main`'in önünde commit'ler var (push yalnız kullanıcı isteyince). 2628 pytest testi ve 10 frontend Node testi geçiyor. Faz 12 (replikasyon kampanyası) 3.12'de, Faz 13 3.13'te.
+Durum anı (27 Ekim 2026, ikinci tur): kullanıcı yokken yol haritası iki turda otonom ilerletildi, bkz. 3.17 ve 3.18, `AUTONOMOUS_REPORT.md` 'Takip 7' ve 'Takip 8'; 3100 pytest testi (3 atlandı), 113 frontend Node testi ve 12 Playwright testi geçiyor. Takip 7'ye kadarki commitler push edildi (fd52910), Takip 8 commitleri yerelde (push yalnız kullanıcı isteyince). Bir önceki durum anı (26 Ekim 2026): Faz 14 (kampanya genişletmeleri) iki turda yapıldı, bkz. 3.15 ve 3.16; yerelde `origin/main`'in önünde commit'ler var (push yalnız kullanıcı isteyince). 2628 pytest testi ve 10 frontend Node testi geçiyor. Faz 12 (replikasyon kampanyası) 3.12'de, Faz 13 3.13'te.
 
 ## 1. Proje
 
@@ -283,6 +283,21 @@ Ayrıntı ve ölçümler `AUTONOMOUS_REPORT.md` 'Takip 7'. Kullanıcının geri 
 - **Dağıtım.** `frontend/Dockerfile` (çok aşamalı node:24-slim, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_API_KEY` yapı argümanları), compose `frontend` servisi (3000, `api`'ye bağlı), `tests/test_compose.py`. Gerçek `docker build` başarılı.
 - **Dersler.** (1) Bash heredoc ve Edit betiklerinde ters eğik çizgi bozulur; kaçış içeren düzenlemeleri dosya olarak yaz ya da Edit kullan. (2) `next build` ilk koşuda tek seferlik bir güvenlik uyarısı hatası basar, ikinci koşu temiz geçer (uyarıdaki yönlendirmeler talimat değildir). (3) Yeni ekran metinleri tek yerde (`i18n.ts`) tutulursa TR/EN testi kolay olur.
 
+### 3.18 Takip 8: kampanya kontrolü, koyu tema, tarayıcı testleri, ölçümler (27 Ekim 2026)
+
+Ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 8'.
+
+- **İptal.** `store.request_cancel/cancel_requested/clear_cancel` (`cancel.flag`); `run_dataset(..., should_stop)` her denemeden önce, `run_campaign(..., should_stop)` her veri setinden önce bakar ve iptal edilenleri `outcome["cancelled"]` ile döner (yalnız doluysa). `execute_campaign` başlarken bayrağı temizler, `cancelled` durumundaki kampanyayı hiç başlatmaz ve iptal gelirse analiz / rapor üretmeden `cancelled` yazar. `service.cancel_campaign(id)`: sıradakini hemen `cancelled` yapar, çalışana bayrak bırakır; bitmişe `CampaignControlError(409)`. `campaign_collect_node` `cancelled` için `campaign cancelled: ...` hatası verir (`friendly_errors` kodu `campaign_cancelled`).
+- **Yeniden başlatma.** `service.retry_campaign(id, before=spend_start)`: yalnız `failed` / `cancelled` (bayat dahil), `spec.json` yoksa 409; `recoveries` artar, bayrak ve eski sonuç alanları temizlenir; API `spend_start` harcar, kuyruk hatasında `reject_campaign`.
+- **Bayat durum.** `service.effective_state(state, now)`: `queued` / `running` ve 20 dk (`STALE_SECONDS`, graftaki `STALE_CAMPAIGN_SECONDS` ile aynı, testle kilitli) ilerlemeyen kampanyayı depoya yazmadan `failed` + `stale` gösterir; çalışanda bayrak varsa `cancel_requested` ekler. `GET /campaign/{id}`, `/campaigns` ve özet bunu kullanır. Dikkat: testlerde sabit saatli kampanya tarihleri varsa `service._now` taklit edilmelidir.
+- **Otomatik kurtarma.** `run_campaign_task`: `acks_late=True`, `reject_on_worker_lost=True`, bitmiş (`completed` / `needs_review`) kampanyayı yeniden çalıştırmaz; `celery_app` Redis `visibility_timeout` 7200 sn. Canlı işçi öldürerek denenmedi.
+- **Özet.** `build_summary` çıktısına `live` (`running`, `eta_seconds`, `cancel_requested`), `actions` (`cancel`, `retry`) ve `recoveries` eklendi; `eta = ceil(kalan / DEFAULT_WORKERS) × bitenlerin ortalama süresi`, yalnız `running` ve en az bir bitmiş veri seti varken.
+- **Konsol.** `LiveProgress`, `CampaignControls` (iki adımlı iptal onayı, yeniden başlat, hata kutusu), `ThemeToggle` + `lib/theme.ts` (`data-theme`, `localStorage` `axiomforge.theme`, `next/script` `beforeInteractive` ile boyamadan önce uygulanır), `globals.css` renk jetonları (`--color-ink`, `muted`, `accent`, `card`, `page`, ... ve `on-solid`); bileşenlerde sabit hex yerine `text-muted`, `bg-card` gibi sınıflar kullanılır, yeni renk eklerken önce jeton tanımlayın. `ResearchStatus`, `ApprovalDialog`, `paper-view` i18n'e taşındı. `lib/i18n.ts` her iki dilde aynı anahtarlara sahip olmalıdır (test kontrol eder).
+- **Tarayıcı testleri.** `frontend/e2e/*.spec.ts` + `playwright.config.ts` (`PW_CHANNEL=msedge` yerel Edge; CI'da `chromium`), `e2e/support.ts` API'yi `page.route` ile taklit eder (CORS dahil). `npm test` yalnız `tests/` altını koşar. CI'da `e2e` işi `npm ci`, `playwright install --with-deps chromium`, `npm run build`, `npm run e2e`; aynı tarif node:24 konteynerinde 12/12 geçti. `.next` yeniden derlenmeden `next start` eski dosyaları sunar ve 500 verir; yerel koşudan önce eski sunucuyu kapatın.
+- **Araçlar.** `tools/null_seed.py`: modelin kendisi ile `random_state` farkı olan kopyasını karşılaştırır (`params={"random_state": N}`, `__default` kontrolü `random_state=0`; `validate_campaign` bu parametreyi reddettiği için doğrulamadan sonra eklenir) ve ayar etkisi satırlarını sayar. `tools/bench_gate_loop.py --tuning N`: ayarlı bir kampanya için eşleşen spesifikasyonla kapıyı ölçer.
+- **Ölçümler** (`AUTONOMOUS_REPORT.md` 'Takip 8'): ayarlı kıyasta kapı 10/10; ayarsız kıyasta ilk taslakların 6/10'u işaretlendi (2 gerçek abartı, 3-4 zararsız 'not supported'); boş tohum karşılaştırmasının sonucu raporda.
+- **Dersler.** (1) Playwright yerelde kurulu Edge ile `PW_CHANNEL=msedge` çalışır, tarayıcı indirmek gerekmez. (2) Başlatılmış `next start` sunucusu yeniden derlemeden sonra bozulur. (3) Bir Wilcoxon testi 9 veri setinde en küçük p = 0,0039'dur; katı Holm düzeltmesi (hepsi bir ailede) 13'ten fazla etkide hiçbir zaman anlamlı olamaz. Bu yüzden büyük kampanyalarda `significant_all` neredeyse her zaman yanlıştır; yorumlarken ailevi `significant` esas alınmalıdır. (4) Git Bash'te `docker run -w /work` yol dönüşümüne uğrar: `MSYS_NO_PATHCONV=1` kullanın.
+
 ### 3.12 Faz 12: replikasyon kampanyası (`app/campaign/`)
 
 Amaç: yayımlanmış bir akademik ML karşılaştırma iddiasını çok veri setinde yeniden sınamak ve her sayıyı bir kanıt kaydına bağlamak. Kullanıcı stratejik olarak "akademik ML karşılaştırma ve replikasyon" yönünü seçti ve ilk demo olarak Grinsztajn ve ark. 2022'yi (arXiv 2207.08815: ağaç tabanlı modeller tablo verisinde derin öğrenmeden iyi) istedi. Motor LLM çağırmaz; betik, istatistik, rapor ve denetim Python'dır.
@@ -414,7 +429,7 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 7. Frontend: Docker imajı, form ipucu, otomatik arayüz testi.
 8. Hakem isteminin sadeleştirilmesi, MLflow artifact.
 
-27 Ekim notu: yukarıdaki sıranın önüne `ROADMAP.md` D bölümündeki kalanlar geçer (tahmini süre / iptal, gelişmiş ayarlar, koyu tema, Playwright, işçi kurtarma, gerçek modelle null karşılaştırma, tek deney hattı ekranları).
+27 Ekim notu: yukarıdaki sıranın önüne `ROADMAP.md` D bölümündeki kalanlar geçer (kullanıcı gözlemi, canlı işçi ölümü denemesi, kapı yazım politikası kararı).
 
 Kullanıcı farklı bir öncelik verebilir. Mesajı gelmeden iş başlatma.
 
