@@ -68,7 +68,7 @@ Bu dosya "projeyi bitirmek için ne kaldı" sorusunun cevabıdır. Yarın burada
 5. A2'nin kalanı ve A3 yalnız ihtiyaç doğarsa.
 
 ## D. Durum (27 Ekim, ikinci tur sonu)
-- Kod: 3100 pytest testi (3 atlandı), 113 frontend Node testi, 12 Playwright testi. Takip 7'ye kadarki commitler push edildi (fd52910); Takip 8 commitleri yerelde, CI onlarda henüz koşmadı (e2e işi yeni; tarifi Linux konteynerinde doğrulandı).
+- Kod: 3100 pytest testi (3 atlandı), 113 frontend Node testi, 12 Playwright testi. Her şey push edildi (f6c9e09) ve GitHub CI'daki üç iş (backend, frontend, e2e) yeşil.
 - Yapılanlar: B1 ve B2'nin hemen hepsi (tek deney hattı ekranları dahil), B3, B4-16, A1-1, A1-2 (istatistik katmanı ve gerçek modellerle tohum farkı), A1-3 (yalnız meta makale kapısı), A1-4 (kampanya hattı), A2-5, A2-6.
 - Kalanlar: B4-17 kullanıcı gözlemi (insan gerekir), 17 regex kapısının tek tek yanlış alarm oranı, kampanya görevi yeniden teslimini canlı işçi öldürerek denemek, klavye / ekran okuyucu erişilebilirlik denetimi, 'not supported' yanlış alarm sınıfı için yazım politikası kararı, deney (tek araştırma) hattında işçi kurtarma, iki paralel hattın birleştirilmesi (A2-8), iç içe çapraz doğrulamalı ayar (A2-9).
 - Karar bekleyen: arayüzün asıl hedef kullanıcısı (şimdilik "herkes" varsayımıyla yazıldı); veritabanındaki test kalıntılarının silinmesi (A2-7).
