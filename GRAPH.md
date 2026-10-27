@@ -119,3 +119,7 @@ queue_campaign        belirtim doğrulanır, durum queued yazılır
 ```
 
 Durumlar `queued`, `running`, `completed`, `needs_review` (rapor denetimi sorun buldu) ve `failed` (beklenmedik hata ya da sandbox anahtarı yok). Bir veri setinin düşmesi kampanyayı düşürmez; veri seti `failed` yazılır, rapor onu limitasyonlarda ve kanıt defterinde anar. Hiçbir veri seti bitmezse rapor yine yazılır ve hiçbir iddianın değerlendirilemediğini söyler. Giriş noktaları: `python -m app.campaign`, `POST /start_campaign` (Celery görevi `axiomforge.run_campaign`) ve `execute_campaign`.
+
+## Sunum katmanı (karar vermez)
+
+Kampanya bittikten sonra `GET /campaign/{id}/summary?lang=tr|en` hattın çıktılarını (`analysis.json`, `ledger.json`, `spec.json`) `app/campaign/summary.py::build_summary` ile herkesin okuyacağı dile çevirir; adlar ve karar etiketleri `app/campaign/vocabulary.py`'den, hata açıklamaları `app/friendly_errors.py`'den gelir. Bu katman graf, kapı ya da istatistik koduna geri yazmaz; yalnız okur. Başlatan uçlar (`/start_campaign`, `/start_research`, `/approve_plan`, `/experiments`) hat başlamadan önce `app/guard.py`'den geçer: tanımlıysa `X-API-Key`, ardından günlük başlatma sınırı.
