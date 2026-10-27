@@ -52,3 +52,12 @@ def no_real_openai_check(monkeypatch):
     import app.main as main
 
     monkeypatch.setattr(main, "check_openai_access", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def isolated_usage_counter(tmp_path, monkeypatch):
+    import app.guard as guard
+
+    monkeypatch.setattr(guard, "USAGE_FILE", tmp_path / "usage.json")
+    monkeypatch.delenv("API_KEY", raising=False)
+    monkeypatch.delenv("DAILY_START_LIMIT", raising=False)
