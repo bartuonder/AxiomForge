@@ -449,6 +449,54 @@ class TestSupportWords:
             found = issues({**PROSE, section: f"{PROSE[section]} The claim was {word} by the data."})
             assert any(f"The {section.capitalize()} uses the word {word!r}" in issue for issue in found)
 
+    @pytest.mark.parametrize(
+        "sentence",
+        [
+            "The claim that trees beat forests was not supported by the data.",
+            "That claim is not supported.",
+            "Those claims were not fully supported by the scores.",
+            "The claim wasn't supported by any measure.",
+            "The data never supports that reading.",
+            "The claim was NOT supported here.",
+            "The claim was not Supported here.",
+            "The claim cannot be supported by these scores.",
+        ],
+    )
+    def test_a_negated_use_does_not_borrow_a_verdict_word_and_is_not_flagged(self, sentence):
+        for section in ("introduction", "discussion"):
+            found = issues({**PROSE, section: f"{PROSE[section]} {sentence}"})
+            assert not any("uses the word" in issue for issue in found)
+
+    @pytest.mark.parametrize(
+        "sentence",
+        [
+            "The claim was supported by the data, but not by every metric.",
+            "Not only was the claim supported, it was ahead.",
+            "The claim was supported, not refuted.",
+            "It was not clear, but the claim was supported by the scores.",
+            "No one doubts that the claim is supported.",
+            "The data supports it, and nothing is unsupported.",
+            "It was not obvious to all that the claim was supported.",
+            "There was not much doubt. The claim was supported.",
+        ],
+    )
+    def test_a_positive_use_is_still_flagged_even_with_a_negation_nearby(self, sentence):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} {sentence}"})
+        assert any("uses the word" in issue for issue in found)
+
+    @pytest.mark.parametrize("word", ["confirmed", "refuted", "proved", "demonstrated"])
+    def test_the_other_certainty_words_stay_banned_even_when_negated(self, word):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} The claim was not {word} by the data."})
+        assert any(f"uses the word {word!r}" in issue for issue in found)
+
+    def test_a_negated_and_a_positive_use_in_one_section_report_the_positive_one(self):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} It was not supported here. Elsewhere it supports the claim."})
+        assert any("uses the word 'supports'" in issue for issue in found)
+
+    def test_the_message_still_names_the_word(self):
+        found = issues({**PROSE, "discussion": f"{PROSE['discussion']} The claim was supported."})
+        assert any("The Discussion uses the word 'supported'" in issue for issue in found)
+
     def test_a_noun_or_other_form_is_not_flagged(self):
         assert not any("uses the word" in issue for issue in issues({**PROSE, "discussion": DISCUSSION + " Supporting facts and a supporter exist."}))
 

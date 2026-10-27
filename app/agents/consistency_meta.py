@@ -11,10 +11,12 @@ LLM_SECTIONS = ("Introduction", "Discussion")
 CHECKED_SECTIONS = ("Abstract", "Results", "Conclusion")
 MAX_EXAMPLES = 3
 NEGATION_WINDOW = 25
+_NEGATABLE = {"supports", "supported"}
 
 _DIGITS = re.compile(r"\d+(?:[.,]\d+)?")
 _SIGNIFICANCE = re.compile(r"\bsignifican\w*\b", re.IGNORECASE)
 _FORBIDDEN_CERTAINTY = re.compile(r"\b(confirm\w*|refut\w*|prov(?:e|es|ed|en)|disprov\w*|demonstrat\w*|supports|supported)\b", re.IGNORECASE)
+_NEGATED_BEFORE = re.compile(r"(?:\bnot|\bcannot|n't|\bnever)\s+(?:\w+\s+)?$", re.IGNORECASE)
 _VERDICT_WORDS = re.compile(r"\b(replicat\w*|contradict\w*|inconclusive)\b", re.IGNORECASE)
 _CAUSAL = re.compile(r"\b(because|due to|owing to|caused by|explained by|the reason|results? from|driven by|leads? to|thanks to|as a result of)\b", re.IGNORECASE)
 _HEDGE = re.compile(r"\b(may|might|could|possibly|perhaps|plausibly|potentially|probably|we speculate|it is possible|a possible|one possible)\b", re.IGNORECASE)
@@ -52,7 +54,10 @@ def _digit_issues(sections: dict[str, str]) -> list[str]:
 def _certainty_issues(sections: dict[str, str]) -> list[str]:
     issues = []
     for name in LLM_SECTIONS:
-        for match in _FORBIDDEN_CERTAINTY.finditer(sections.get(name, "")):
+        text = sections.get(name, "")
+        for match in _FORBIDDEN_CERTAINTY.finditer(text):
+            if match.group(0).lower() in _NEGATABLE and _NEGATED_BEFORE.search(text[: match.start()]):
+                continue
             issues.append(
                 f"The {name} uses the word {match.group(0)!r}; use only the given verdict words and hedged wording: "
                 "do not use confirm, refute, prove, demonstrate or support, and state a result with the verdict word or a plain comparison such as 'scored higher'."
