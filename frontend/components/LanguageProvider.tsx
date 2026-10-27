@@ -37,8 +37,8 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const language = useSyncExternalStore(subscribe, readLanguage, () => DEFAULT_LANGUAGE);
+export function LanguageProvider({ children, serverLanguage = DEFAULT_LANGUAGE }: { children: ReactNode; serverLanguage?: Language }) {
+  const language = useSyncExternalStore(subscribe, readLanguage, () => serverLanguage);
   const [glossary, setGlossary] = useState<Glossary>({});
   const [names, setNames] = useState<Vocabulary>(NO_NAMES);
 
