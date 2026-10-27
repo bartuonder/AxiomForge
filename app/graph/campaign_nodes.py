@@ -32,7 +32,7 @@ def campaign_dispatch_node(state: AgentState, config: RunnableConfig) -> dict:
     if not raw_spec:
         raise RuntimeError("no campaign was approved")
     campaign_id = campaign_id_for(thread_id, raw_spec)
-    spec, created = queue_once(campaign_id, raw_spec)
+    spec, created = queue_once(campaign_id, raw_spec, thread_id=thread_id)
     logger.info("campaign_dispatch_node thread_id=%s campaign_id=%s created=%s", thread_id, campaign_id, created)
     if created:
         try:

@@ -146,11 +146,12 @@ def campaign_id_for(thread_id: str, spec: dict[str, Any]) -> str:
     return "g-" + hashlib.sha256(f"{thread_id}\n{canonical}".encode("utf-8")).hexdigest()[:32]
 
 
-def queue_once(campaign_id: str, raw_spec: Any, origin: str = "console") -> tuple[dict[str, Any], bool]:
+def queue_once(campaign_id: str, raw_spec: Any, origin: str = "console", thread_id: str | None = None) -> tuple[dict[str, Any], bool]:
     spec = validate_campaign(raw_spec)
     if store.load_state(campaign_id) is not None:
         return spec, False
-    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued", origin) | {"queued": store.now()})
+    remembered = {"thread_id": thread_id} if thread_id else {}
+    store.save_state(campaign_id, _initial_state(campaign_id, spec, "queued", origin) | {"queued": store.now()} | remembered)
     store.save_spec(campaign_id, spec)
     return spec, True
 
@@ -190,8 +191,9 @@ def execute_campaign(
     lock = threading.Lock()
     store.clear_cancel(campaign_id)
     state = _initial_state(campaign_id, spec, "running", (queued or {}).get("origin") or "cli") | {"started": store.now()}
-    if (queued or {}).get("recoveries"):
-        state["recoveries"] = queued["recoveries"]
+    for kept in ("recoveries", "thread_id"):
+        if (queued or {}).get(kept):
+            state[kept] = queued[kept]
     store.save_state(campaign_id, state)
     store.save_spec(campaign_id, spec)
 

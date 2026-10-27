@@ -265,11 +265,12 @@ def campaign_cancel(campaign_id: str):
 def campaign_retry(campaign_id: str):
     _campaign_state(campaign_id)
     try:
-        spec, _ = retry_campaign(campaign_id, before=spend_start)
+        spec, restarted = retry_campaign(campaign_id, before=spend_start)
     except CampaignControlError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    thread = restarted.get("thread_id")
     try:
-        _enqueue(run_campaign_task, campaign_id, spec)
+        _enqueue(run_campaign_task, campaign_id, spec, *([thread] if thread else []))
     except HTTPException as exc:
         reject_campaign(campaign_id, str(exc.detail))
         raise
