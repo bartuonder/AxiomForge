@@ -68,8 +68,8 @@ Bu dosya "projeyi bitirmek için ne kaldı" sorusunun cevabıdır. Yarın burada
 5. A2'nin kalanı ve A3 yalnız ihtiyaç doğarsa.
 
 ## D. Durum (27 Ekim, üçüncü tur sonu)
-- Kod: 3194 pytest testi (3 atlandı), 123 frontend Node testi, 32 Playwright testi (12 işlev, 12 axe erişilebilirlik, 5 klavye, 3 araştırma yeniden deneme). GitHub CI'daki üç iş son pushta yeşildi; üçüncü tur commitleri yerelde, push kullanıcının isteğine bağlı.
+- Kod: 3220 pytest testi (3 atlandı), 123 frontend Node testi, 32 Playwright testi (12 işlev, 12 axe erişilebilirlik, 5 klavye, 3 araştırma yeniden deneme). GitHub CI'daki üç iş son pushta yeşildi; üçüncü tur commitleri yerelde, push kullanıcının isteğine bağlı.
 - Yapılanlar: B1, B2 (tek deney hattı ekranları ve yeniden deneme dahil), B3 (koyu tema, klavye ve axe taraması dahil), B4-16, A1-1, A1-2, A1-3 (yalnız meta makale kapısı), A1-4 (hem kampanya hem tek araştırma hattı), A2-5, A2-6. A2-8'de sayılan ölü kod adayları kodda zaten yoktu.
-- Kalanlar: B4-17 kullanıcı gözlemi (insan gerekir), ekran okuyucuyla gerçek dinleme, 17 regex kapısının tek tek yanlış alarm oranı (etiketli taslak kümesi ister), iki paralel hattın birleştirilmesi (A2-8), iç içe çapraz doğrulamalı ayar (A2-9), kampanya görevinin çift çalışmasına karşı kilit (bekleme süresi en uzun kampanyadan kısaysa görev çift çalışır).
+- Kalanlar: B4-17 kullanıcı gözlemi (insan gerekir), ekran okuyucuyla gerçek dinleme, 17 regex kapısından 14'ünün yanlış alarm oranı (bu örneklerde hiç ateşlemediler; bilerek bozulmuş etiketli makale ister), iki paralel hattın birleştirilmesi (A2-8), iç içe çapraz doğrulamalı ayar (A2-9). (Kampanya görevinin çift çalışması nabız ile çözüldü ve Docker'da canlı doğrulandı.)
 - Karar bekleyen: arayüzün asıl hedef kullanıcısı (şimdilik "herkes" varsayımıyla yazıldı); veritabanındaki test kalıntılarının silinmesi (A2-7).
 - Sunucuları açmak için komutlar `CONTINUATION.md` "Çalıştırma" bölümünde; konsol `http://localhost:3000`, ya da `docker compose up`.
