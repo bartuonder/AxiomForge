@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 import redis
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from kombu.exceptions import OperationalError
@@ -17,10 +17,11 @@ from app.campaign.service import campaign_summary, queue_campaign, reject_campai
 from app.campaign.summary import build_summary
 from app.campaign.vocabulary import DATASET_NAMES, GLOSSARY, LANGUAGES, METRIC_LABELS, MODEL_NAMES
 from app.friendly_errors import explain_error
-from app.campaign.spec import CampaignSpecError
+from app.campaign.spec import CampaignSpecError, validate_campaign
 from app.celery_app import celery_app
 from app.config import REDIS_URL
 from app.experiments import execute_experiment
+from app.guard import require_key, spend_start, usage
 from app.graph.workflow import PlanDecisionError, decide_plan, get_research, new_thread_id, revoke_approval
 from app.openai_check import check_openai_access
 from app.tasks import resume_research_task, run_campaign_task, run_research_task
@@ -98,8 +99,9 @@ def health():
     return JSONResponse(status_code=code, content=payload)
 
 
-@app.post("/experiments")
+@app.post("/experiments", dependencies=[Depends(require_key)])
 def create_experiment(body: ExperimentRequest):
+    spend_start()
     try:
         return execute_experiment(body.prompt, body.csv_schema)
     except QueryNamesTooFewModels as exc:
@@ -117,11 +119,12 @@ def _enqueue(task, *args) -> None:
         raise HTTPException(status_code=503, detail=f"task queue is unavailable: {exc}") from exc
 
 
-@app.post("/start_research")
+@app.post("/start_research", dependencies=[Depends(require_key)])
 def start_research_endpoint(body: StartResearchRequest):
     try:
         thread_id = new_thread_id(body.query, body.mode)
         check_openai_access()
+        spend_start()
         _enqueue(run_research_task, thread_id, body.query, body.mode)
         return {"thread_id": thread_id, "status": "running", "mode": body.mode}
     except QueryNamesTooFewModels as exc:
@@ -153,7 +156,7 @@ def research_report(thread_id: str):
     return {"markdown": path.read_text(encoding="utf-8")}
 
 
-@app.post("/approve_plan")
+@app.post("/approve_plan", dependencies=[Depends(require_key)])
 def approve_plan_endpoint(body: ApprovePlanRequest):
     try:
         result = decide_plan(body.thread_id, body.decision, body.selected)
@@ -174,7 +177,7 @@ def approve_plan_endpoint(body: ApprovePlanRequest):
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@app.post("/start_campaign")
+@app.post("/start_campaign", dependencies=[Depends(require_key)])
 def start_campaign_endpoint(body: StartCampaignRequest):
     if (body.demo is None) == (body.spec is None):
         raise HTTPException(status_code=422, detail="give exactly one of demo and spec")
@@ -182,6 +185,8 @@ def start_campaign_endpoint(body: StartCampaignRequest):
         spec = demo_spec(body.demo) if body.demo is not None else dict(body.spec)
         if body.datasets is not None:
             spec["datasets"] = body.datasets
+        validate_campaign(spec)
+        spend_start()
         campaign_id, spec = queue_campaign(spec)
     except CampaignSpecError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -191,6 +196,11 @@ def start_campaign_endpoint(body: StartCampaignRequest):
         reject_campaign(campaign_id, str(exc.detail))
         raise
     return {"campaign_id": campaign_id, "status": "queued"}
+
+
+@app.get("/usage")
+def usage_today():
+    return usage()
 
 
 @app.get("/campaigns")
