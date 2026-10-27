@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CampaignBadge } from "@/components/CampaignBadge";
+import { CampaignControls } from "@/components/CampaignControls";
 import { ErrorNotice } from "@/components/ErrorNotice";
 import { LedgerTable } from "@/components/LedgerTable";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -35,6 +36,7 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
   const [report, setReport] = useState<CampaignReport | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("summary");
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,7 +57,7 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
           }
           setReport(loaded);
           settled = true;
-        } else if (next.status.code === "failed") {
+        } else if (next.status.code === "failed" || next.status.code === "cancelled") {
           settled = true;
         }
       } catch (caught) {
@@ -72,7 +74,7 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [campaignId, language, t]);
+  }, [campaignId, language, t, reload]);
 
   const tabs = [
     { id: "summary", label: t("campaign.tab.summary"), content: summary ? <SummaryView summary={summary} /> : null },
@@ -139,6 +141,9 @@ export function CampaignView({ campaignId }: CampaignViewProps) {
                 </p>
               ) : null}
             </header>
+            <div className="mt-4">
+              <CampaignControls summary={summary} onDone={() => setReload((count) => count + 1)} />
+            </div>
             {summary.error_info ? (
               <div className="mt-8">
                 <ErrorNotice info={summary.error_info} />

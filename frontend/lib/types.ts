@@ -100,7 +100,7 @@ export type ResearchSnapshot = {
   steps: ResearchStep[];
 };
 
-export type CampaignStatus = "queued" | "running" | "completed" | "needs_review" | "failed";
+export type CampaignStatus = "queued" | "running" | "completed" | "needs_review" | "failed" | "cancelled";
 
 export type CampaignVerdict = {
   id: string;
@@ -186,6 +186,9 @@ export type PlainSummary = {
   source: { title: string; citation: string } | null;
   status: { code: CampaignStatus; label: string; tone: string };
   progress: { finished: number; failed: number; total: number; percent: number };
+  live: { running: { key: string; label: string }[]; eta_seconds: number | null; cancel_requested: boolean };
+  actions: { cancel: boolean; retry: boolean };
+  recoveries: number;
   headline: string;
   verdict_counts: Record<string, number>;
   claims: SummaryClaim[];

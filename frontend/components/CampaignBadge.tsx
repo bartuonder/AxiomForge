@@ -10,6 +10,7 @@ const STYLES: Record<CampaignStatus, string> = {
   completed: "border-[#b9d8c7] bg-[#eef6f1] text-[#14472f]",
   needs_review: "border-[#c9a227] bg-[#fbf3d6] text-[#5c4a0c]",
   failed: "border-[#d9a99e] bg-[#faeeea] text-[#6e2a1c]",
+  cancelled: "border-[#d7d0c4] bg-[#f3efe7] text-[#5c564e]",
 };
 
 type CampaignBadgeProps = {

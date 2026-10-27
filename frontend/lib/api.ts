@@ -71,6 +71,20 @@ export async function startDemoCampaign(demo: string): Promise<string> {
   return body.campaign_id;
 }
 
+export async function cancelCampaign(campaignId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/campaign/${encodeURIComponent(campaignId)}/cancel`, { method: "POST", headers: postHeaders() });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+}
+
+export async function retryCampaign(campaignId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/campaign/${encodeURIComponent(campaignId)}/retry`, { method: "POST", headers: postHeaders() });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+}
+
 export async function fetchCampaigns(): Promise<CampaignSummary[]> {
   const response = await fetch(`${API_URL}/campaigns`, { cache: "no-store" });
   if (!response.ok) {

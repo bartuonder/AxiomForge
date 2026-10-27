@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { displayTitle, hiddenTestCount, isUserCampaign, visibleCampaigns } from "../lib/campaignList.ts";
-import { barPercent, chartRange, formatNumber, formatSigned, minutes, ratio, tonePalette, TONES, winner } from "../lib/format.ts";
+import { barPercent, chartRange, etaMinutes, formatNumber, formatSigned, minutes, ratio, tonePalette, TONES, winner } from "../lib/format.ts";
 import { DEFAULT_LANGUAGE, LANGUAGES, MESSAGES, parseLanguage, translate } from "../lib/i18n.ts";
 
 describe("i18n", () => {
@@ -85,6 +85,15 @@ describe("format", () => {
     assert.equal(winner({ dataset: "a", label: "A", subject: 0.9, other: 0.8 }), "subject");
     assert.equal(winner({ dataset: "a", label: "A", subject: 0.7, other: 0.8 }), "other");
     assert.equal(winner({ dataset: "a", label: "A", subject: 0.8, other: 0.8 }), "tie");
+  });
+
+  it("tells the minutes left, none under one minute", () => {
+    assert.equal(etaMinutes(0), 0);
+    assert.equal(etaMinutes(59), 0);
+    assert.equal(etaMinutes(60), 1);
+    assert.equal(etaMinutes(89), 1);
+    assert.equal(etaMinutes(90), 2);
+    assert.equal(etaMinutes(420), 7);
   });
 
   it("rounds minutes up to at least one", () => {

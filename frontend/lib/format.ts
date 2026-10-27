@@ -63,6 +63,10 @@ export function winner(point: ChartPoint): "subject" | "other" | "tie" {
   return point.subject < point.other ? "other" : "tie";
 }
 
+export function etaMinutes(seconds: number): number {
+  return seconds < 60 ? 0 : Math.round(seconds / 60);
+}
+
 export function minutes(seconds: number): number {
   return Math.max(1, Math.round(seconds / 60));
 }

@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ClaimCard } from "../components/ClaimCard.tsx";
+import { CampaignBadge } from "../components/CampaignBadge.tsx";
+import { CampaignControls } from "../components/CampaignControls.tsx";
 import { ConfidenceMeter } from "../components/ConfidenceMeter.tsx";
 import { DatasetChart } from "../components/DatasetChart.tsx";
 import { ErrorNotice } from "../components/ErrorNotice.tsx";
 import { LanguageProvider } from "../components/LanguageProvider.tsx";
+import { LiveProgress } from "../components/LiveProgress.tsx";
 import { SummaryView } from "../components/SummaryView.tsx";
 import { VerdictBadge } from "../components/VerdictBadge.tsx";
 import type { PlainSummary, SummaryClaim } from "../lib/types.ts";
@@ -40,6 +43,9 @@ const SUMMARY: PlainSummary = {
   source: null,
   status: { code: "completed", label: "Tamamlandı", tone: "positive" },
   progress: { finished: 9, failed: 0, total: 9, percent: 100 },
+  live: { running: [], eta_seconds: null, cancel_requested: false },
+  actions: { cancel: false, retry: false },
+  recoveries: 0,
   headline: CLAIM.headline,
   verdict_counts: { replicated: 1 },
   claims: [CLAIM],
@@ -198,7 +204,7 @@ describe("SummaryView", () => {
   });
 
   it("shows a progress bar while no result exists", () => {
-    const running = { ...SUMMARY, claims: [], progress: { finished: 3, failed: 0, total: 9, percent: 33 } };
+    const running = { ...SUMMARY, claims: [], status: { code: "running" as const, label: "Çalışıyor", tone: "neutral" }, progress: { finished: 3, failed: 0, total: 9, percent: 33 } };
     const html = render(<SummaryView summary={running} />);
     assert.match(html, /width:33%/);
     assert.match(html, /3 \/ 9 veri seti tamamlandı/);
@@ -250,5 +256,119 @@ describe("ErrorNotice", () => {
 
   it("speaks English when the page does", () => {
     assert.match(render(<ErrorNotice info={info} />, "en"), /What can you do\?/);
+  });
+});
+
+const RUNNING: PlainSummary = {
+  ...SUMMARY,
+  claims: [],
+  status: { code: "running", label: "Çalışıyor", tone: "neutral" },
+  progress: { finished: 3, failed: 0, total: 9, percent: 33 },
+  live: { running: [{ key: "a", label: "Kredi riski" }, { key: "b", label: "Telekomünikasyon verisi" }], eta_seconds: 420, cancel_requested: false },
+  actions: { cancel: true, retry: false },
+};
+
+describe("LiveProgress", () => {
+  it("shows the bar, the count, the running datasets and the time left", () => {
+    const html = render(<LiveProgress summary={RUNNING} />);
+    assert.match(html, /width:33%/);
+    assert.match(html, /3 \/ 9 veri seti tamamlandı/);
+    assert.match(html, /Şu an çalışan veri setleri: Kredi riski, Telekomünikasyon verisi/);
+    assert.match(html, /Tahmini kalan süre: yaklaşık 7 dakika/);
+    assert.match(html, /Deneyler sürüyor/);
+  });
+
+  it("says under a minute for a short estimate", () => {
+    const html = render(<LiveProgress summary={{ ...RUNNING, live: { ...RUNNING.live, eta_seconds: 40 } }} />);
+    assert.match(html, /bir dakikadan az/);
+  });
+
+  it("explains that the estimate comes later", () => {
+    const html = render(<LiveProgress summary={{ ...RUNNING, live: { ...RUNNING.live, eta_seconds: null } }} />);
+    assert.match(html, /ilk veri seti bitince hesaplanır/);
+  });
+
+  it("shows no time estimate and no dataset list while queued", () => {
+    const queued = { ...RUNNING, status: { code: "queued" as const, label: "Sırada", tone: "muted" }, live: { running: [], eta_seconds: null, cancel_requested: false } };
+    const html = render(<LiveProgress summary={queued} />);
+    assert.match(html, /Kampanya sırada bekliyor/);
+    assert.ok(!/Tahmini kalan süre|hesaplanır|Şu an çalışan/.test(html));
+  });
+
+  it("speaks English", () => {
+    const html = render(<LiveProgress summary={RUNNING} />, "en");
+    assert.match(html, /Estimated time left: about 7 minutes/);
+    assert.match(html, /Datasets running now: Kredi riski/);
+  });
+});
+
+describe("CampaignControls", () => {
+  const noop = () => undefined;
+
+  it("offers a cancel button while the campaign is active", () => {
+    const html = render(<CampaignControls summary={RUNNING} onDone={noop} />);
+    assert.match(html, /Kampanyayı iptal et/);
+    assert.ok(!/Yeniden başlat|alertdialog/.test(html));
+  });
+
+  it("only says that the cancel is pending once it was requested", () => {
+    const html = render(<CampaignControls summary={{ ...RUNNING, live: { ...RUNNING.live, cancel_requested: true } }} onDone={noop} />);
+    assert.match(html, /İptal isteniyor/);
+    assert.ok(!/Kampanyayı iptal et/.test(html));
+  });
+
+  it("offers to start again after a failure or a cancel", () => {
+    const failed = { ...RUNNING, status: { code: "failed" as const, label: "Başarısız", tone: "negative" }, actions: { cancel: false, retry: true } };
+    const html = render(<CampaignControls summary={failed} onDone={noop} />);
+    assert.match(html, /Yeniden başlat/);
+    assert.match(html, /Aynı ayarlarla baştan çalıştırılır/);
+    assert.ok(!/Kampanyayı iptal et/.test(html));
+  });
+
+  it("tells how often the campaign was started again", () => {
+    assert.match(render(<CampaignControls summary={{ ...SUMMARY, recoveries: 2 }} onDone={noop} />), /2 kez yeniden başlatıldı/);
+  });
+
+  it("ignores a cancel request on a campaign that is not active", () => {
+    const html = render(<CampaignControls summary={{ ...SUMMARY, recoveries: 1, live: { running: [], eta_seconds: null, cancel_requested: true } }} onDone={noop} />);
+    assert.ok(!/İptal isteniyor/.test(html));
+  });
+
+  it("counts a single restart too", () => {
+    assert.match(render(<CampaignControls summary={{ ...SUMMARY, recoveries: 1 }} onDone={noop} />), /1 kez yeniden başlatıldı/);
+  });
+
+  it("shows nothing for a finished campaign", () => {
+    assert.equal(render(<CampaignControls summary={SUMMARY} onDone={noop} />), "");
+  });
+
+  it("speaks English", () => {
+    assert.match(render(<CampaignControls summary={RUNNING} onDone={noop} />, "en"), /Cancel the campaign/);
+  });
+});
+
+describe("SummaryView for a campaign that has no result", () => {
+  it("shows the live progress while it runs", () => {
+    assert.match(render(<SummaryView summary={RUNNING} />), /Tahmini kalan süre/);
+  });
+
+  it("does not claim that a cancelled campaign is running", () => {
+    const html = render(<SummaryView summary={{ ...RUNNING, status: { code: "cancelled", label: "İptal edildi", tone: "muted" }, actions: { cancel: false, retry: true } }} />);
+    assert.match(html, /iptal edildi, bu yüzden bir sonuç üretilmedi/);
+    assert.ok(!/Deneyler sürüyor/.test(html));
+  });
+
+  it("does not claim that a failed campaign is running", () => {
+    const html = render(<SummaryView summary={{ ...RUNNING, status: { code: "failed", label: "Başarısız", tone: "negative" } }} />);
+    assert.match(html, /sonuç üretemeden durdu/);
+    assert.ok(!/Deneyler sürüyor/.test(html));
+  });
+});
+
+describe("CampaignBadge", () => {
+  it("knows the cancelled state", () => {
+    const html = render(<CampaignBadge status="cancelled" />);
+    assert.match(html, /İptal edildi/);
+    assert.match(html, /bg-\[#f3efe7\]/);
   });
 });

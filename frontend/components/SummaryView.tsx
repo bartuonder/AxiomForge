@@ -2,6 +2,7 @@
 
 import { ClaimCard } from "@/components/ClaimCard";
 import { useLanguage } from "@/components/LanguageProvider";
+import { LiveProgress } from "@/components/LiveProgress";
 import { Term } from "@/components/Term";
 import type { PlainSummary } from "@/lib/types";
 
@@ -10,13 +11,13 @@ const COMPACT_FROM = 3;
 export function SummaryView({ summary }: { summary: PlainSummary }) {
   const { t } = useLanguage();
   if (summary.claims.length === 0) {
+    const code = summary.status.code;
+    if (code === "cancelled" || code === "failed") {
+      return <p className="text-[#5c564e]">{code === "cancelled" ? t("campaign.stoppedNote") : t("campaign.failedNote")}</p>;
+    }
     return (
-      <section className="space-y-4">
-        <p className="text-[#5c564e]">{t("campaign.waiting")}</p>
-        <div className="h-3 overflow-hidden rounded-full bg-[#ece6da]" aria-hidden="true">
-          <div className="h-3 rounded-full bg-[#1f6b4a] transition-all" style={{ width: `${summary.progress.percent}%` }} />
-        </div>
-        <p className="text-sm text-[#5c564e]">{t("campaign.progress", { finished: summary.progress.finished, total: summary.progress.total })}</p>
+      <section>
+        <LiveProgress summary={summary} />
       </section>
     );
   }
