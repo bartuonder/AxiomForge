@@ -8,7 +8,9 @@ Sahip: Bartu Önder, `onderbartu8@gmail.com`. Commitlerde yalnız bu ad ve e-pos
 
 ## Şu an neredeyiz
 
-Güncel durum (26 Ekim 2026): Faz 14 kampanya genişletmeleri iki turda bitti (aşağıdaki 'Faz 14' paragrafları, ayrıntı `AUTONOMOUS_REPORT.md`). 2628 pytest testi ve 10 frontend Node testi geçiyor; sonraki oturum önce `ROADMAP.md` (kalan işler ve frontend yenileme listesi) ve `AUTONOMOUS_REPORT.md` 'Açık kalanlar' bölümünü okumalı. Frontend'in ilk gerçek denemesinde sonuç sayfasının kullanıcıya göre olmadığı görüldü ('sayı cümbüşü'); yenileme `ROADMAP.md` B bölümünde. Aşağıdaki satırlar eski fazların tarihçesidir.
+Güncel durum (27 Ekim 2026, sonuncu): kullanıcı yokken yol haritası otonom ilerletildi (ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 7'). Konsol "herkes" için yeniden yazıldı (TR/EN, sade özet, güven göstergesi, grafik, sözlük, sebepli hata kutuları, Markdown indirme), arka uca `vocabulary.py`, `summary.py`, `friendly_errors.py`, `guard.py` (isteğe bağlı `API_KEY` + günlük başlatma sınırı) ve `tools/null_calibration.py` ile `tools/memory_report.py` eklendi, konsol için Dockerfile ve compose servisi yazıldı. 2953 pytest testi (3 atlandı) ve 71 frontend Node testi geçiyor. **Yerel dal origin'den çok commit önde ve push edilmedi; kullanıcı isteyince önce `git fetch -q` ve `git status -sb`, sonra push.** CI yeni commitlerde henüz koşmadı. Sonraki oturum önce `ROADMAP.md` D bölümünü okumalı: kalanlar tahmini süre / iptal, gelişmiş ayarlar, koyu tema, Playwright, işçi kurtarma, gerçek modelle null karşılaştırma ve tek deney hattı ekranlarının sadeleştirilmesi.
+
+Önceki durum (26 Ekim 2026): Faz 14 kampanya genişletmeleri iki turda bitti (aşağıdaki 'Faz 14' paragrafları, ayrıntı `AUTONOMOUS_REPORT.md`). 2628 pytest testi ve 10 frontend Node testi geçiyor; sonraki oturum önce `ROADMAP.md` (kalan işler ve frontend yenileme listesi) ve `AUTONOMOUS_REPORT.md` 'Açık kalanlar' bölümünü okumalı. Frontend'in ilk gerçek denemesinde sonuç sayfasının kullanıcıya göre olmadığı görüldü ('sayı cümbüşü'); yenileme `ROADMAP.md` B bölümünde. Aşağıdaki satırlar eski fazların tarihçesidir.
 
 Faz 8 bitti. Son kod işi, raporun ve hakemin `statistical_conclusion` cümlesine bağlanmasıdır. Beraberlik kararında makale `superior`, `more stable`, `outperformed` veya `better` diyorsa hakem LLM'e gitmez. Ondan önce deney betiği `experiment-v5` oldu: sorguda adı geçmeyen model betiğe girmez. Doğrulayıcı varyansı `std ** 2` olarak yazar. ROC-AUC varyans farkı 0.005'i geçerse düşük varyanslı tek model kazanan ilan edilir.
 
@@ -105,6 +107,8 @@ cd frontend
 npm install
 npm run dev
 ```
+
+Tek komutla her şey (API, işçi, MLflow, Postgres, Redis ve konsol) Docker'da: `docker compose up -d --build`; konsol `http://127.0.0.1:3000`. Yerel yolla karıştırmayın, 5000 ve 8000 portları çakışır. Erişim koruması için `.env` içine `API_KEY=` ve `DAILY_START_LIMIT=` yazılabilir; anahtar kullanılıyorsa konsolu `NEXT_PUBLIC_API_KEY` ile derleyin. Konsol testleri `cd frontend; npm test`.
 
 Kampanya komut satırı yalnız `E2B_API_KEY` ister, Redis, Postgres ve MLflow gerekmez: `.\.venv\Scripts\python.exe -m app.campaign run --demo grinsztajn-2022 --id demo-grinsztajn-1`. Çıktı `reports/campaigns/demo-grinsztajn-1/` altına yazılır.
 
