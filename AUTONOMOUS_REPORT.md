@@ -180,3 +180,35 @@ Kararsız iddia payı için Wilson %95 aralığı: varsayılan 0,52-0,92 (11/14)
 - **Kullanıcıya dönük ders:** ekranda görünen hata metni asıl sebebi söylemiyordu. Hata mesajlarının sebepli ve sade yazılması `ROADMAP.md` B1-6'da.
 - **Bellek kirliliği:** benchmark ve test kampanyaları kullanıcının "geçmiş" listesine karışıyor; ayrım `ROADMAP.md` A2-6'da.
 - `ROADMAP.md` oluşturuldu: kalan işler (A) ve frontend / ürün yenileme listesi (B), önerilen sıra (C).
+
+## Takip 7: kullanıcıya dönük yenileme, otonom oturum (27 Ekim 2026)
+
+Kullanıcı yokken yol haritası adım adım, her adım ayrı commit ile yapıldı. Hedef kitle "herkes"; arayüz arka plandaki iş mantığını sade ve açıklayıcı anlatmalıydı. Hiçbiri push edilmedi (yerel dal origin'den çok commit önde). Bu bölümde canlı LLM / E2B koşusu yapılmadı; ölçümler yalnız istatistik katmanında.
+
+### Arka uç
+- `app/campaign/vocabulary.py`: 17 model, 14 veri seti, 3 ölçüt, 5 karar, durum ve 13 terimlik sözlük için TR/EN sade adlar.
+- `app/campaign/summary.py::build_summary`: ham kampanya durumundan sade özet (karar cümlesi, güven düzeyi, veri seti başına skorlar, sıralama, yöntem maddeleri, dikkat notları, ilerleme, hata bilgisi). Karar kapılarına dokunmaz, yalnız sunar. 62 test, mutasyon taraması tamamen yakaladı.
+- `app/friendly_errors.py`: 18 hata kodu, her biri TR/EN başlık, sebep ve "ne yapabilirsiniz" önerisi; hata metinleri `[kod] ...` etiketiyle saklanır (planlayıcı reddi, OpenAI kotası, bayat işçi, sandbox hatası vb.). 59 test.
+- Yeni uçlar: `GET /campaign/{id}/summary?lang=`, `GET /glossary?lang=`, `GET /vocabulary?lang=`, `GET /usage`; `GET /research/{id}?lang=` artık `error_info` döner. Kampanyada `origin` (api / console / cli; `g-` ile başlayan kimlikler console sayılır) ve `spec.json` saklanır.
+- `app/guard.py`: isteğe bağlı `API_KEY` (`X-API-Key`, sabit zamanlı karşılaştırma, 401) ve `DAILY_START_LIMIT` (varsayılan 100, 0 = sınırsız, `reports/usage.json`, 429). Başlatan dört uca bağlı. 43 test.
+- `tools/null_calibration.py`: karar makinesinin sahte pozitif oranı (Monte Carlo, 4000 tekrar, 9 veri seti). **Gerçek fark yokken karar verme oranı %2,1 (Wilson %1,7–2,6), herhangi bir iddiada %3,1.** Gerçek fark +0,005 iken %4,5, +0,01 iken %18,7, +0,03 iken %98,5. Yani karar katmanı muhafazakâr: sahte pozitifi düşük tutuyor, ama 9 veri setiyle küçük farkları (≤0,01) yakalama gücü düşük. Bu yalnız istatistik katmanının ölçümüdür; gerçek iki modelin tohum-farklı karşılaştırması (`random_state` parametresi) hâlâ açık.
+- `tools/memory_report.py`: planlayıcının okuduğu geçmiş kampanyaları listeler; `delete ID... --yes` yalnız açık onayla ve yalnız `experiment_memory` koleksiyonunda siler. Hiçbir şey silinmedi.
+
+### Ön yüz
+- Yeni kitaplıklar: `lib/i18n.ts` (TR/EN iletiler), `lib/format.ts`, `lib/campaignList.ts` (test/benchmark koşularını gizleme), `lib/apiErrors.ts`, `lib/download.ts`.
+- Yeniden yazılan konsol: dil anahtarı (TR varsayılan, tarayıcıda hatırlanır), ana sayfada tek cümlelik açıklama + 3 adım + hazır örnek sorular, modlar "Çok veri setli sınama" / "Tek deney", sözlük balonları (`Term`), karar rozeti (renk + simge), güven göstergesi, veri seti başına çubuk grafik, katlanır sayılar, hata kutusu ("ne yapabilirsiniz" + katlanır teknik ayrıntı), onay penceresinde sade plan kartları, kampanya geçmişinde arama ve test koşularını gizleme, kampanya sayfasında Özet / Ayrıntılı rapor / Kanıtlar sekmeleri, "Raporu indir (.md)" düğmesi, API anahtarı ve günlük sınır hatalarının sade anlatımı.
+- Başsız Edge ekran görüntüleriyle ana sayfa, geçmiş ve iki kampanya özeti (`hard-tuned`, `near-default`) gözle doğrulandı.
+- Testler: 71 Node testi (yardımcı kitaplıklar + bileşenlerin sunucuda TR/EN çizimi, `tsx` ile); mutasyon kontrolleri yakaladı. `tsc`, `eslint`, `next build` temiz.
+
+### Dağıtım
+- `frontend/Dockerfile` (çok aşamalı, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_API_KEY` yapı argümanları), `docker-compose.yml`'a `frontend` servisi; gerçek `docker build` başarılı (görüntü doğrulama sonrası silindi). Tek komut: `docker compose up`.
+
+### Sayılar
+- Backend: 2953 pytest geçti, 3 atlandı. Frontend: 71 Node testi. GitHub CI son bilinen durumda yeşil; yeni commitler push edilmedi, dolayısıyla CI'dan geçmedi.
+
+### Açık kalanlar
+- Tek deney hattı ekranları (`ApprovalDialog`, `ResearchStatus`, makale görünümü, sonuç sayfası) hâlâ İngilizce ve teknik.
+- İşçi ölümünden otomatik kurtarma yok (yalnız `failed` raporlanıyor); canlı ilerleme için tahmini süre ve iptal düğmesi yok.
+- Gerçek modelle null karşılaştırma ve 17 regex kapısının yanlış alarm oranı ölçülmedi; meta makale kapısı örneklemi hâlâ küçük.
+- Tarayıcıda uçtan uca (Playwright) test ve 3-5 kişilik kullanıcı gözlemi yapılmadı.
+- Veritabanı test kalıntılarının silinmesi kullanıcının kararında.
