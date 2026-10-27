@@ -1,8 +1,18 @@
+import os
+
 from celery import Celery
 
 from app.config import REDIS_URL
 
-VISIBILITY_TIMEOUT_SECONDS = 7200
+DEFAULT_VISIBILITY_TIMEOUT_SECONDS = 7200
+
+
+def visibility_timeout() -> int:
+    try:
+        value = int(os.getenv("CELERY_VISIBILITY_TIMEOUT", ""))
+    except ValueError:
+        return DEFAULT_VISIBILITY_TIMEOUT_SECONDS
+    return value if value > 0 else DEFAULT_VISIBILITY_TIMEOUT_SECONDS
 
 celery_app = Celery(
     "axiomforge",
@@ -18,6 +28,6 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     broker_connection_retry_on_startup=True,
-    broker_transport_options={"visibility_timeout": VISIBILITY_TIMEOUT_SECONDS},
+    broker_transport_options={"visibility_timeout": visibility_timeout()},
     task_publish_retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 0.2},
 )

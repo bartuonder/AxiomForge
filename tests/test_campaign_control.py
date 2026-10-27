@@ -526,3 +526,42 @@ class TestCampaignTask:
 
         tasks.run_campaign_task("t-3", SPEC)
         assert calls["run"] == ["t-3"]
+
+
+class TestVisibilityTimeoutSetting:
+    @pytest.fixture
+    def read(self, monkeypatch):
+        import app.celery_app as module
+
+        def read(value):
+            if value is None:
+                monkeypatch.delenv("CELERY_VISIBILITY_TIMEOUT", raising=False)
+            else:
+                monkeypatch.setenv("CELERY_VISIBILITY_TIMEOUT", value)
+            return module.visibility_timeout()
+
+        return read
+
+    def test_it_defaults_to_two_hours(self, read):
+        assert read(None) == 7200
+
+    def test_it_can_be_set_in_seconds(self, read):
+        assert read("45") == 45
+        assert read("1") == 1
+
+    def test_the_broker_uses_the_value_that_was_set_when_the_app_started(self, monkeypatch):
+        import importlib
+
+        import app.celery_app as module
+
+        monkeypatch.setenv("CELERY_VISIBILITY_TIMEOUT", "45")
+        try:
+            reloaded = importlib.reload(module)
+            assert reloaded.celery_app.conf.broker_transport_options["visibility_timeout"] == 45
+        finally:
+            monkeypatch.delenv("CELERY_VISIBILITY_TIMEOUT", raising=False)
+            importlib.reload(module)
+
+    @pytest.mark.parametrize("value", ["", "abc", "0", "-5", "1.5"])
+    def test_a_bad_value_falls_back_to_the_default(self, read, value):
+        assert read(value) == 7200
