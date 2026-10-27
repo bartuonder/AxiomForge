@@ -12,6 +12,7 @@ import { LanguageProvider } from "../components/LanguageProvider.tsx";
 import { LiveProgress } from "../components/LiveProgress.tsx";
 import { ResearchStatus } from "../components/ResearchStatus.tsx";
 import { SummaryView } from "../components/SummaryView.tsx";
+import { Term } from "../components/Term.tsx";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { VerdictBadge } from "../components/VerdictBadge.tsx";
 import type { ExperimentSpec, PlainSummary, ResearchSnapshot, SummaryClaim } from "../lib/types.ts";
@@ -514,5 +515,33 @@ describe("ApprovalDialog", () => {
     const html = render(<ApprovalDialog hypotheses={["One"]} specs={specs} busy={false} onDecide={noop} />, "en");
     assert.match(html, /Choose the hypothesis to run/);
     assert.match(html, /Dataset: churn/);
+  });
+});
+
+describe("Term", () => {
+  const glossary = { dataset: { term: "Veri seti", explanation: "Gerçek bir veri tablosu." } };
+  const withGlossary = (node: React.ReactNode) => renderToStaticMarkup(<LanguageProvider serverLanguage="tr" initialGlossary={glossary}>{node}</LanguageProvider>);
+
+  it("keeps the visible words as the name of the button and describes it with the tooltip", () => {
+    const html = withGlossary(<Term id="dataset">Üstün gelen veri seti</Term>);
+    const described = /aria-describedby="([^"]+)"/.exec(html);
+    assert.ok(described);
+    assert.ok(html.includes(`id="${described[1]}"`));
+    assert.ok(!/aria-label/.test(html));
+    assert.match(html, /<button[^>]*>Üstün gelen veri seti<\/button>/);
+    assert.match(html, /role="tooltip"/);
+    assert.match(html, /Gerçek bir veri tablosu\./);
+  });
+
+  it("gives each term its own tooltip id", () => {
+    const html = withGlossary(<><Term id="dataset">bir</Term><Term id="dataset">iki</Term></>);
+    const ids = [...html.matchAll(/aria-describedby="([^"]+)"/g)].map((item) => item[1]);
+    assert.equal(ids.length, 2);
+    assert.notEqual(ids[0], ids[1]);
+  });
+
+  it("shows only the words when the glossary has no entry", () => {
+    assert.equal(withGlossary(<Term id="unknown">kelime</Term>), "kelime");
+    assert.equal(render(<Term id="dataset">kelime</Term>), "kelime");
   });
 });

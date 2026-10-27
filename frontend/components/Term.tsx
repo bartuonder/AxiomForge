@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 
 type TermProps = {
@@ -10,6 +10,7 @@ type TermProps = {
 
 export function Term({ id, children }: TermProps) {
   const { glossary } = useLanguage();
+  const tooltipId = useId();
   const entry = glossary[id];
   if (!entry) {
     return <>{children}</>;
@@ -18,12 +19,13 @@ export function Term({ id, children }: TermProps) {
     <span className="group relative inline-block">
       <button
         type="button"
-        aria-label={`${entry.term}: ${entry.explanation}`}
+        aria-describedby={tooltipId}
         className="cursor-help border-b border-dotted border-faint text-inherit"
       >
         {children}
       </button>
       <span
+        id={tooltipId}
         role="tooltip"
         className="invisible absolute bottom-full left-0 z-20 mb-2 w-64 rounded-xl border border-line bg-card p-3 text-left text-xs leading-5 font-normal text-ink shadow-lg group-focus-within:visible group-hover:visible"
       >
