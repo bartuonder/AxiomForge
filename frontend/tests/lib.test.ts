@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { displayTitle, hiddenTestCount, isUserCampaign, visibleCampaigns } from "../lib/campaignList.ts";
 import { barPercent, chartRange, etaMinutes, formatNumber, formatSigned, minutes, ratio, tonePalette, TONES, winner } from "../lib/format.ts";
+import { nextTabIndex } from "../lib/tabs.ts";
 import { otherTheme, parseTheme, resolveTheme, THEME_SCRIPT, THEME_STORAGE_KEY } from "../lib/theme.ts";
 import { DEFAULT_LANGUAGE, LANGUAGES, MESSAGES, parseLanguage, translate } from "../lib/i18n.ts";
 
@@ -192,5 +193,34 @@ describe("theme", () => {
       },
     });
     assert.equal(document.documentElement.dataset.theme, undefined);
+  });
+});
+
+describe("nextTabIndex", () => {
+  it("moves right and wraps around at the end", () => {
+    assert.equal(nextTabIndex("ArrowRight", 0, 3), 1);
+    assert.equal(nextTabIndex("ArrowRight", 2, 3), 0);
+  });
+
+  it("moves left and wraps around at the start", () => {
+    assert.equal(nextTabIndex("ArrowLeft", 2, 3), 1);
+    assert.equal(nextTabIndex("ArrowLeft", 0, 3), 2);
+  });
+
+  it("jumps to the first and the last tab", () => {
+    assert.equal(nextTabIndex("Home", 2, 3), 0);
+    assert.equal(nextTabIndex("End", 0, 3), 2);
+  });
+
+  it("ignores every other key and an empty list", () => {
+    for (const key of ["Enter", " ", "ArrowUp", "ArrowDown", "Tab", "a"]) {
+      assert.equal(nextTabIndex(key, 1, 3), null);
+    }
+    assert.equal(nextTabIndex("ArrowRight", 0, 0), null);
+  });
+
+  it("stays on a single tab", () => {
+    assert.equal(nextTabIndex("ArrowRight", 0, 1), 0);
+    assert.equal(nextTabIndex("ArrowLeft", 0, 1), 0);
   });
 });

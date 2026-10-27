@@ -46,7 +46,15 @@ export function CampaignControls({ summary, onDone }: CampaignControlsProps) {
         </button>
       ) : null}
       {actions.cancel && !live.cancel_requested && asking ? (
-        <div className="space-y-2 rounded-2xl border border-danger-line bg-danger-tint p-4" role="alertdialog">
+        <div
+          className="space-y-2 rounded-2xl border border-danger-line bg-danger-tint p-4"
+          role="alertdialog"
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !busy) {
+              setAsking(false);
+            }
+          }}
+        >
           <p className="text-sm text-danger-ink">{t("campaign.cancelAsk")}</p>
           <div className="flex gap-2">
             <button type="button" disabled={busy} onClick={() => void send(cancelCampaign)} className={`${BUTTON} border-danger bg-danger text-on-solid`}>
