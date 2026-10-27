@@ -2,7 +2,7 @@
 
 Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
 
-Durum anı (27 Ekim 2026, ikinci tur): kullanıcı yokken yol haritası iki turda otonom ilerletildi, bkz. 3.17 ve 3.18, `AUTONOMOUS_REPORT.md` 'Takip 7' ve 'Takip 8'; 3100 pytest testi (3 atlandı), 113 frontend Node testi ve 12 Playwright testi geçiyor. Takip 7'ye kadarki commitler push edildi (fd52910), Takip 8 commitleri yerelde (push yalnız kullanıcı isteyince). Bir önceki durum anı (26 Ekim 2026): Faz 14 (kampanya genişletmeleri) iki turda yapıldı, bkz. 3.15 ve 3.16; yerelde `origin/main`'in önünde commit'ler var (push yalnız kullanıcı isteyince). 2628 pytest testi ve 10 frontend Node testi geçiyor. Faz 12 (replikasyon kampanyası) 3.12'de, Faz 13 3.13'te.
+Durum anı (27 Ekim 2026, üçüncü tur): kullanıcı yokken yol haritası üç turda otonom ilerletildi, bkz. 3.17, 3.18 ve 3.19, `AUTONOMOUS_REPORT.md` 'Takip 7-9'; 3194 pytest testi (3 atlandı), 123 frontend Node testi ve 32 Playwright testi geçiyor. `origin/main` f6c9e09'a kadar güncel (CI yeşil), üçüncü tur commitleri yerelde (push yalnız kullanıcı isteyince). Bir önceki durum anı (26 Ekim 2026): Faz 14 (kampanya genişletmeleri) iki turda yapıldı, bkz. 3.15 ve 3.16; yerelde `origin/main`'in önünde commit'ler var (push yalnız kullanıcı isteyince). 2628 pytest testi ve 10 frontend Node testi geçiyor. Faz 12 (replikasyon kampanyası) 3.12'de, Faz 13 3.13'te.
 
 ## 1. Proje
 
@@ -298,6 +298,17 @@ Ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 8'.
 - **Ölçümler** (`AUTONOMOUS_REPORT.md` 'Takip 8'): ayarlı kıyasta kapı 10/10; ayarsız kıyasta ilk taslakların 6/10'u işaretlendi (2 gerçek abartı, 3-4 zararsız 'not supported'); boş tohum karşılaştırmasının sonucu raporda.
 - **Dersler.** (1) Playwright yerelde kurulu Edge ile `PW_CHANNEL=msedge` çalışır, tarayıcı indirmek gerekmez. (2) Başlatılmış `next start` sunucusu yeniden derlemeden sonra bozulur. (3) Bir Wilcoxon testi 9 veri setinde en küçük p = 0,0039'dur; katı Holm düzeltmesi (hepsi bir ailede) 13'ten fazla etkide hiçbir zaman anlamlı olamaz. Bu yüzden büyük kampanyalarda `significant_all` neredeyse her zaman yanlıştır; yorumlarken ailevi `significant` esas alınmalıdır. (4) Git Bash'te `docker run -w /work` yol dönüşümüne uğrar: `MSYS_NO_PATHCONV=1` kullanın.
 
+### 3.19 Takip 9: kapı politikası, erişilebilirlik, araştırma yeniden deneme, canlı işçi ölümü (27 Ekim 2026)
+
+Ayrıntı `AUTONOMOUS_REPORT.md` 'Takip 9'.
+
+- **Kapı.** `consistency_meta._certainty_issues`: `supports` / `supported` (yalnız bunlar, `_NEGATABLE`) önünde `not`, `cannot`, `n't` ya da `never` (en çok bir ara sözcük, `_NEGATED_BEFORE`, metnin başından eşleşmeye kadar) varsa işaretlenmez; `confirm / refute / prove / demonstrate` olumsuzda bile yasaktır. Ölçüm: ilk taslak temizliği 4/10 -> 7/10.
+- **Erişilebilirlik.** `Term` düğmesi `aria-describedby` (görünen metin adı korur), `Tabs` roving tabindex + ok tuşları (`lib/tabs.ts::nextTabIndex`), global `:focus-visible` halkası, `CampaignControls` iptal sorusu Escape ile kapanır. `e2e/a11y.spec.ts` (axe, WCAG A/AA, iki tema) ve `e2e/keyboard.spec.ts`. Kural: yeni bir bileşen eklenince `PAGES` listesine ya da yeni bir axe testine eklenmelidir.
+- **Araştırma yeniden deneme.** `workflow.research_retry_plan` (saf, testli) + `plan_research_retry` + `_can_retry`; `GET /research/{id}` `can_retry` döner; `POST /research/{id}/retry` hatayı siler (`errors.clear_error`), başlatma hakkı harcar ve ya `resume_research_task` (checkpoint'ten devam) ya da durmuş kampanyayı `retry_campaign` ile yeniden kuyruğa alıp `run_campaign_task(campaign_id, spec, thread_id)` verir. Kampanya durumu artık `thread_id` saklar (`queue_once(..., thread_id=)`, `execute_campaign` ve `retry_campaign` korur) ve `POST /campaign/{id}/retry` bunu görevlere geçirir. Konsol: `RetryResearch` bileşeni (ana sayfa ve `/result/{id}`).
+- **Redelivery gerçeği.** `CELERY_VISIBILITY_TIMEOUT` ayarlanabilir (`celery_app.visibility_timeout()`). Canlı sonuç: Windows `--pool=threads` hiç yeniden teslim etmez (Celery olay döngüsünü Windows'ta kullanmaz); Linux/Docker'da ~bekleme + en çok ~100 sn sonra aynı görev kimliği yeniden teslim edilir; bekleme en uzun kampanyadan kısaysa görev çalışırken tekrar teslim edilir (çift çalışma, ilerleme sıfırlanır).
+- **Test yalıtımı.** `tests/conftest.py::isolated_usage_counter` her teste geçici sayaç dosyası verir ve `API_KEY` / `DAILY_START_LIMIT` ortam değişkenlerini siler. Eskiden testler gerçek `reports/usage.json` sayacını dolduruyordu (sınıra ulaşınca tam koşuda 10 test 429 aldı).
+- **Dersler.** (1) `.next` önbelleği bayatlayabilir: yeni bir CSS kuralı derlemeye girmediyse `.next`'i silip iki kez derleyin. (2) `docker run -w` Git Bash'te yol dönüşümüne uğrar (`MSYS_NO_PATHCONV=1`). (3) Bash heredoc'ta `\b` geri silme karakterine dönüşür; regex içeren düzenlemeleri Write ile dosya yazarak ya da `chr(92)` ile yapın ve `grep -c $'\x08'` ile kontrol edin. (4) Mutasyon betiklerinde alt süreç çıktısını `encoding="utf-8", errors="replace"` ile okuyun. (5) Zamanlayıcı bildirimleri bekleme yerine geçmez; gerçek bekleme için `python -c "import time; time.sleep(N)"` kullanın.
+
 ### 3.12 Faz 12: replikasyon kampanyası (`app/campaign/`)
 
 Amaç: yayımlanmış bir akademik ML karşılaştırma iddiasını çok veri setinde yeniden sınamak ve her sayıyı bir kanıt kaydına bağlamak. Kullanıcı stratejik olarak "akademik ML karşılaştırma ve replikasyon" yönünü seçti ve ilk demo olarak Grinsztajn ve ark. 2022'yi (arXiv 2207.08815: ağaç tabanlı modeller tablo verisinde derin öğrenmeden iyi) istedi. Motor LLM çağırmaz; betik, istatistik, rapor ve denetim Python'dır.
@@ -429,7 +440,7 @@ Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan par�
 7. Frontend: Docker imajı, form ipucu, otomatik arayüz testi.
 8. Hakem isteminin sadeleştirilmesi, MLflow artifact.
 
-27 Ekim notu: yukarıdaki sıranın önüne `ROADMAP.md` D bölümündeki kalanlar geçer (kullanıcı gözlemi, canlı işçi ölümü denemesi, kapı yazım politikası kararı).
+27 Ekim notu: yukarıdaki sıranın önüne `ROADMAP.md` D bölümündeki kalanlar geçer (kullanıcı gözlemi, ekran okuyucuyla dinleme, 17 regex kapısının tek tek ölçümü, iki hattın birleştirilmesi).
 
 Kullanıcı farklı bir öncelik verebilir. Mesajı gelmeden iş başlatma.
 
