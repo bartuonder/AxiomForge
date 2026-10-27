@@ -43,7 +43,7 @@ def campaign_summary(state: dict[str, Any]) -> dict[str, Any]:
         "title": state.get("title", ""),
         "status": state["status"],
         "updated": state.get("updated", ""),
-        "origin": state.get("origin", "unknown"),
+        "origin": state.get("origin") or ("console" if str(state["id"]).startswith("g-") else "unknown"),
         "statement": (state.get("verdicts") or [{}])[0].get("statement", ""),
         "datasets": len(statuses),
         "finished": statuses.count("finished"),

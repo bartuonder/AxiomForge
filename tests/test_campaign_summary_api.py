@@ -204,3 +204,15 @@ class TestVocabularyEndpoint:
 
     def test_an_unknown_language_is_a_422(self, client):
         assert client.get("/vocabulary", params={"lang": "de"}).status_code == 422
+
+
+class TestOriginInference:
+    def test_a_console_campaign_without_a_stored_origin_is_recognised_by_its_id(self):
+        assert service.campaign_summary({"id": "g-abc", "status": "completed"})["origin"] == "console"
+
+    def test_other_old_campaigns_stay_unknown(self):
+        assert service.campaign_summary({"id": "benchmark-1", "status": "completed"})["origin"] == "unknown"
+        assert service.campaign_summary({"id": "0123abcd", "status": "completed"})["origin"] == "unknown"
+
+    def test_a_stored_origin_wins_over_the_id(self):
+        assert service.campaign_summary({"id": "g-abc", "status": "completed", "origin": "cli"})["origin"] == "cli"
