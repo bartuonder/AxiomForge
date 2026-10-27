@@ -1,3 +1,4 @@
+from app.campaign import store as campaign_store
 from app.campaign.service import execute_campaign
 from app.campaign.tracking import log_campaign
 from app.celery_app import celery_app
@@ -16,12 +17,15 @@ def resume_research_task(thread_id: str) -> None:
 
 
 RESUME_ATTEMPTS = 40
+DONE_STATUSES = {"completed", "needs_review"}
 RESUME_DELAY_SECONDS = 5
 
 
-@celery_app.task(name="axiomforge.run_campaign", ignore_result=True)
+@celery_app.task(name="axiomforge.run_campaign", ignore_result=True, acks_late=True, reject_on_worker_lost=True)
 def run_campaign_task(campaign_id: str, spec: dict, thread_id: str | None = None) -> None:
-    execute_campaign(spec, campaign_id, tracker=log_campaign)
+    existing = campaign_store.load_state(campaign_id)
+    if not (existing and existing.get("status") in DONE_STATUSES):
+        execute_campaign(spec, campaign_id, tracker=log_campaign)
     if thread_id:
         resume_campaign_task.delay(thread_id)
 

@@ -52,6 +52,8 @@ def campaign_collect_node(state: AgentState) -> dict:
         raise RuntimeError(f"campaign {campaign_id} was not found")
     status = campaign["status"]
     logger.info("campaign_collect_node campaign_id=%s status=%s", campaign_id, status)
+    if status == "cancelled":
+        raise RuntimeError("campaign cancelled: the campaign was stopped before it finished")
     if status not in FINAL_STATUSES:
         raise RuntimeError(f"campaign {campaign_id} has not finished: {status}")
     if status == "failed":

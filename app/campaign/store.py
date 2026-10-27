@@ -14,6 +14,7 @@ _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 _LOCK = threading.Lock()
 REPLACE_ATTEMPTS = 20
 REPLACE_PAUSE_SECONDS = 0.02
+CANCEL_FLAG = "cancel.flag"
 
 
 class CampaignStoreError(ValueError):
@@ -71,6 +72,18 @@ def load_state(campaign_id: str) -> dict[str, Any] | None:
                 raise
             time.sleep(REPLACE_PAUSE_SECONDS)
     return None
+
+
+def request_cancel(campaign_id: str) -> None:
+    _write(campaign_dir(campaign_id) / CANCEL_FLAG, now())
+
+
+def cancel_requested(campaign_id: str) -> bool:
+    return (campaign_dir(campaign_id) / CANCEL_FLAG).exists()
+
+
+def clear_cancel(campaign_id: str) -> None:
+    (campaign_dir(campaign_id) / CANCEL_FLAG).unlink(missing_ok=True)
 
 
 def save_artifacts(

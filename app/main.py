@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from app.agents.experiment import QueryNamesTooFewModels
 from app.campaign import store as campaign_store
 from app.campaign.demos import demo_spec
-from app.campaign.service import campaign_summary, queue_campaign, reject_campaign
+from app.campaign.service import CampaignControlError, campaign_summary, cancel_campaign, effective_state, queue_campaign, reject_campaign, retry_campaign
 from app.campaign.summary import build_summary
 from app.campaign.vocabulary import DATASET_NAMES, GLOSSARY, LANGUAGES, METRIC_LABELS, MODEL_NAMES
 from app.friendly_errors import explain_error
@@ -206,7 +206,7 @@ def usage_today():
 @app.get("/campaigns")
 def campaigns_list():
     ids = campaign_store.list_campaigns()
-    states = [state for state in (campaign_store.load_state(campaign_id) for campaign_id in ids) if state]
+    states = [effective_state(state) for state in (campaign_store.load_state(campaign_id) for campaign_id in ids) if state]
     items = sorted((campaign_summary(state) for state in states), key=lambda item: item["updated"], reverse=True)
     return {"campaigns": ids, "items": items}
 
@@ -218,12 +218,36 @@ def _campaign_state(campaign_id: str) -> dict:
         raise HTTPException(status_code=400, detail="invalid campaign id") from exc
     if state is None:
         raise HTTPException(status_code=404, detail="campaign not found")
-    return state
+    return effective_state(state)
 
 
 @app.get("/campaign/{campaign_id}")
 def campaign_status(campaign_id: str):
     return _campaign_state(campaign_id)
+
+
+@app.post("/campaign/{campaign_id}/cancel", dependencies=[Depends(require_key)])
+def campaign_cancel(campaign_id: str):
+    _campaign_state(campaign_id)
+    try:
+        return cancel_campaign(campaign_id)
+    except CampaignControlError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@app.post("/campaign/{campaign_id}/retry", dependencies=[Depends(require_key)])
+def campaign_retry(campaign_id: str):
+    _campaign_state(campaign_id)
+    try:
+        spec, _ = retry_campaign(campaign_id, before=spend_start)
+    except CampaignControlError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    try:
+        _enqueue(run_campaign_task, campaign_id, spec)
+    except HTTPException as exc:
+        reject_campaign(campaign_id, str(exc.detail))
+        raise
+    return {"campaign_id": campaign_id, "status": "queued"}
 
 
 @app.get("/glossary")

@@ -2,6 +2,8 @@ from celery import Celery
 
 from app.config import REDIS_URL
 
+VISIBILITY_TIMEOUT_SECONDS = 7200
+
 celery_app = Celery(
     "axiomforge",
     broker=REDIS_URL,
@@ -16,5 +18,6 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     broker_connection_retry_on_startup=True,
+    broker_transport_options={"visibility_timeout": VISIBILITY_TIMEOUT_SECONDS},
     task_publish_retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 0.2},
 )

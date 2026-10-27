@@ -36,12 +36,15 @@ def run_dataset(
     execute: Callable[[str, str], str] | None = None,
     seeds: tuple[int, ...] = SPLIT_SEEDS,
     attempts: int = MAX_ATTEMPTS,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     models, params, tuning = spec["models"], effective_params(spec), spec.get("tuning") or {}
     script = build_script(dataset, models, spec.get("params") or {}, seeds, tuning, spec.get("revisions") or {})
     execute = execute or (run_tuned_classification if tuning else run_classification)
     last_error = ""
     for attempt in range(1, attempts + 1):
+        if should_stop and should_stop():
+            return {"status": "cancelled", "dataset": dataset, "attempts": attempt - 1}
         started = time.time()
         try:
             output = execute(script, CSV_SCHEMA)
@@ -80,13 +83,19 @@ def run_campaign(
     on_update: Callable[[str, dict[str, Any]], None] | None = None,
     seeds: tuple[int, ...] = SPLIT_SEEDS,
     attempts: int = MAX_ATTEMPTS,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
     datasets = list(spec["datasets"])
 
     def work(dataset: str) -> dict[str, Any]:
+        if should_stop and should_stop():
+            result = {"status": "cancelled", "dataset": dataset, "attempts": 0}
+            if on_update:
+                on_update(dataset, result)
+            return result
         if on_update:
             on_update(dataset, {"status": "running"})
-        result = run_dataset(dataset, spec, execute, seeds, attempts)
+        result = run_dataset(dataset, spec, execute, seeds, attempts, should_stop)
         if on_update:
             on_update(dataset, result)
         return result
@@ -95,4 +104,6 @@ def run_campaign(
         results = list(pool.map(work, datasets))
     finished = {item["dataset"]: item for item in results if item["status"] == "finished"}
     failed = {item["dataset"]: {"error": item["error"], "attempts": item["attempts"]} for item in results if item["status"] == "failed"}
-    return {"order": datasets, "datasets": finished, "failed": failed}
+    outcome = {"order": datasets, "datasets": finished, "failed": failed}
+    cancelled = [item["dataset"] for item in results if item["status"] == "cancelled"]
+    return {**outcome, "cancelled": cancelled} if cancelled else outcome

@@ -119,7 +119,7 @@ class TestExplain:
             assert info["title"].strip() and info["message"].strip() and info["hint"].strip()
 
     def test_the_codes_are_the_ones_the_classifier_can_return(self):
-        assert {"planner_refused", "too_few_models", "openai_quota", "openai_busy", "openai_key", "openai_network", "sandbox_error", "openai_missing_key", "e2b_missing_key", "arxiv_not_found", "arxiv_unavailable", "no_sources", "planner_invalid", "ai_format", "stale_worker", "campaign_failed", "report_missing", "unknown"} == set(CODES)
+        assert {"planner_refused", "too_few_models", "openai_quota", "openai_busy", "openai_key", "openai_network", "sandbox_error", "openai_missing_key", "e2b_missing_key", "arxiv_not_found", "arxiv_unavailable", "no_sources", "planner_invalid", "ai_format", "stale_worker", "campaign_cancelled", "campaign_failed", "report_missing", "unknown"} == set(CODES)
 
     def test_describe_is_the_tagged_text_of_an_exception(self):
         assert describe(CampaignUnsupported("r")) == "[planner_refused] r"

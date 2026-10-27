@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import threading
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 from app.campaign import store
@@ -15,6 +16,19 @@ from app.seeds import SPLIT_SEEDS
 logger = logging.getLogger("axiomforge")
 
 PROGRESS_FIELDS = ("status", "attempts", "seconds", "error")
+STALE_SECONDS = 1200
+ACTIVE = {"queued", "running"}
+RETRYABLE = {"failed", "cancelled"}
+
+
+class CampaignControlError(RuntimeError):
+    def __init__(self, message: str, status_code: int):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _progress(result: dict[str, Any]) -> dict[str, Any]:
@@ -50,6 +64,73 @@ def campaign_summary(state: dict[str, Any]) -> dict[str, Any]:
         "failed": statuses.count("failed"),
         "verdicts": [{"id": item["id"], "verdict": item["verdict"]} for item in state.get("verdicts", [])],
     }
+
+
+def effective_state(state: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+    if state.get("status") not in ACTIVE:
+        return state
+    try:
+        updated = datetime.fromisoformat(str(state.get("updated")))
+    except ValueError:
+        return _with_cancel_request(state)
+    if updated.tzinfo is None:
+        updated = updated.replace(tzinfo=timezone.utc)
+    idle = ((now or _now()) - updated).total_seconds()
+    if idle <= STALE_SECONDS:
+        return _with_cancel_request(state)
+    return {**state, "status": "failed", "stale": True, "error": f"the campaign has reported no progress for {int(idle // 60)} minutes; its worker may have stopped"}
+
+
+def _with_cancel_request(state: dict[str, Any]) -> dict[str, Any]:
+    if state.get("status") == "running" and store.cancel_requested(str(state["id"])):
+        return {**state, "cancel_requested": True}
+    return state
+
+
+def _existing(campaign_id: str) -> dict[str, Any]:
+    state = store.load_state(campaign_id)
+    if state is None:
+        raise CampaignControlError("campaign not found", 404)
+    return state
+
+
+def cancel_campaign(campaign_id: str) -> dict[str, Any]:
+    state = _existing(campaign_id)
+    shown = effective_state(state)
+    if shown["status"] not in ACTIVE:
+        raise CampaignControlError(f"the campaign is already {shown['status']}", 409)
+    store.request_cancel(campaign_id)
+    if state["status"] == "queued":
+        cancelled = {
+            **state,
+            "status": "cancelled",
+            "finished": store.now(),
+            "datasets": {key: {"status": "cancelled"} for key in state.get("datasets", {})},
+        }
+        store.save_state(campaign_id, cancelled)
+        return cancelled
+    return {**state, "cancel_requested": True}
+
+
+def retry_campaign(campaign_id: str, before: Callable[[], None] | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+    state = _existing(campaign_id)
+    shown = effective_state(state)
+    if shown["status"] not in RETRYABLE:
+        raise CampaignControlError(f"the campaign is {shown['status']} and cannot be started again", 409)
+    spec = store.load_spec(campaign_id)
+    if spec is None:
+        raise CampaignControlError("the specification of this campaign was not saved", 409)
+    if before is not None:
+        before()
+    restarted = {
+        key: value
+        for key, value in {**state, "status": "queued", "queued": store.now(), "recoveries": int(state.get("recoveries") or 0) + 1}.items()
+        if key not in {"error", "finished", "issues", "verdicts", "finished_datasets", "failed_datasets", "mlflow_run_id"}
+    }
+    restarted["datasets"] = {key: {"status": "queued"} for key in state.get("datasets", {})}
+    store.clear_cancel(campaign_id)
+    store.save_state(campaign_id, restarted)
+    return spec, restarted
 
 
 def queue_campaign(raw_spec: Any, origin: str = "api") -> tuple[str, dict[str, Any]]:
@@ -104,8 +185,13 @@ def execute_campaign(
     queued = store.load_state(campaign_id)
     if queued is not None and queued.get("spec_sha256") not in (None, spec_digest(spec)):
         raise CampaignSpecError("the specification changed after it was queued")
+    if queued is not None and queued.get("status") == "cancelled":
+        return queued
     lock = threading.Lock()
+    store.clear_cancel(campaign_id)
     state = _initial_state(campaign_id, spec, "running", (queued or {}).get("origin") or "cli") | {"started": store.now()}
+    if (queued or {}).get("recoveries"):
+        state["recoveries"] = queued["recoveries"]
     store.save_state(campaign_id, state)
     store.save_spec(campaign_id, spec)
 
@@ -115,7 +201,12 @@ def execute_campaign(
             store.save_state(campaign_id, state)
 
     try:
-        outcome = run_campaign(spec, execute, workers, on_update, seeds, attempts)
+        outcome = run_campaign(spec, execute, workers, on_update, seeds, attempts, lambda: store.cancel_requested(campaign_id))
+        if outcome.get("cancelled"):
+            with lock:
+                state.update(status="cancelled", finished=store.now())
+                store.save_state(campaign_id, state)
+            return state
         analysis = analyze_campaign(spec, outcome)
         markdown, ledger = render_report(spec, outcome, analysis)
         issues = report_issues(markdown, ledger)

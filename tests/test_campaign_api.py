@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -118,6 +120,7 @@ def test_stored_campaigns_are_listed_newest_first_with_a_summary(client, monkeyp
         return f"2026-10-24T{10 + len(calls):02d}:00:00+00:00"
 
     monkeypatch.setattr(store, "now", clock)
+    monkeypatch.setattr(service, "_now", lambda: datetime(2026, 10, 24, 12, 30, tzinfo=timezone.utc))
     first, _ = service.queue_campaign(demo_spec("grinsztajn-2022"))
     second, _ = service.queue_campaign(demo_spec("grinsztajn-2022"))
     body = client.get("/campaigns").json()

@@ -20,6 +20,7 @@ _MESSAGE_RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"campaign planner returned no valid campaign|campaign planner did not return candidates"), "planner_invalid"),
     (re.compile(r"returned invalid JSON|returned an unusable answer|returned an empty|did not return an object"), "ai_format"),
     (re.compile(r"reported no progress for .* worker may have stopped"), "stale_worker"),
+    (re.compile(r"^campaign cancelled"), "campaign_cancelled"),
     (re.compile(r"^campaign failed"), "campaign_failed"),
     (re.compile(r"campaign report is missing"), "report_missing"),
 ]
@@ -105,6 +106,11 @@ TEXTS: dict[str, dict[str, tuple[str, str, str]]] = {
             "Kampanya tamamlanamadı",
             "Deneyler bir hata nedeniyle sonuç üretemeden durdu.",
             "Yeniden deneyin. Sorun sürerse teknik ayrıntıyı geliştiriciye iletin.",
+        ),
+        "campaign_cancelled": (
+            "Kampanya iptal edildi",
+            "Kampanya siz durdurduğunuz için sonuç üretmeden sona erdi.",
+            "İsterseniz kampanyayı aynı ayarlarla yeniden başlatabilirsiniz.",
         ),
         "report_missing": (
             "Rapor bulunamadı",
@@ -197,6 +203,11 @@ TEXTS: dict[str, dict[str, tuple[str, str, str]]] = {
             "The campaign could not be completed",
             "The experiments stopped with an error before giving a result.",
             "Try again. If it keeps happening, pass the technical detail to the developer.",
+        ),
+        "campaign_cancelled": (
+            "The campaign was cancelled",
+            "The campaign ended without a result because you stopped it.",
+            "You can start it again with the same settings if you like.",
         ),
         "report_missing": (
             "The report was not found",
