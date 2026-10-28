@@ -18,7 +18,7 @@ def make_runner(abilities, tuned_abilities=None, noise=0.002, seed=0, fail=(), c
     extra = {dataset: {model: generator.normal(0, noise) for model in abilities} for dataset in POOL}
     default_extra = {dataset: {model: generator.normal(0, noise) for model in abilities} for dataset in POOL}
 
-    def runner(spec, execute, workers):
+    def runner(spec, execute, workers, should_stop=None):
         tuned = bool(spec.get("tuning"))
         if calls is not None:
             calls.append({"datasets": list(spec["datasets"]), "tuned": tuned, "models": list(spec["models"])})

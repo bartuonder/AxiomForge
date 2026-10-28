@@ -196,6 +196,17 @@ def _stage_file(session_id: str, stage: str) -> Path:
     return session_dir(session_id) / STAGE_DIR / f"{stage}.json"
 
 
+def has_stage(session_id: str, stage: str) -> bool:
+    return _stage_file(session_id, stage).exists()
+
+
+def close(session_id: str, status: str, reason: str) -> dict[str, Any]:
+    state = load(session_id)
+    if state is None:
+        raise ProtocolError(f"session {session_id} was not found")
+    return _finish(state, status, reason)
+
+
 def _save_stage(config: SessionConfig, stage: str, results: dict[str, Any], failed: dict[str, Any]) -> None:
     payload = {
         "stage": stage,
