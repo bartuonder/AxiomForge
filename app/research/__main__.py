@@ -27,6 +27,8 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--consistency", type=float, default=generate.DEFAULT_CONSISTENCY, help="share of exploration datasets that must agree")
     run.add_argument("--tuning-trigger", type=float, default=generate.TUNING_TRIGGER, help="exploration effect that asks for the tuned stage")
     run.add_argument("--alpha", type=float, default=ALPHA)
+    run.add_argument("--generator", choices=session.GENERATORS, default="rules", help="who proposes the hypotheses from the exploration results")
+    run.add_argument("--llm-model", default="gpt-4o", help="model used by the llm generator")
     run.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     commands.add_parser("list", help="list the sessions")
     show = commands.add_parser("show", help="print the report of a session")
@@ -91,6 +93,8 @@ def main(
             consistency=arguments.consistency,
             tuning_trigger=arguments.tuning_trigger,
             alpha=arguments.alpha,
+            generator=arguments.generator,
+            llm_model=arguments.llm_model,
             **pool,
         )
         state = session.run_session(config, execute, arguments.workers, runner)

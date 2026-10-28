@@ -12,12 +12,13 @@ from app.campaign.runner import DEFAULT_WORKERS, run_campaign
 from app.campaign.spec import validate_campaign
 from app.campaign.tuning import TuningError, validate_tuning
 from app.datasets import DATASETS, research_pool
-from app.research import generate, protocol
+from app.research import generate, llm_generator, protocol
 from app.research.protocol import ALPHA, MIN_CONFIRM, MIN_EXPLORE, ExplorationView, ProtocolError, Registry
 
 ROOT = Path(__file__).resolve().parents[2] / "reports" / "research"
 _ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 FILENAME = "session.json"
+GENERATORS = ("rules", "llm")
 REPORT = "report.md"
 
 
@@ -34,10 +35,14 @@ class SessionConfig:
     consistency: float = generate.DEFAULT_CONSISTENCY
     tuning_trigger: float = generate.TUNING_TRIGGER
     alpha: float = ALPHA
+    generator: str = "rules"
+    llm_model: str = "gpt-4o"
 
     def __post_init__(self) -> None:
         if not _ID.fullmatch(self.id):
             raise ProtocolError(f"the session id {self.id!r} is not valid")
+        if self.generator not in GENERATORS:
+            raise ProtocolError(f"the generator must be one of: {', '.join(GENERATORS)}")
         if len(self.models) < 2 or len(set(self.models)) != len(self.models):
             raise ProtocolError("a session needs at least two different models")
         unknown = [model for model in self.models if model not in ESTIMATORS]
@@ -147,6 +152,7 @@ def run_session(
     execute: Callable[[str, str], str] | None = None,
     workers: int = DEFAULT_WORKERS,
     runner: Callable[..., dict[str, Any]] = run_campaign,
+    generator: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     if (session_dir(config.id) / FILENAME).exists():
         raise ProtocolError(f"the session {config.id} exists already")
@@ -162,12 +168,14 @@ def run_session(
         "confirm": confirm,
         "budget": registry.budget,
         "alpha": config.alpha,
+        "generator": config.generator if generator is None else "custom",
         "stages": [],
         "hypotheses": [],
         "skipped": [],
     }
     save(state)
     known = known_claims()
+    propose = generator or (generate.propose if config.generator == "rules" else llm_generator.make_generator(llm_generator.make_complete(config.llm_model)))
     sealed: dict[str, dict[str, Any]] = {}
     stage = "default"
     try:
@@ -187,7 +195,7 @@ def run_session(
                 state["budget"] = registry.budget
             sealed[stage] = {key: results[key] for key in confirmed}
             view = ExplorationView(results, explored)
-            proposals, skipped = generate.propose(view, registry, stage, config.per_stage, config.effect, config.consistency, known)
+            proposals, skipped = propose(view, registry, stage, config.per_stage, config.effect, config.consistency, known)
             for item in proposals:
                 registry.register(item)
             state["hypotheses"] = registry.records
@@ -235,6 +243,8 @@ def render_report(state: dict[str, Any]) -> str:
         "",
         "## Protocol",
         "",
+        f"Hypothesis generator: {state.get('generator', 'rules')}" + (f" ({state['config'].get('llm_model', '')})" if state.get("generator") == "llm" else "") + ".",
+        "",
         f"The pool of {len(state['explore']) + len(state['confirm'])} datasets was split once and for good into {len(state['explore'])} exploration datasets and {len(state['confirm'])} confirmation datasets "
         "(seeded, deterministic). The hypothesis generator saw only the exploration datasets; the confirmation results stayed sealed until every hypothesis was registered and saved. "
         "Each registered hypothesis was tested exactly once on the confirmation datasets (two-sided Wilcoxon over datasets, one primary metric, ROC-AUC). "
@@ -278,7 +288,7 @@ def render_report(state: dict[str, Any]) -> str:
         "",
         "- Hypotheses are limited to model comparisons and tuning effects on binary classification of tabular data.",
         "- The datasets come from one benchmark; the exploration set is small, so the generator sees a noisy picture.",
-        "- The hypothesis generator is rule based. The protocol would stay valid with any generator that only reads the exploration datasets.",
+        "- The protocol would stay valid with any hypothesis generator that only reads the exploration datasets; this session used the generator named above.",
         "- This is exploratory analysis with statistical safeguards, not a new scientific discovery.",
         "",
     ]

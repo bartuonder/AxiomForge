@@ -230,6 +230,68 @@ class TestRecordedSettings:
         assert {item["stage"] for item in state["hypotheses"]} == {"default"}
 
 
+class TestGenerator:
+    def test_the_default_generator_is_the_rule_based_one(self):
+        assert session.SessionConfig(id="s", models=MODELS).generator == "rules"
+        assert session.run_session(config(), runner=make_runner(planted()))["generator"] == "rules"
+
+    def test_the_generators_and_the_default_model_are_fixed(self):
+        assert session.GENERATORS == ("rules", "llm")
+        assert session.SessionConfig(id="s", models=MODELS).llm_model == "gpt-4o"
+
+    def test_an_unknown_generator_is_refused(self):
+        with pytest.raises(ProtocolError, match="generator"):
+            session.SessionConfig(id="s", models=MODELS, generator="oracle")
+
+    def test_a_custom_generator_proposes_instead_of_the_rules(self):
+        def custom(view, registry, stage, count, effect, consistency, known):
+            item = protocol.Hypothesis("H1", ("MLP",), ("DecisionTree",), stage, "roc_auc", "custom claim", {"median_difference": 0.0, "wins": 0, "datasets": 6, "scope": "exploration"})
+            return [item], [{"statement": "x", "reason": "because"}]
+
+        state = session.run_session(config(), runner=make_runner(planted()), generator=custom)
+        assert [item["statement"] for item in state["hypotheses"]] == ["custom claim"]
+        assert state["generator"] == "custom" and state["skipped"] == [{"stage": "default", "statement": "x", "reason": "because"}]
+
+    def test_a_custom_generator_receives_the_view_the_registry_and_the_settings(self):
+        seen = {}
+
+        def custom(view, registry, stage, count, effect, consistency, known):
+            seen.update(datasets=set(view.per_dataset), stage=stage, count=count, effect=effect, consistency=consistency, remaining=registry.remaining)
+            return [], []
+
+        state = session.run_session(config(per_stage=3, effect=0.02, consistency=0.9), runner=make_runner(planted()), generator=custom)
+        assert seen == {"datasets": set(state["explore"]), "stage": "default", "count": 3, "effect": 0.02, "consistency": 0.9, "remaining": 25}
+
+    def test_the_protocol_checks_a_generator_that_proposes_nonsense_at_confirmation_time(self):
+        def reckless(view, registry, stage, count, effect, consistency, known):
+            return [protocol.Hypothesis("H1", ("MLP",), ("RandomForest",), stage, "roc_auc", "reckless", {"median_difference": 0.5, "wins": 6, "datasets": 6, "scope": "exploration"})], []
+
+        state = session.run_session(config(), runner=make_runner(planted()), generator=reckless)
+        assert state["confirmations"][0]["status"] == "reversed"
+
+    def test_the_llm_generator_is_built_from_the_configured_model(self, monkeypatch):
+        built = []
+        monkeypatch.setattr(session.llm_generator, "make_complete", lambda model: built.append(model) or (lambda prompt: '{"hypotheses": []}'))
+        state = session.run_session(config(generator="llm", llm_model="gpt-test"), runner=make_runner(planted()))
+        assert built == ["gpt-test"] and state["generator"] == "llm" and state["hypotheses"] == []
+
+    def test_a_language_model_that_proposes_a_real_pair_gets_it_registered_and_confirmed(self, monkeypatch):
+        reply = '{"hypotheses": [{"subject": "RandomForest", "other": "MLP", "rationale": "forests are strong"}]}'
+        monkeypatch.setattr(session.llm_generator, "make_complete", lambda model: lambda prompt: reply)
+        state = session.run_session(config(generator="llm"), runner=make_runner(planted()))
+        assert [item["statement"] for item in state["hypotheses"]] == [generate.statement("RandomForest", "MLP", "roc_auc", "default")]
+        assert state["hypotheses"][0]["evidence"]["rationale"] == "forests are strong" and state["confirmations"][0]["status"] == "confirmed"
+
+    def test_the_report_names_the_generator(self):
+        state = session.run_session(config(), runner=make_runner(planted()))
+        assert "Hypothesis generator: rules." in session.render_report(state)
+
+    def test_the_report_names_the_model_of_an_llm_generator(self, monkeypatch):
+        monkeypatch.setattr(session.llm_generator, "make_complete", lambda model: lambda prompt: '{"hypotheses": []}')
+        state = session.run_session(config(generator="llm", llm_model="gpt-test"), runner=make_runner(planted()))
+        assert "Hypothesis generator: llm (gpt-test)." in session.render_report(state)
+
+
 class TestStages:
     def tuned(self):
         return {"RandomForest": 0.05, "ExtraTrees": 0.05, "MLP": 0.045, "DecisionTree": -0.01}

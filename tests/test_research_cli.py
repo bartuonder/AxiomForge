@@ -64,6 +64,22 @@ class TestDefaults:
         assert seen == [5, DEFAULT_WORKERS]
 
 
+class TestGeneratorOption:
+    def test_the_default_is_the_rule_generator(self):
+        run(*BASE)
+        assert session.load("c1")["config"]["generator"] == "rules" and session.load("c1")["config"]["llm_model"] == "gpt-4o"
+
+    def test_the_llm_generator_and_its_model_can_be_chosen(self, monkeypatch):
+        monkeypatch.setattr(session.llm_generator, "make_complete", lambda model: lambda prompt: '{"hypotheses": []}')
+        run(*BASE[:-2], "--id", "c11", "--generator", "llm", "--llm-model", "gpt-test")
+        saved = session.load("c11")["config"]
+        assert saved["generator"] == "llm" and saved["llm_model"] == "gpt-test"
+
+    def test_an_unknown_generator_is_refused_by_the_parser(self):
+        with pytest.raises(SystemExit):
+            run(*BASE, "--generator", "oracle")
+
+
 class TestRun:
     def test_a_run_prints_the_summary_and_exits_zero(self):
         code, text = run(*BASE)
