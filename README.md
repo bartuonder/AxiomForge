@@ -27,6 +27,7 @@ python -m pytest -q                               # backend testleri
 python -m app.research run --models RandomForest,ExtraTrees,MLP,LogisticRegression --id demo
 python -m app.research show demo                  # kaydedilmiş hipotezler, doğrulama sonuçları ve sınırlar
 ```
+Aynı oturum konsoldan da başlatılır: `http://localhost:3000/research` sayfasında modelleri seçip 'Oturumu başlat'; iptal ve yeniden başlatma aynı sayfada (API: `POST /start_research_session`, `POST /research_sessions/{id}/cancel` ve `/retry`).
 Belgeler: `TECHNICAL_REPORT.md` (İngilizce teknik rapor), `RESEARCH_AGENT.md` (araştırma ajanının tasarımı ve sonuçları), `CONTINUATION.md` ve `AI_CONTEXT.md` (devam rehberi), `AUTONOMOUS_REPORT.md` (ölçümlerin kaydı), `ROADMAP.md`.
 
 ---
