@@ -1,5 +1,36 @@
 # AxiomForge
 
+**AxiomForge, yayımlanmış makine öğrenmesi iddialarını gerçek veri setlerinde yeniden sınayan ve hipotezlerini sonuçlara bakarak kendisi öneren bir LLM ajan sistemidir. Kararı dil modeli değil istatistik verir.**
+
+| Ana sayfa | Sonuç özeti (açık tema) | Sonuç özeti (koyu tema) |
+| --- | --- | --- |
+| ![Ana sayfa](docs/images/home-light.png) | ![Özet, açık tema](docs/images/summary-light.png) | ![Özet, koyu tema](docs/images/summary-dark.png) |
+
+**Ne yapar?**
+- Bir soruyu ya da arXiv makalesini alır, iddiayı çıkarır, üç deney planı önerir ve onayınızdan sonra planı E2B sandbox'ında 9 gerçek veri setinde 10 bölmeyle koşturur.
+- Karar, veri seti birimli Wilcoxon, Holm ve Friedman ile **hesaplanır**; LLM yalnız planlar ve düz yazı yazar. Rapordaki her sayı bir kanıt defterine bağlıdır, yazı 17 kuralla denetlenir.
+- **Araştırma ajanı** (`python -m app.research`): sonuçlara bakıp kendi hipotezlerini önerir. Uyarlamalı analizin sahte pozitif şişirmesini önlemek için veri setleri keşif ve doğrulama diye bölünür, ajan doğrulama sonuçlarını göremez, her hipotez dondurulup kaydedilir, tam bir kez sınanır ve hepsi tek düzeltmeye girer.
+
+**Ölçümler** (hepsi depodaki araçlarla yeniden üretilir; ayrıntı `TECHNICAL_REPORT.md`):
+- Bilinen 10 iddiada 10/10 doğru karar; yakın model çiftlerinde çelişkili karar yok.
+- Gerçek fark yokken karar verme oranı %2,1 (simülasyon); aynı modelin yalnız tohumu farklı kopyasıyla gerçek modellerde 45 etkiden 0'ı anlamlı.
+- Araştırma protokolü, gerçek etkisi bilinen simülasyonda saf uyarlamalı ajana karşı: 16 modelde aile hatası %3 (aynı veride seçip test eden ajanda %24, düzeltmesiz tüm çiftlerde %89). Bedeli güçtür (8 modelli kurulumda, gerçek fark +0,02: %47; hipotezleri baştan bilen tüm çiftli Holm testinde %96).
+- Dil modeline aynı iddialar veri olmadan sorulunca (gpt-4o) bilinen 30 cevabın 21'i doğru, 0'ı yanlış, 9'u çekimser; sistem 10/10'u veriden karara bağlar. Dil modeli ünlü iddialarda pervasız değil, sistemin katkısı kanıt ve çekimser kaldığı yerde karardır.
+- 3600 backend, 150+ frontend ve 38 tarayıcı testi (axe erişilebilirlik taraması dahil), mutasyon denetimi, Docker ve CI.
+
+**Sınırlar:** yalnız ikili sınıflandırma ve tablo verisi, tek benchmark ailesi, en çok 16 veri seti; küçük farklarda (ROC-AUC'de bir puanın altı) güç düşük; yeni bir bilimsel bulgu iddiası yoktur (ağaçların tabloda sinir ağlarını yenmesi Grinsztajn ve arkadaşlarının 2022 sonucudur); gerçek kullanıcı ya da hakem incelemesi yok.
+
+**Hızlı başlangıç:**
+```text
+docker compose up -d --build                      # API, işçi, MLflow, Postgres, Redis, konsol (http://localhost:3000)
+python -m pytest -q                               # backend testleri
+python -m app.research run --models RandomForest,ExtraTrees,MLP,LogisticRegression --id demo
+python -m app.research show demo                  # kaydedilmiş hipotezler, doğrulama sonuçları ve sınırlar
+```
+Belgeler: `TECHNICAL_REPORT.md` (İngilizce teknik rapor), `RESEARCH_AGENT.md` (araştırma ajanının tasarımı ve sonuçları), `CONTINUATION.md` ve `AI_CONTEXT.md` (devam rehberi), `AUTONOMOUS_REPORT.md` (ölçümlerin kaydı), `ROADMAP.md`.
+
+---
+
 On dört katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü, Faz 4 rapor ajanı ve Next.js konsolu, Faz 5 bilimsel sıkılık, Faz 6 iddia doğrulama, Faz 7 deney tasarımı ve oturum izolasyonu, Faz 8 model seçimi ve istatistiksel karar kapısı, Faz 9 kontrol grubu, Faz 10 gerçek veri, Faz 11 makale kapısı ve hazır cümleler, Faz 12 replikasyon kampanyası, Faz 13 ajanlı kampanya orkestrasyonu.
 
 Başka bir bilgisayarda veya yeni bir oturumda devam etmek için önce `CONTINUATION.md` okunur.
