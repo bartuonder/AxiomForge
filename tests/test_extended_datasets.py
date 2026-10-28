@@ -35,7 +35,7 @@ def test_each_new_set_points_at_its_benchmark_config_and_target(key, config, tar
     entry = DATASETS[key]
     assert entry["hf_id"] == BENCHMARK_ID and entry["config"] == config
     assert entry["target"] == target and entry["positive"] == positive
-    assert entry["max_rows"] == BENCHMARK_ROWS and entry["drop"] == [] and entry["clean"] == []
+    assert entry["max_rows"] == (None if key == "tb_bioresponse" else BENCHMARK_ROWS) and entry["drop"] == [] and entry["clean"] == []
 
 
 def test_the_loader_of_a_new_set_reads_its_config_and_samples_it_like_the_others():
@@ -49,6 +49,12 @@ def test_the_loader_of_a_new_set_reads_its_config_and_samples_it_like_the_others
 def test_every_new_set_has_a_plain_name(language):
     for key in NEW:
         assert key in DATASET_NAMES[language] and pretty_dataset(key, language) != key
+
+
+def test_the_small_set_uses_all_its_rows_and_its_loader_does_not_sample():
+    assert "all rows used" in DATASETS["tb_bioresponse"]["summary"] and "rows sampled" not in DATASETS["tb_bioresponse"]["summary"]
+    assert ".sample(n=" not in loader_code("tb_bioresponse")
+    assert all("rows sampled" in DATASETS[key]["summary"] for key in NEW if key != "tb_bioresponse")
 
 
 def test_every_new_set_has_a_summary_that_names_the_benchmark():
