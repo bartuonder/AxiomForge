@@ -97,6 +97,49 @@ def test_an_infrastructure_error_is_retried_too():
     assert run_dataset("tb_credit", SPEC, execute)["status"] == "finished"
 
 
+class ConnectionDropped(Exception):
+    pass
+
+
+def test_a_dropped_connection_that_is_no_runtime_error_is_retried_too():
+    calls = []
+
+    def execute(script, schema):
+        calls.append(1)
+        if len(calls) == 1:
+            raise ConnectionDropped("peer closed connection without sending TLS close_notify")
+        return fake_output("tb_credit")
+
+    result = run_dataset("tb_credit", SPEC, execute)
+    assert result["status"] == "finished" and result["attempts"] == 2
+
+
+def test_a_dataset_whose_connection_keeps_dropping_is_reported_as_failed_not_raised():
+    def execute(script, schema):
+        raise ConnectionDropped("peer closed connection")
+
+    result = run_dataset("tb_credit", SPEC, execute)
+    assert result["status"] == "failed" and "peer closed connection" in result["error"] and result["attempts"] == MAX_ATTEMPTS
+
+
+def test_one_dropped_connection_does_not_take_the_other_datasets_down():
+    def execute(script, schema):
+        if DATASETS["tb_credit"]["config"] in script:
+            raise ConnectionDropped("peer closed connection")
+        return fake_output(next(key for key in SPEC["datasets"] if DATASETS[key]["config"] in script))
+
+    outcome = run_campaign(SPEC, execute, workers=1)
+    assert set(outcome["failed"]) == {"tb_credit"} and set(outcome["datasets"]) == {"tb_california", "tb_pol"}
+
+
+def test_a_keyboard_interrupt_is_not_swallowed():
+    def execute(script, schema):
+        raise KeyboardInterrupt()
+
+    with pytest.raises(KeyboardInterrupt):
+        run_dataset("tb_credit", SPEC, execute)
+
+
 def test_a_missing_sandbox_key_stops_everything_at_once():
     def execute(script, schema):
         raise RuntimeError("E2B_API_KEY is missing")

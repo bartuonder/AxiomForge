@@ -8,7 +8,7 @@ from app.campaign.protocol import build_script
 from app.campaign.provenance import parse_provenance
 from app.campaign.tuning import effective_params, parse_tuning
 from app.graph.verifier import parameter_effects, performance_comparisons, summarize_seed_runs, without_baselines
-from app.sandbox.e2b_runner import SandboxCodeError, run_classification, run_tuned_classification
+from app.sandbox.e2b_runner import run_classification, run_tuned_classification
 from app.seeds import SPLIT_SEEDS
 from app.tracking.mlflow_logger import parse_dataset_profile, parse_model_results
 from app.variants import expected_keys
@@ -51,7 +51,7 @@ def run_dataset(
             profile = parse_dataset_profile(output)
             rows = parse_model_results(output)
             _check_rows(rows, models, params, seeds)
-        except (SandboxCodeError, RuntimeError) as exc:
+        except Exception as exc:
             if "E2B_API_KEY is missing" in str(exc):
                 raise
             last_error = str(exc)
