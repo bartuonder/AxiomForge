@@ -67,6 +67,13 @@ class TestEvaluate:
         result = self.run(oracle)
         assert result["known"]["correct"] == 10 and result["known"]["total"] == 10 and result["known"]["accuracy"] == 1.0
 
+    def test_a_decisive_wrong_answer_is_told_apart_from_an_abstention(self):
+        flipped = lambda query: answer("false") if oracle(query) == answer("true") else answer("true")
+        result = self.run(flipped)
+        assert result["known"]["wrong"] == 10 and result["known"]["abstained"] == 0 and result["known"]["correct"] == 0
+        unsure = self.run(lambda query: answer("unclear"))
+        assert unsure["known"]["wrong"] == 0 and unsure["known"]["abstained"] == 10
+
     def test_an_answerer_that_is_always_unclear_never_asserts_anything(self):
         result = self.run(lambda query: answer("unclear"))
         assert result["near"]["decisive"] == 0 and result["near"]["false_certainty"] == 0 and result["near"]["agree"] == 10
@@ -149,7 +156,7 @@ class TestCommandLine:
         target = tmp_path / "out.json"
         assert baseline.main(["--repeats", "2", "--out", str(target)]) == 0
         output = capsys.readouterr().out
-        assert "known claims" in output and "false certainty" in output.lower()
+        assert "known claims" in output and "false certainty" in output.lower() and "abstained" in output
         saved = json.loads(target.read_text(encoding="utf-8"))
         assert saved["repeats"] == 2 and saved["model"] == baseline.DEFAULT_MODEL and saved["llm"]["known"]["total"] == 20 and saved["system"]["known"]["correct"] == 10
 

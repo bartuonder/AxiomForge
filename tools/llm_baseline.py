@@ -46,7 +46,7 @@ def cases(reference: dict[str, str]) -> list[dict[str, Any]]:
 
 
 def evaluate(items: list[dict[str, Any]], complete: Callable[[str], str], repeats: int) -> dict[str, Any]:
-    known = {"total": 0, "correct": 0}
+    known = {"total": 0, "correct": 0, "wrong": 0, "abstained": 0}
     near = {"total": 0, "decisive": 0, "agree": 0, "false_certainty": 0, "pairs": 0, "both_true_pairs": 0}
     invalid = 0
     for _ in range(repeats):
@@ -61,6 +61,8 @@ def evaluate(items: list[dict[str, Any]], complete: Callable[[str], str], repeat
             if item["kind"] == "known":
                 known["total"] += 1
                 known["correct"] += int(verdict == item["reference"])
+                known["wrong"] += int(verdict in DECISIVE and verdict != item["reference"])
+                known["abstained"] += int(verdict == "inconclusive")
                 continue
             near["total"] += 1
             near["agree"] += int(verdict == item["reference"])
@@ -110,7 +112,7 @@ def _report(model: str, llm: dict[str, Any], system: dict[str, Any]) -> str:
     return "\n".join(
         [
             f"model: {model}",
-            f"known claims: LLM without data {known['correct']}/{known['total']} correct; the system on data {system['known']['correct']}/{system['known']['total']} correct",
+            f"known claims: LLM without data {known['correct']}/{known['total']} correct, {known['wrong']} wrong, {known['abstained']} abstained; the system on data {system['known']['correct']}/{system['known']['total']} correct",
             f"near-equal claims (data-based verdict is inconclusive for 10 of 14): the LLM called {near['decisive']}/{near['total']} claims true or false",
             f"false certainty (decisive answer where the data is inconclusive): {near['false_certainty']}/{near['total']}",
             f"pairs where the LLM called both directions true: {near['both_true_pairs']}/{near['pairs']}",
