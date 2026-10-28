@@ -40,6 +40,7 @@ class SessionConfig:
     generator: str = "rules"
     llm_model: str = "gpt-4o"
     reuse: str | None = None
+    use_history: bool = True
 
     def __post_init__(self) -> None:
         if not _ID.fullmatch(self.id):
@@ -221,7 +222,7 @@ def run_session(
         "skipped": [],
     }
     save(state)
-    known = known_claims()
+    known = known_claims() if config.use_history else frozenset()
     propose = generator or (generate.propose if config.generator == "rules" else llm_generator.make_generator(llm_generator.make_complete(config.llm_model)))
     sealed: dict[str, dict[str, Any]] = {}
     stage = "default"

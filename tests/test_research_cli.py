@@ -99,6 +99,14 @@ class TestReuseOption:
         assert session.load("c1")["config"]["reuse"] is None
 
 
+class TestHistoryFlag:
+    def test_the_history_is_used_by_default_and_can_be_switched_off(self):
+        run(*BASE)
+        assert session.load("c1")["config"]["use_history"] is True
+        run(*BASE[:-2], "--id", "c13", "--no-history")
+        assert session.load("c13")["config"]["use_history"] is False
+
+
 class TestRun:
     def test_a_run_prints_the_summary_and_exits_zero(self):
         code, text = run(*BASE)

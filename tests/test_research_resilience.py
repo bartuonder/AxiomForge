@@ -171,3 +171,17 @@ class TestReuse:
         self.base()
         state = session.run_session(config(id="again", reuse="src"), runner=self.never)
         assert "reused from session src" in session.render_report(state)
+
+
+class TestHistoryOption:
+    def test_a_session_can_ignore_the_history(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(session, "known_claims", lambda exclude=None: calls.append(1) or frozenset({(("RandomForest",), ("MLP",))}))
+        with_history = session.run_session(config(id="a"), runner=make_runner(planted()))
+        without = session.run_session(config(id="b", use_history=False), runner=make_runner(planted()))
+        assert len(calls) == 1
+        assert any("RandomForest scores higher than MLP" in item["statement"] for item in without["hypotheses"])
+        assert not any("RandomForest scores higher than MLP" in item["statement"] for item in with_history["hypotheses"])
+
+    def test_the_default_is_to_use_the_history(self):
+        assert session.SessionConfig(id="s", models=MODELS).use_history is True
