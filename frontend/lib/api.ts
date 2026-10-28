@@ -6,6 +6,8 @@ import {
   type CampaignSummary,
   type ResearchMode,
   type ResearchSnapshot,
+  type SessionDetail,
+  type SessionSummary,
 } from "@/lib/types";
 
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "";
@@ -90,6 +92,30 @@ export async function retryResearch(threadId: string): Promise<void> {
   if (!response.ok) {
     throw new Error(await readError(response));
   }
+}
+
+export async function fetchResearchSessions(): Promise<SessionSummary[]> {
+  const response = await fetch(`${API_URL}/research_sessions`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return ((await response.json()) as { items: SessionSummary[] }).items;
+}
+
+export async function fetchResearchSession(sessionId: string): Promise<SessionDetail> {
+  const response = await fetch(`${API_URL}/research_sessions/${encodeURIComponent(sessionId)}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return response.json();
+}
+
+export async function fetchResearchSessionReport(sessionId: string): Promise<string> {
+  const response = await fetch(`${API_URL}/research_sessions/${encodeURIComponent(sessionId)}/report`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return ((await response.json()) as { markdown: string }).markdown;
 }
 
 export async function fetchCampaigns(): Promise<CampaignSummary[]> {

@@ -214,4 +214,61 @@ export type CampaignReport = {
   ledger: LedgerEntry[];
 };
 
+export type SessionStatus = "running" | "completed" | "aborted" | "failed";
+
+export type ConfirmationStatus = "confirmed" | "reversed" | "not_confirmed" | "not_testable";
+
+export type SessionCounts = Record<ConfirmationStatus, number>;
+
+export type SessionSummary = {
+  id: string;
+  status: SessionStatus;
+  reason: string;
+  created: string;
+  finished: string;
+  models: string[];
+  explore: string[];
+  confirm: string[];
+  budget: number;
+  registered: number;
+  counts: SessionCounts;
+  stages: { name: string; finished: number; failed: number }[];
+};
+
+export type RegisteredHypothesis = {
+  id: string;
+  subject: string[];
+  other: string[];
+  stage: string;
+  metric: string;
+  statement: string;
+  evidence: { median_difference: number; wins: number; datasets: number; scope: string };
+  digest: string;
+  registered_at: string;
+};
+
+export type Confirmation = {
+  id: string;
+  stage: string;
+  status: ConfirmationStatus;
+  p_value: number | null;
+  adjusted_p_value: number | null;
+  q_value: number | null;
+  median_difference: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  datasets: number;
+};
+
+export type SessionDetail = {
+  summary: SessionSummary;
+  intact: boolean;
+  session: {
+    hypotheses: RegisteredHypothesis[];
+    confirmations?: Confirmation[];
+    skipped?: { stage: string; statement: string; reason: string }[];
+  };
+};
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";

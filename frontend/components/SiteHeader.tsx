@@ -19,6 +19,9 @@ export function SiteHeader() {
         <Link href="/campaigns" className="font-semibold text-accent">
           {t("nav.history")}
         </Link>
+        <Link href="/research" className="font-semibold text-accent">
+          {t("nav.research")}
+        </Link>
         <div role="group" aria-label={t("nav.language")} className="flex overflow-hidden rounded-full border border-line bg-card text-xs font-semibold">
           {LANGUAGES.map((item) => (
             <button
