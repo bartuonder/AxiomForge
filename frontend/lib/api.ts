@@ -9,6 +9,7 @@ import {
   type SessionDetail,
   type SessionSummary,
 } from "@/lib/types";
+import type { StartPayload } from "@/lib/researchView";
 
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY ?? "";
 
@@ -89,6 +90,28 @@ export async function retryCampaign(campaignId: string): Promise<void> {
 
 export async function retryResearch(threadId: string): Promise<void> {
   const response = await fetch(`${API_URL}/research/${encodeURIComponent(threadId)}/retry`, { method: "POST", headers: postHeaders() });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+}
+
+export async function startResearchSession(payload: StartPayload): Promise<{ session_id: string }> {
+  const response = await fetch(`${API_URL}/start_research_session`, { method: "POST", headers: postHeaders(), body: JSON.stringify(payload) });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+  return response.json();
+}
+
+export async function cancelResearchSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/research_sessions/${encodeURIComponent(sessionId)}/cancel`, { method: "POST", headers: postHeaders() });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
+}
+
+export async function retryResearchSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/research_sessions/${encodeURIComponent(sessionId)}/retry`, { method: "POST", headers: postHeaders() });
   if (!response.ok) {
     throw new Error(await readError(response));
   }

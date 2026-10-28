@@ -214,7 +214,7 @@ export type CampaignReport = {
   ledger: LedgerEntry[];
 };
 
-export type SessionStatus = "running" | "completed" | "aborted" | "failed";
+export type SessionStatus = "queued" | "running" | "completed" | "aborted" | "failed" | "cancelled";
 
 export type ConfirmationStatus = "confirmed" | "reversed" | "not_confirmed" | "not_testable";
 
@@ -232,6 +232,7 @@ export type SessionSummary = {
   budget: number;
   registered: number;
   counts: SessionCounts;
+  phase?: string;
   stages: { name: string; finished: number; failed: number }[];
 };
 
@@ -265,6 +266,8 @@ export type SessionDetail = {
   summary: SessionSummary;
   intact: boolean;
   session: {
+    cancel_requested?: boolean;
+    stale?: boolean;
     hypotheses: RegisteredHypothesis[];
     confirmations?: Confirmation[];
     skipped?: { stage: string; statement: string; reason: string }[];

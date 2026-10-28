@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { claimText, formatP, mergeRows, sessionTone, statusTone, STATUS_ORDER, type SessionRow } from "../lib/researchView.ts";
+import {
+  canStart,
+  claimText,
+  DEFAULT_RESEARCH_MODELS,
+  formatP,
+  isActiveSession,
+  mergeRows,
+  phaseMessage,
+  RESEARCH_MODELS,
+  sessionActions,
+  sessionTone,
+  startPayload,
+  statusTone,
+  STATUS_ORDER,
+  toggleModel,
+  TUNING_ITERATIONS,
+  type SessionRow,
+} from "../lib/researchView.ts";
 import type { Confirmation, RegisteredHypothesis } from "../lib/types.ts";
 
 const NAMES = { "RandomForest": "Random Forest", "LogisticRegression": "Lojistik regresyon", "RandomForest__default": "Random Forest (varsayılan)" };
@@ -77,6 +94,8 @@ describe("tones", () => {
     assert.equal(sessionTone("running"), "neutral");
     assert.equal(sessionTone("aborted"), "warning");
     assert.equal(sessionTone("failed"), "negative");
+    assert.equal(sessionTone("queued"), "neutral");
+    assert.equal(sessionTone("cancelled"), "muted");
     assert.equal(sessionTone("other"), "muted");
   });
 
@@ -103,5 +122,89 @@ describe("mergeRows", () => {
 
   it("gives nothing for nothing", () => {
     assert.deepEqual(mergeRows([], []), []);
+  });
+});
+
+describe("isActiveSession", () => {
+  it("counts the queue and the run as active", () => {
+    assert.equal(isActiveSession("queued"), true);
+    assert.equal(isActiveSession("running"), true);
+    for (const status of ["completed", "failed", "cancelled", "aborted", "other"]) {
+      assert.equal(isActiveSession(status), false);
+    }
+  });
+});
+
+describe("sessionActions", () => {
+  it("offers to cancel an active session until the cancel was asked", () => {
+    assert.deepEqual(sessionActions("running", false), { cancel: true, cancelling: false, retry: false });
+    assert.deepEqual(sessionActions("queued", false), { cancel: true, cancelling: false, retry: false });
+    assert.deepEqual(sessionActions("running", true), { cancel: false, cancelling: true, retry: false });
+  });
+
+  it("offers to retry a session that stopped without a finished result", () => {
+    for (const status of ["failed", "cancelled", "aborted"]) {
+      assert.deepEqual(sessionActions(status, false), { cancel: false, cancelling: false, retry: true });
+    }
+  });
+
+  it("offers nothing for a completed session", () => {
+    assert.deepEqual(sessionActions("completed", false), { cancel: false, cancelling: false, retry: false });
+  });
+
+  it("ignores a cancel request on a session that is not active", () => {
+    assert.deepEqual(sessionActions("failed", true), { cancel: false, cancelling: false, retry: true });
+  });
+});
+
+describe("the model choice", () => {
+  it("starts with six models that are all known", () => {
+    assert.equal(DEFAULT_RESEARCH_MODELS.length, 6);
+    for (const key of DEFAULT_RESEARCH_MODELS) {
+      assert.ok(RESEARCH_MODELS.includes(key), key);
+    }
+    assert.equal(new Set(RESEARCH_MODELS).size, RESEARCH_MODELS.length);
+  });
+
+  it("removes a selected model and adds a missing one in the fixed order", () => {
+    assert.deepEqual(toggleModel(["RandomForest", "MLP"], "MLP"), ["RandomForest"]);
+    assert.deepEqual(toggleModel(["MLP", "RandomForest"], "ExtraTrees"), ["RandomForest", "ExtraTrees", "MLP"]);
+    assert.deepEqual(toggleModel([], "KNN"), ["KNN"]);
+  });
+
+  it("needs two models to start", () => {
+    assert.equal(canStart({ models: ["RandomForest"], tuned: false, generator: "rules" }), false);
+    assert.equal(canStart({ models: ["RandomForest", "MLP"], tuned: false, generator: "rules" }), true);
+    assert.equal(canStart({ models: [], tuned: true, generator: "llm" }), false);
+  });
+
+  it("builds the request with the tuned stage only when it was chosen", () => {
+    assert.deepEqual(startPayload({ models: ["MLP", "RandomForest"], tuned: false, generator: "rules" }), { models: ["RandomForest", "MLP"], generator: "rules" });
+    assert.deepEqual(startPayload({ models: ["RandomForest", "MLP"], tuned: true, generator: "llm" }), { models: ["RandomForest", "MLP"], generator: "llm", tuning: TUNING_ITERATIONS });
+    assert.equal(TUNING_ITERATIONS, 12);
+  });
+
+  it("drops a model that is not in the list", () => {
+    assert.deepEqual(startPayload({ models: ["RandomForest", "Mystery", "MLP"], tuned: false, generator: "rules" }).models, ["RandomForest", "MLP"]);
+  });
+});
+
+describe("phaseMessage", () => {
+  it("says that a queued session waits for a worker", () => {
+    assert.equal(phaseMessage("queued", ""), "research.phase.queued");
+  });
+
+  it("names the stage of a running session and falls back to a plain note", () => {
+    assert.equal(phaseMessage("running", "default"), "research.phase.default");
+    assert.equal(phaseMessage("running", "tuned"), "research.phase.tuned");
+    assert.equal(phaseMessage("running", ""), "research.phase.working");
+    assert.equal(phaseMessage("running", undefined), "research.phase.working");
+    assert.equal(phaseMessage("running", "mystery"), "research.phase.working");
+  });
+
+  it("says nothing about a session that is not active", () => {
+    for (const status of ["completed", "failed", "cancelled", "aborted"]) {
+      assert.equal(phaseMessage(status, "default"), null);
+    }
   });
 });
