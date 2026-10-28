@@ -16,16 +16,22 @@ def statement(subject: str, other: str, metric: str, stage: str) -> str:
     return f"{subject} scores higher than {other} on {metric} ({stage} stage)"
 
 
-def _names(view: ExplorationView) -> list[str]:
+def model_names(view: ExplorationView) -> list[str]:
     first = view.per_dataset[view.datasets[0]]
     key = f"{PRIMARY_METRIC}_mean"
     return sorted(name for name, record in first.items() if isinstance(record, dict) and key in record)
 
 
-def _allowed(first: str, second: str) -> bool:
+def pair_allowed(first: str, second: str) -> bool:
     if is_baseline(first) or is_baseline(second):
         return base_model(first) == base_model(second)
     return True
+
+
+def exploration_evidence(view: ExplorationView, subject: str, other: str) -> dict[str, Any]:
+    key = f"{PRIMARY_METRIC}_mean"
+    difference = np.asarray([float(view.per_dataset[dataset][subject][key]) - float(view.per_dataset[dataset][other][key]) for dataset in view.datasets])
+    return {"median_difference": float(np.median(difference)), "wins": int((difference > 0).sum()), "datasets": len(view.datasets), "scope": "exploration"}
 
 
 def propose(
@@ -37,13 +43,13 @@ def propose(
     consistency: float = DEFAULT_CONSISTENCY,
     known: frozenset[tuple[tuple[str, ...], tuple[str, ...]]] | set[tuple[tuple[str, ...], tuple[str, ...]]] = frozenset(),
 ) -> tuple[list[Hypothesis], list[dict[str, str]]]:
-    names = _names(view)
+    names = model_names(view)
     key = f"{PRIMARY_METRIC}_mean"
     scores = {name: np.asarray([float(view.per_dataset[dataset][name][key]) for dataset in view.datasets]) for name in names}
     candidates: list[tuple[float, int, str, str]] = []
     for position, first in enumerate(names):
         for second in names[position + 1 :]:
-            if not _allowed(first, second):
+            if not pair_allowed(first, second):
                 continue
             difference = scores[first] - scores[second]
             median = float(np.median(difference))
