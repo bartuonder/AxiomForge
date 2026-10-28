@@ -274,3 +274,27 @@ Kullanıcının "kalanları otonom yap" isteğiyle roadmap'teki yapılabilir her
 
 ### Hâlâ açık
 Kullanıcı gözlemi (insan gerekir), ekran okuyucuyla gerçek dinleme, iki paralel hattın birleştirilmesi (tasarım kararı), iç içe çapraz doğrulamalı ayar (protokol değişikliği, önceki sonuçları geçersiz kılar, karar ister), test kalıntılarının silinmesi (kullanıcı kararı).
+
+## Takip 10: araştırma ajanı (28 Ekim 2026)
+
+Kullanıcının isteğiyle `ROADMAP.md` E4 (araştırma ajanına dönüşüm) baştan sona yapıldı; tasarım `RESEARCH_AGENT.md`, ölçümler ve sonuçlar `TECHNICAL_REPORT.md`. Hepsi ayrı commit, testli ve mutasyon denetimli.
+
+### Ne yapıldı
+- **Veri havuzu:** Grinsztajn benchmark'ının kalan 7 sayısal ikili sınıflandırma veri seti `extended` grubuna eklendi (havuz 16); `benchmark_keys()` (9) ve mevcut kampanyalar değişmedi. Gerçek bir sondayla doğrulandı; Bioresponse örnekleme yapılamayacak kadar küçüktü (6000 satırdan az), tüm satırlar kullanılacak şekilde düzeltildi.
+- **Protokol çekirdeği** (`app/research/protocol.py`): tohumlu keşif / doğrulama ayrımı, `⌈α·2ⁿ⁻¹⌉−1` ile sınırlı kayıt bütçesi, donduran ve özet (SHA-256) tutan `Registry`, yalnız keşif veri setlerini kopyalayan `ExplorationView`, tek doğrulayıcı test ve oturum boyu Holm + BH. 65 test; mutasyonların hepsi yakalandı.
+- **Üretici** (`generate.py`): keşifte tutarlı (5/6) ve en az 0,01 farklı her çiftin kazananı, ayarlı aşamada her modelin kendi varsayılan kontrolüyle farkı; yenilik denetimi. 37 test, mutasyonlar yakalandı. **Dil modeli üretici** (`llm_generator.py`): öneriyi doğrular, kullanılamazsa kurallara döner; protokol güvencesi saldırgan bir üreticiyle boş dünyada sınandı (aile hatası %10'un altında).
+- **Oturum** (`session.py`) ve **komut satırı**: aşamalı koşu, hipotezler diske doğrulama sonuçları okunmadan yazılır (testle kilitli), ayarlı aşama keşif etkisi 0,02 ve üstünde tetiklenir, rapor, `verify` ile kayıt bütünlüğü denetimi, aşama sonuçlarının kaydı ve `--reuse`, `--no-history`, `--generator rules|llm`. 120'den fazla test.
+- **Salt okunur API ve konsol sayfaları** (`/research`, `/research/{id}`): protokolün sade anlatımı, hipotez tablosu (keşif tahmini ile doğrulama etkisi ayrı), bütünlük uyarısı, rapor indirme; Playwright (axe dahil) ile iki temada doğrulandı.
+- **Ajanın kendini ölçmesi:** `tools/planted_effects.py` (yerleştirilmiş etkili simülasyon) ve `tools/llm_baseline.py` (veri görmeyen dil modeli). Sonuçlar README ve `TECHNICAL_REPORT.md`'de.
+- **Gerçek oturum `real-2`:** 16 hipotez, 15 doğrulandı, 0 tersi çıktı, 1 doğrulanamadı; ağaç toplulukları lojistik regresyonu ~5, MLP'yi 1-2 ROC-AUC puanı geçti; MLP için keşif tahmini ~3 kat şişikti.
+- **Tek ağ kopması bütün koşuyu düşürüyordu (gerçek bulgu):** ilk gerçek oturum, ayarlı aşamada bir sandbox bağlantısı kopunca (`RemoteProtocolError`) 17 dakikalık varsayılan aşama sonuçlarıyla birlikte düştü, çünkü kampanya çalıştırıcısı yalnız `SandboxCodeError` ve `RuntimeError`'u yeniden deniyordu. Kök neden düzeltildi: bir veri seti denemesindeki her istisna başarısız deneme sayılır. Ayrıca oturum, sonraki aşama düşse bile önceki aşamaları korur ve her aşamanın sonuçlarını diske yazar.
+- Dil modeli üreticinin ilk istemi yönü karıştırdı (8 önerinin 3'ü kendi gerekçesiyle çelişti); protokol bunları tersi çıkan / doğrulanamayan diye yakaladı, istem "higher / lower" alanlarıyla düzeltildi.
+
+### Kullanıcıya dönük belgeler
+README'nin başına özet, ekran görüntüleri, ölçümler ve sınırlar eklendi; İngilizce `TECHNICAL_REPORT.md` yazıldı (teknik rapor, CV ve portföy için).
+
+### Dürüst sınırlar
+Tek gerçek oturum; üretici karşılaştırması aynı deneyleri yeniden kullandığı için 8 bölme bağımsız değil; küçük etkilerde güç düşük; hipotez türü yalnız model karşılaştırması ve ayarlama etkisi; yeni bilimsel bulgu iddiası yok; kullanıcı gözlemi ve halka açık demo yapılmadı (insan ve sunucu gerekir). İç içe çapraz doğrulamalı ayar ve iki hattın birleştirilmesi (A2-8, A2-9) yapılmadı: ikisi de önceki sonuçları değiştiren ya da bir ürün kararı gerektiren işler, onay beklemede.
+
+### Yan temizlik
+Başarısız ilk gerçek oturumun çalışma dizini (`reports/research/real-1`, gitignore'lu, yalnız 8 kayıtlı hipotez ve hata içeriyordu) yeniden koşudan önce silindi.
