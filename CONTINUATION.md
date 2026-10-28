@@ -8,7 +8,7 @@ Sahip: Bartu Önder, `onderbartu8@gmail.com`. Commitlerde yalnız bu ad ve e-pos
 
 ## Şu an neredeyiz
 
-Güncel (28 Ekim 2026, dördüncü tur): **araştırma ajanı yapıldı** (`app/research/`, `python -m app.research`, `/research` konsol sayfaları, `RESEARCH_AGENT.md`, `TECHNICAL_REPORT.md`). Gerçek oturum `real-2`: 16 hipotez, 15 doğrulandı. 3600+ pytest, 155 Node, 38 Playwright testi geçiyor. Üçüncü tura kadarki her şey push edildi ve CI yeşil; dördüncü tur commitleri yerelde. Sıradaki işler `ROADMAP.md` E5 ve D.
+Güncel (28 Ekim 2026, dördüncü tur): **araştırma ajanı yapıldı** (`app/research/`, `python -m app.research`, `/research` konsol sayfaları, `RESEARCH_AGENT.md`, `TECHNICAL_REPORT.md`). Gerçek oturum `real-2`: 16 hipotez, 15 doğrulandı. 3600+ pytest, 155 Node, 38 Playwright testi geçiyor. Üçüncü tura kadarki her şey push edildi ve CI yeşil; dördüncü tur commitleri yerelde. Konsolun `/research` sayfasından oturum başlatılabilir (form, iptal, yeniden başlat; API ve Celery işçisi çalışıyor olmalı). 3700+ pytest, 182 Node, 45 Playwright testi geçiyor. Sıradaki işler `ROADMAP.md` E5 ve D.
 
 Önceki not (28 Ekim sabahı): kullanıcı projeyi bir **araştırma ajanına** doğru taşımak istiyor. Yol ve gerekçe `ROADMAP.md` E bölümünde; önerilen ilk adım, keşif / doğrulama veri seti ayrımı ve turlar arası çoklu karşılaştırma düzeltmesini içeren **kapalı döngü tasarımını yazıp kullanıcıya göstermek**. Tasarım onaylanmadan kod yazılmaz. Teknik kalanlar `ROADMAP.md` D bölümünde, CV ve konumlandırma notları E2-E3'te.
 
@@ -112,7 +112,7 @@ npm install
 npm run dev
 ```
 
-Araştırma ajanı: `python -m app.research run --models RandomForest,ExtraTrees,GradientBoosting,HistGradientBoosting,MLP,LogisticRegression --id demo --tuning 12` (E2B anahtarı gerekir, ~45 dk), `show`, `verify`, `list`; `--reuse ID --generator llm --no-history` aynı deneyler üzerinde başka üretici dener. Sonuçlar `reports/research/`.
+Araştırma ajanı: `python -m app.research run --models RandomForest,ExtraTrees,GradientBoosting,HistGradientBoosting,MLP,LogisticRegression --id demo --tuning 12` (E2B anahtarı gerekir, ~45 dk), `show`, `verify`, `list`; `--reuse ID --generator llm --no-history` aynı deneyler üzerinde başka üretici dener. Sonuçlar `reports/research/`. Aynı iş konsoldan: `/research` sayfasında model seç, 'Oturumu başlat' (API: `POST /start_research_session`, gövde `{models, tuning?, seed?, generator?}`).
 
 Tek komutla her şey (API, işçi, MLflow, Postgres, Redis ve konsol) Docker'da: `docker compose up -d --build`; konsol `http://127.0.0.1:3000`. Yerel yolla karıştırmayın, 5000 ve 8000 portları çakışır. Erişim koruması için `.env` içine `API_KEY=` ve `DAILY_START_LIMIT=` yazılabilir; anahtar kullanılıyorsa konsolu `NEXT_PUBLIC_API_KEY` ile derleyin. Konsol testleri `cd frontend; npm test`; tarayıcı testleri `npm run build` sonrası `npm run e2e` (yerel Edge için `PW_CHANNEL=msedge`). Redelivery için `CELERY_VISIBILITY_TIMEOUT` (saniye, varsayılan 7200): çalışan kampanya 15 sn'de bir nabız yazdığı için artık kampanyadan kısa olabilir, kopya teslimler canlı işçiyi beklemeye alınır.
 
