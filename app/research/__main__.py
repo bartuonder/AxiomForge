@@ -29,6 +29,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--alpha", type=float, default=ALPHA)
     run.add_argument("--generator", choices=session.GENERATORS, default="rules", help="who proposes the hypotheses from the exploration results")
     run.add_argument("--llm-model", default="gpt-4o", help="model used by the llm generator")
+    run.add_argument("--reuse", help="reuse the stage results of this earlier session instead of running the experiments again")
     run.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     commands.add_parser("list", help="list the sessions")
     show = commands.add_parser("show", help="print the report of a session")
@@ -95,6 +96,7 @@ def main(
             alpha=arguments.alpha,
             generator=arguments.generator,
             llm_model=arguments.llm_model,
+            reuse=arguments.reuse,
             **pool,
         )
         state = session.run_session(config, execute, arguments.workers, runner)

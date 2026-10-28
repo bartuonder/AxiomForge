@@ -80,6 +80,25 @@ class TestGeneratorOption:
             run(*BASE, "--generator", "oracle")
 
 
+class TestReuseOption:
+    def test_the_results_of_an_earlier_session_are_reused_without_a_runner(self):
+        run(*BASE)
+
+        def never(spec, execute, workers):
+            raise AssertionError("no experiment may run")
+
+        code, text = run(*BASE[:-2], "--id", "c12", "--reuse", "c1", runner=never)
+        assert code == OK and session.load("c12")["config"]["reuse"] == "c1"
+
+    def test_a_missing_source_is_a_usage_error(self):
+        code, text = run(*BASE, "--reuse", "nope")
+        assert code == USAGE and "nothing to reuse" in text
+
+    def test_no_reuse_is_the_default(self):
+        run(*BASE)
+        assert session.load("c1")["config"]["reuse"] is None
+
+
 class TestRun:
     def test_a_run_prints_the_summary_and_exits_zero(self):
         code, text = run(*BASE)
