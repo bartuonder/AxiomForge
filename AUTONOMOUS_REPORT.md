@@ -298,3 +298,15 @@ Tek gerçek oturum; üretici karşılaştırması aynı deneyleri yeniden kullan
 
 ### Yan temizlik
 Başarısız ilk gerçek oturumun çalışma dizini (`reports/research/real-1`, gitignore'lu, yalnız 8 kayıtlı hipotez ve hata içeriyordu) yeniden koşudan önce silindi.
+
+## Takip 11: konsoldan araştırma oturumu (28 Ekim 2026)
+
+Kullanıcı "devam edelim" dedi ve `ROADMAP.md` E5'ten konsoldan oturum başlatmayı seçti. Her adım ayrı commit, TDD ve mutasyon taramasıyla.
+
+- **Çekirdek:** `queue_session` (sıraya alınmış durum, bölme ve bütçe hazır), `run_session(should_stop=)` (iptal bayrağı, aşama adı `phase`), `reset_for_retry`; kendi kaydedilmiş aşamalarından devam.
+- **Servis** (`app/research/service.py`): işçi nabzı, iptal bayrağı, ölü işçiyi bayat/başarısız gösterme, `execute_session`, `cancel_session`, `retry_session`. Komut satırı oturumu da nabız yazıyor.
+- **API ve görev:** `POST /start_research_session`, `/research_sessions/{id}/cancel`, `/retry`; Celery görevi; başlatma günlük sınırdan düşer; `llm` üreticisi için OpenAI ön kontrolü.
+- **Konsol:** `/research` sayfasında başlatma formu (17 model, ayarlı aşama, üretici, süre ve maliyet uyarısı), oturum sayfasında aşama metni, iptal (onay kutusu, Escape, güvenli odak), yeniden başlatma, sıradaki ve çalışan oturum için 5 saniyelik yenileme. TR/EN. 7 yeni Playwright testi (axe dahil).
+- **Canlı deneme** (yerel Celery işçisi + API, gerçek E2B): oturum sıraya alındı, çalıştı, iptal edildi (yaklaşık 80 saniyede durdu), yeniden başlatıldı, 3 dakikada 16 veri setiyle tamamlandı; önceki oturumlarda doğrulanmış tek iddia atlandı. **Bulunan hata:** iptal, yarım aşama sonuçlarını `stages/` altına yazıyordu; yeniden başlatma onu tam sonuç sayacaktı. Düzeltildi (`715e2ce`), canlı denemede doğrulandı.
+- **Doğrulama:** 3710 pytest (3 atlandı), 182 Node, tsc ve eslint temiz, 45 Playwright. Mutasyon taramaları: servis 22/22, API ve görev 15/15, arayüz 21 mutantın 20'si öldürüldü (etkileşimli 5 tanesi tarayıcı testleriyle, 2'si için yeni test eklenerek); kalan biri (iptal başarılı olunca onay kutusunu kapatmak) durum değişince görünmediğinden eşdeğer.
+- **Sınırlar:** işçi ölürse (Windows `--pool=threads`) oturum otomatik devam etmez, bayat görünür ve kullanıcı 'Yeniden başlat'a basar; havuz ve bölme konsoldan seçilemez; veri seti bazında ilerleme çubuğu yok.
