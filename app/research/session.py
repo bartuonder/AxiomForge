@@ -281,6 +281,8 @@ def run_session(
                     outcome = runner(*stage_arguments, should_stop=should_stop) if should_stop else runner(*stage_arguments)
                     results = {key: record["summary"] for key, record in outcome["datasets"].items()}
                     failed = dict(outcome.get("failed") or {})
+                    if should_stop and should_stop():
+                        return _finish(state, "cancelled", "stopped on request")
                 _save_stage(config, stage, results, failed)
             except Exception as exc:
                 if stage == "default":
@@ -288,8 +290,6 @@ def run_session(
                 state["stages"].append({"name": stage, "finished": [], "failed": {}, "error": f"{type(exc).__name__}: {exc}"})
                 state["reason"] = f"the {stage} stage failed ({type(exc).__name__}: {exc}); only the earlier stages were tested"
                 break
-            if should_stop and should_stop():
-                return _finish(state, "cancelled", "stopped on request")
             explored = [key for key in explore if key in results]
             confirmed = [key for key in confirm if key in results]
             state["stages"].append({"name": stage, "finished": [key for key in config.pool if key in results], "failed": failed})

@@ -92,6 +92,29 @@ class TestStop:
         state = session.run_session(config(), runner=runner, should_stop=lambda: flags["stop"])
         assert state["status"] == "cancelled" and state["hypotheses"] == [] and "confirmations" not in state
 
+    def test_a_stage_that_was_stopped_is_not_saved_for_a_later_retry(self, root):
+        inner = make_runner(planted())
+
+        def runner(spec, execute, workers, should_stop=None):
+            outcome = inner(spec, execute, workers)
+            outcome["datasets"] = dict(list(outcome["datasets"].items())[:3])
+            outcome["cancelled"] = [key for key in spec["datasets"] if key not in outcome["datasets"]]
+            return outcome
+
+        flags = {"stop": False}
+
+        def stop_after_run():
+            return flags["stop"]
+
+        def stopping_runner(spec, execute, workers, should_stop=None):
+            outcome = runner(spec, execute, workers)
+            flags["stop"] = True
+            return outcome
+
+        state = session.run_session(config(), runner=stopping_runner, should_stop=stop_after_run)
+        assert state["status"] == "cancelled"
+        assert not session.has_stage("s1", "default")
+
     def test_the_stop_callback_reaches_the_runner(self):
         received = []
 
