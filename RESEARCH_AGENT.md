@@ -53,3 +53,16 @@ Wilcoxon'un en küçük p değeri veri sayısına bağlı olduğundan (§2.8) 9 
 - 16 veri seti; E = 6 olduğundan keşif zayıf, C = 10 ile `K_max` = 25.
 - Üretici kural tabanlı; LLM üretici arayüzü hazır ama bu sürümde çekirdek ölçümlerde kullanılmaz.
 - Bu bir "keşifsel analiz ajanı"dır; yeni bilimsel bulgu iddiası yoktur.
+
+## 9. Uygulama durumu ve sonuçlar (28 Ekim 2026)
+
+**Kod.** `app/research/protocol.py` (ayrım, bütçe, `Hypothesis`, `Registry`, `ExplorationView`, `confirm`, Holm ve BH), `generate.py` (kural tabanlı üretici, tuning tetikleyicisi), `llm_generator.py` (dil modeli üretici; her öneriyi doğrular, kullanılamayan cevapta kurallara döner), `session.py` (aşamalı oturum, kayıt, rapor, aşama sonuçlarının kaydı ve yeniden kullanımı), `__main__.py` (`run`, `list`, `show`, `verify`). Veri havuzu 16 veri seti (`app/datasets.py`, `extended` grubu). API: `GET /research_sessions`, `/research_sessions/{id}` (bütünlük denetimiyle), `/research_sessions/{id}/report`. Konsol: `/research` ve `/research/{id}` sayfaları.
+
+**Tasarımdan sapmalar ve eklemeler.** (1) Aşama sonuçları `reports/research/{id}/stages/` altına yazılır ve `--reuse` ile başka bir oturumda yeniden kullanılır; böylece aynı deneyler üzerinde farklı üreticiler karşılaştırılabilir (`--no-history` önceki oturumların doğruladığı iddiaları atlamayı kapatır). (2) Daha sonraki bir aşama düşerse (ağ kopması, çok az veri seti) oturum önceki aşamaların hipotezleriyle tamamlanır ve neden rapora yazılır; varsayılan aşama düşerse oturum `failed` ya da `aborted` olur. (3) Dil modeli üretici hem yön verir hem gerekçe yazar; gerekçe kayda `evidence.rationale` olarak girer ama özetin parçası değildir.
+
+**Ölçümler** (`TECHNICAL_REPORT.md` bölüm 5 ve 6):
+- Yerleştirilmiş etkili simülasyon (400 tekrar, 8 model, 16 veri seti): aile hatası boş dünyada düzeltmesiz tüm çiftlerde %55, aynı veride seçip test eden ajanda %10, tüm çiftli Holm'da %5,5, protokolde %2,2; gerçek fark +0,02 iken güç sırasıyla 1,00 / 0,53 / 0,96 / 0,47. 16 modelde (120 çift) aynı veride seçip test eden ajanın aile hatası %24, protokolünki %3.
+- Gerçek oturum `real-2` (6 model, 16 veri seti, ayarlı aşama dahil): 16 hipotez kaydedildi, 15 doğrulandı, 0 tersi çıktı, 1 doğrulanamadı. Ağaç toplulukları lojistik regresyonu doğrulama veri setlerinin hepsinde ~5 ROC-AUC puanı geçti; MLP'yi 1-2 puanla geçti ve keşif tahmini bu fark için ~3 kat şişikti (kazananın laneti).
+- Üreticiler aynı sonuçlar üzerinde, 8 bölmede: kural 61 kayıt / 19 doğrulama, dil modeli 55 / 14 ve 1 tersi çıkan.
+
+**Bilinen sınırlar.** Tek gerçek oturum; üretici karşılaştırması aynı deneyleri kullandığından 8 bölme bağımsız değil; moderatör hipotezleri, regresyon ve literatür tabanlı yenilik denetimi yok.
