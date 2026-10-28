@@ -29,6 +29,21 @@ def test_the_exit_codes_are_the_documented_numbers():
     assert (cli.EXIT_OK, cli.EXIT_UNFINISHED, cli.EXIT_USAGE) == (0, 1, 2)
 
 
+class TestHeartbeat:
+    def test_a_cli_run_keeps_its_heartbeat_while_it_works(self):
+        import app.research.service as service
+
+        inner = make_runner(planted())
+        seen = []
+
+        def runner(spec, execute, workers):
+            seen.append(service.is_alive("c1"))
+            return inner(spec, execute, workers)
+
+        run(*BASE, runner=runner)
+        assert seen == [True] and session.load("c1")["status"] == "completed"
+
+
 class TestDefaults:
     def test_the_defaults_of_a_plain_run(self):
         run(*BASE)

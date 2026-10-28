@@ -1,10 +1,11 @@
 import argparse
 import sys
 import uuid
+from contextlib import nullcontext
 from typing import Any, Callable
 
 from app.campaign.runner import DEFAULT_WORKERS, run_campaign
-from app.research import generate, session
+from app.research import generate, service, session
 from app.research.protocol import ALPHA, ProtocolError
 
 EXIT_OK = 0
@@ -101,7 +102,8 @@ def main(
             use_history=not arguments.no_history,
             **pool,
         )
-        state = session.run_session(config, execute, arguments.workers, runner)
+        with service.beating(config.id) if session.load(config.id) is None else nullcontext():
+            state = session.run_session(config, execute, arguments.workers, runner)
     except ProtocolError as exc:
         print(f"invalid session: {exc}", file=out)
         return EXIT_USAGE
