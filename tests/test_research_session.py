@@ -276,7 +276,7 @@ class TestGenerator:
         assert built == ["gpt-test"] and state["generator"] == "llm" and state["hypotheses"] == []
 
     def test_a_language_model_that_proposes_a_real_pair_gets_it_registered_and_confirmed(self, monkeypatch):
-        reply = '{"hypotheses": [{"subject": "RandomForest", "other": "MLP", "rationale": "forests are strong"}]}'
+        reply = '{"hypotheses": [{"higher": "RandomForest", "lower": "MLP", "rationale": "forests are strong"}]}'
         monkeypatch.setattr(session.llm_generator, "make_complete", lambda model: lambda prompt: reply)
         state = session.run_session(config(generator="llm"), runner=make_runner(planted()))
         assert [item["statement"] for item in state["hypotheses"]] == [generate.statement("RandomForest", "MLP", "roc_auc", "default")]

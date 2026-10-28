@@ -19,12 +19,12 @@ def prompt(view: ExplorationView, names: list[str], stage: str, count: int) -> s
     return (
         "You are a research agent that studies how machine learning models compare on tabular binary classification.\n"
         f"These are mean ROC-AUC scores on the exploration datasets, from the {stage} stage:\n" + "\n".join(rows) + "\n"
-        f"Propose at most {count} hypotheses of the form \"model A scores higher than model B on ROC-AUC\". "
+        f"Propose at most {count} hypotheses of the form \"the model you expect to score higher than the model you expect to score lower on ROC-AUC\". "
         "Use only the model names listed above. A name ending in __default is the same model with library default parameters (a control); "
         "compare it only with its own model, to ask whether tuning helped. "
         "Prefer hypotheses that the scores above make plausible, but you may also propose one that tests a common belief. "
         "A separate set of datasets that you cannot see will test each hypothesis once.\n"
-        'Answer with JSON only: {"hypotheses": [{"subject": "A", "other": "B", "rationale": "one short sentence"}]}'
+        'Answer with JSON only: {"hypotheses": [{"higher": "model expected to score higher", "lower": "model expected to score lower", "rationale": "one short sentence"}]}'
     )
 
 
@@ -41,10 +41,10 @@ def parse(text: str) -> list[tuple[str, str, str]]:
         raise GeneratorError("no hypotheses list")
     parsed = []
     for item in items:
-        if not isinstance(item, dict) or not isinstance(item.get("subject"), str) or not isinstance(item.get("other"), str):
-            raise GeneratorError("a hypothesis needs a subject and an other model")
+        if not isinstance(item, dict) or not isinstance(item.get("higher"), str) or not isinstance(item.get("lower"), str):
+            raise GeneratorError("a hypothesis needs a higher and a lower model")
         rationale = item.get("rationale")
-        parsed.append((item["subject"], item["other"], rationale if isinstance(rationale, str) else ""))
+        parsed.append((item["higher"], item["lower"], rationale if isinstance(rationale, str) else ""))
     return parsed
 
 

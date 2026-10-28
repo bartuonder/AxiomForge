@@ -25,7 +25,7 @@ MODELS = {"A": flat(0.70), "B": flat(0.80), "C": flat(0.75), "A__default": flat(
 
 
 def reply(*hypotheses):
-    return json.dumps({"hypotheses": [{"subject": s, "other": o, "rationale": f"{s} should beat {o}"} for s, o in hypotheses]})
+    return json.dumps({"hypotheses": [{"higher": s, "lower": o, "rationale": f"{s} should beat {o}"} for s, o in hypotheses]})
 
 
 def propose(text, registry=None, stage="default", count=5, known=frozenset(), models=None):
@@ -40,6 +40,7 @@ class TestPrompt:
             assert dataset in text
         assert "0.800" in text and "A__default" in text
         assert "at most 3 hypotheses" in text and "JSON" in text and "from the default stage" in text
+        assert '"higher"' in text and '"lower"' in text and "subject" not in text
 
     def test_it_forbids_models_that_are_not_listed_and_explains_the_controls(self):
         text = llm_generator.prompt(view(MODELS), generate.model_names(view(MODELS)), "tuned", 2)
@@ -58,13 +59,13 @@ class TestParse:
     def test_it_accepts_a_fenced_block(self):
         assert llm_generator.parse("```json\n" + reply(("A", "B")) + "\n```") == [("A", "B", "A should beat B")]
 
-    @pytest.mark.parametrize("text", ["", "no", "[]", "{}", '{"hypotheses": 3}', '{"hypotheses": [1]}', '{"hypotheses": [{"subject": "A"}]}', '{"hypotheses": [{"subject": 1, "other": 2}]}'])
+    @pytest.mark.parametrize("text", ["", "no", "[]", "{}", '{"hypotheses": 3}', '{"hypotheses": [1]}', '{"hypotheses": [{"higher": "A"}]}', '{"hypotheses": [{"higher": 1, "lower": 2}]}'])
     def test_anything_unusable_is_refused(self, text):
         with pytest.raises(llm_generator.GeneratorError):
             llm_generator.parse(text)
 
     def test_a_missing_rationale_becomes_an_empty_one(self):
-        assert llm_generator.parse('{"hypotheses": [{"subject": "A", "other": "B"}]}') == [("A", "B", "")]
+        assert llm_generator.parse('{"hypotheses": [{"higher": "A", "lower": "B"}]}') == [("A", "B", "")]
 
 
 class TestPropose:
