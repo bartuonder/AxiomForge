@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { ResearchTable } from "@/components/ResearchTable";
+import { SessionControls } from "@/components/SessionControls";
 import { SiteHeader } from "@/components/SiteHeader";
 import { VerdictBadge } from "@/components/VerdictBadge";
 import { fetchResearchSession, fetchResearchSessionReport } from "@/lib/api";
 import { friendlyApiError } from "@/lib/apiErrors";
 import { downloadText, slug } from "@/lib/download";
 import type { MessageKey } from "@/lib/i18n";
-import { mergeRows, sessionTone } from "@/lib/researchView";
+import { isActiveSession, mergeRows, phaseMessage, sessionTone } from "@/lib/researchView";
 import type { SessionDetail } from "@/lib/types";
 
 const POLL_MS = 5000;
@@ -19,6 +20,7 @@ export function SessionDetails({ detail }: { detail: SessionDetail }) {
   const { names, t } = useLanguage();
   const { summary, session, intact } = detail;
   const rows = mergeRows(session.hypotheses, session.confirmations);
+  const phase = phaseMessage(summary.status, summary.phase);
   const datasetList = (keys: string[]) => keys.map((key) => names.datasets[key] ?? key).join(", ");
   return (
     <>
@@ -27,6 +29,8 @@ export function SessionDetails({ detail }: { detail: SessionDetail }) {
         <h1 className="text-3xl leading-tight text-ink sm:text-4xl">{t("research.session.title", { id: summary.id })}</h1>
         <p className="text-sm text-muted">{t("research.list.models", { models: summary.models.map((model) => names.models[model] ?? model).join(", ") })}</p>
         {summary.reason ? <p className="text-sm text-danger">{summary.reason}</p> : null}
+        {session.stale ? <p className="text-sm text-danger">{t("research.session.stale")}</p> : null}
+        {phase ? <p className="text-sm text-muted">{t(phase as MessageKey)}</p> : null}
       </header>
 
       <section className="mt-8 space-y-3">
@@ -38,6 +42,7 @@ export function SessionDetails({ detail }: { detail: SessionDetail }) {
         </ol>
       </section>
 
+      {summary.status === "queued" ? null : (
       <section className="mt-8 space-y-3">
         <h2 className="text-xl text-ink">{t("research.result.title")}</h2>
         <p className="text-lg text-ink">
@@ -54,6 +59,7 @@ export function SessionDetails({ detail }: { detail: SessionDetail }) {
           {intact ? t("research.integrity.ok") : t("research.integrity.bad")}
         </p>
       </section>
+      )}
 
       {rows.length > 0 ? (
         <section className="mt-8 space-y-3">
@@ -93,6 +99,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   const { t } = useLanguage();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [error, setError] = useState("");
+  const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +113,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         }
         setDetail(next);
         setError("");
-        active = next.summary.status === "running";
+        active = isActiveSession(next.summary.status);
       } catch (caught) {
         if (!cancelled) {
           setError(friendlyApiError(caught instanceof Error ? caught.message : "", t) || t("research.session.loadError"));
@@ -121,7 +128,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [sessionId, t]);
+  }, [sessionId, t, reloads]);
 
   const download = async () => {
     const markdown = await fetchResearchSessionReport(sessionId);
@@ -140,7 +147,13 @@ export function SessionView({ sessionId }: { sessionId: string }) {
         {detail ? (
           <>
             <SessionDetails detail={detail} />
-            {detail.summary.status !== "running" ? (
+            <SessionControls
+              sessionId={sessionId}
+              status={detail.summary.status}
+              cancelRequested={Boolean(detail.session.cancel_requested)}
+              onDone={() => setReloads((count) => count + 1)}
+            />
+            {!isActiveSession(detail.summary.status) ? (
               <button type="button" onClick={() => void download()} className="mt-8 rounded-full border border-accent px-4 py-1.5 text-sm font-semibold text-accent hover:bg-accent-tint">
                 {t("research.download")}
               </button>

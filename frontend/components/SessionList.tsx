@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import { SiteHeader } from "@/components/SiteHeader";
+import { StartSession } from "@/components/StartSession";
 import { VerdictBadge } from "@/components/VerdictBadge";
 import { fetchResearchSessions } from "@/lib/api";
 import { friendlyApiError } from "@/lib/apiErrors";
@@ -63,6 +64,7 @@ export function SessionList() {
       <main className="mx-auto min-h-screen w-full max-w-4xl px-6 py-10">
         <h1 className="text-4xl text-ink">{t("research.list.title")}</h1>
         <p className="mt-2 text-muted">{t("research.list.subtitle")}</p>
+        <StartSession />
         {error ? <p className="mt-8 text-sm text-danger">{error}</p> : null}
         {sessions ? <SessionCards sessions={sessions} /> : null}
       </main>
