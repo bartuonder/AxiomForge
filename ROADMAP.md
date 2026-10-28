@@ -68,7 +68,7 @@ Bu dosya "projeyi bitirmek için ne kaldı" sorusunun cevabıdır. Yarın burada
 5. A2'nin kalanı ve A3 yalnız ihtiyaç doğarsa.
 
 ## D. Durum (28 Ekim, dördüncü tur sonu)
-- Kod: 3600+ pytest testi (3 atlandı), 155 frontend Node testi, 38 Playwright testi (işlev, axe erişilebilirlik, klavye, araştırma yeniden deneme, araştırma sayfaları). Üçüncü tura kadarki her şey push edildi (CI yeşil); dördüncü tur commitleri yerelde, push kullanıcının isteğine bağlı.
+- Kod: 3700+ pytest testi (3 atlandı), 182 frontend Node testi, 45 Playwright testi (işlev, axe erişilebilirlik, klavye, araştırma yeniden deneme, araştırma sayfaları). Üçüncü tura kadarki her şey push edildi (CI yeşil); dördüncü tur commitleri yerelde, push kullanıcının isteğine bağlı.
 - Yapılanlar: B1, B2, B3, B4-16, A1-1, A1-2, A1-3 (meta makale kapısı), A1-4 (iki hat), A2-5, A2-6 ve **E4: araştırma ajanı** (bölüm E).
 - Kalanlar: B4-17 kullanıcı gözlemi (insan gerekir), ekran okuyucuyla gerçek dinleme, 17 regex kapısından 14'ünün yanlış alarm oranı (örneklerde hiç ateşlemediler; bilerek bozulmuş etiketli makale ister), iki paralel hattın birleştirilmesi (A2-8), iç içe çapraz doğrulamalı ayar (A2-9), bölüm E5.
 - Karar bekleyen: arayüzün asıl hedef kullanıcısı; veritabanındaki test kalıntılarının silinmesi (A2-7).
@@ -105,7 +105,7 @@ Fark, **kapalı döngü**: sonuçtan yeni hipotez üretmek ve bunu istatistiksel
 
 ### E5. Araştırma ajanı için sıradaki işler
 - Moderatör hipotezleri ("üstünlük yüksek boyutlu veri setlerinde daha mı büyük?"): `moderators.py` hazır, doğrulama kümesi alt kümeleri ve ayrı bir bütçe gerekir.
-- Konsoldan oturum başlatma (şimdi yalnız komut satırı; API anahtarı ve günlük sınır hazır) ve canlı ilerleme.
+- ~~Konsoldan oturum başlatma ve canlı ilerleme~~ **yapıldı (28 Ekim)**: `/research` sayfasındaki form (model seçimi, ayarlı aşama, üretici), `POST /start_research_session`, iptal ve yeniden başlatma, aşama metni ve 5 saniyelik yenileme; ölü işçi bayat olarak `failed` görünür. Canlı denendi: başlat, iptal, yeniden başlat, tamamlandı. Kalan: oturumun hangi veri setinde olduğunu gösteren ayrıntılı ilerleme çubuğu.
 - Daha çok veri seti (regresyon dahil) ile doğrulama gücünü artırmak: 10 veri setinde en küçük p 0,002; 13 hipotezden sonra Holm ile hiçbiri anlamlı olamaz.
 - Üreticiler arası sistematik karşılaştırma: `--reuse` ile aynı sonuçlar üzerinde kural, dil modeli ve (varsa) başka üreticiler, birden çok tohumla.
 - Kullanıcı gözlemi (insan gerekir) ve halka açık demo.
