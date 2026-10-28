@@ -123,3 +123,7 @@ Durumlar `queued`, `running`, `completed`, `needs_review` (rapor denetimi sorun 
 ## Sunum katmanı (karar vermez)
 
 Kampanya bittikten sonra `GET /campaign/{id}/summary?lang=tr|en` hattın çıktılarını (`analysis.json`, `ledger.json`, `spec.json`) `app/campaign/summary.py::build_summary` ile herkesin okuyacağı dile çevirir; adlar ve karar etiketleri `app/campaign/vocabulary.py`'den, hata açıklamaları `app/friendly_errors.py`'den gelir. Bu katman graf, kapı ya da istatistik koduna geri yazmaz; yalnız okur. Başlatan uçlar (`/start_campaign`, `/start_research`, `/approve_plan`, `/experiments`) hat başlamadan önce `app/guard.py`'den geçer: tanımlıysa `X-API-Key`, ardından günlük başlatma sınırı.
+
+## Araştırma ajanı katmanı (graf dışı)
+
+`app/research/` LangGraph kullanmaz; kampanya motorunu aşama aşama çağırır (`run_campaign`), her aşamanın sonuçlarını diske yazar ve hipotezleri yalnız keşif veri setlerinden üretir. Akış: aşama koşusu -> sonuçları kaydet -> keşif görünümünden hipotez önerisi -> hipotezleri dondur ve diske yaz -> (keşif etkisi büyükse) ayarlı aşama -> mühürlü doğrulama veri setlerinde tek test ve oturum boyu düzeltme -> rapor. Ayrıntı `RESEARCH_AGENT.md`.
