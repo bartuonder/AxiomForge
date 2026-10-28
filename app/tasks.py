@@ -4,6 +4,7 @@ from app.campaign.tracking import log_campaign
 from app.celery_app import celery_app
 from app.graph.errors import record_error
 from app.graph.workflow import resume_campaign, resume_research, run_until_pause
+from app.research import service as research_service
 
 
 @celery_app.task(name="axiomforge.run_research", ignore_result=True)
@@ -14,6 +15,11 @@ def run_research_task(thread_id: str, query: str, mode: str = "experiment") -> N
 @celery_app.task(name="axiomforge.resume_research", ignore_result=True)
 def resume_research_task(thread_id: str) -> None:
     resume_research(thread_id)
+
+
+@celery_app.task(name="axiomforge.run_research_session", ignore_result=True)
+def run_research_session_task(session_id: str) -> None:
+    research_service.execute_session(session_id)
 
 
 RESUME_ATTEMPTS = 40

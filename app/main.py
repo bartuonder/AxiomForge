@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from kombu.exceptions import OperationalError
 from openai import OpenAIError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.agents.experiment import QueryNamesTooFewModels
 from app.campaign import store as campaign_store
@@ -17,6 +17,7 @@ from app.campaign.service import CampaignControlError, campaign_summary, cancel_
 from app.campaign.summary import build_summary
 from app.campaign.vocabulary import DATASET_NAMES, GLOSSARY, LANGUAGES, METRIC_LABELS, MODEL_NAMES
 from app.friendly_errors import explain_error
+from app.research import service as research_service
 from app.research import session as research_session
 from app.research.protocol import ProtocolError
 from app.campaign.spec import CampaignSpecError, validate_campaign
@@ -27,7 +28,7 @@ from app.guard import require_key, spend_start, usage
 from app.graph.errors import clear_error, record_error
 from app.graph.workflow import PlanDecisionError, decide_plan, get_research, new_thread_id, plan_research_retry, revoke_approval
 from app.openai_check import check_openai_access
-from app.tasks import resume_research_task, run_campaign_task, run_research_task
+from app.tasks import resume_research_task, run_campaign_task, run_research_session_task, run_research_task
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("axiomforge")
@@ -55,6 +56,15 @@ class StartCampaignRequest(BaseModel):
     demo: str | None = None
     spec: dict | None = None
     datasets: list[str] | None = None
+
+
+class StartResearchSessionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    models: list[str]
+    tuning: int | None = None
+    seed: int = 0
+    generator: str = "rules"
 
 
 class ApprovePlanRequest(BaseModel):
@@ -236,16 +246,67 @@ def _research_state(session_id: str) -> dict:
     return state
 
 
+@app.post("/start_research_session", dependencies=[Depends(require_key)])
+def start_research_session(body: StartResearchSessionRequest):
+    try:
+        config = research_session.SessionConfig(
+            id=research_service.new_session_id(),
+            models=body.models,
+            tuning=body.tuning,
+            seed=body.seed,
+            generator=body.generator,
+        )
+    except ProtocolError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        if config.generator == "llm":
+            check_openai_access()
+        spend_start()
+        research_session.queue_session(config)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ProtocolError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
+        _enqueue(run_research_session_task, config.id)
+    except HTTPException as exc:
+        research_session.close(config.id, "failed", str(exc.detail))
+        raise
+    return {"session_id": config.id, "status": "queued"}
+
+
+@app.post("/research_sessions/{session_id}/cancel", dependencies=[Depends(require_key)])
+def research_session_cancel(session_id: str):
+    try:
+        return research_service.cancel_session(session_id)
+    except research_service.SessionControlError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@app.post("/research_sessions/{session_id}/retry", dependencies=[Depends(require_key)])
+def research_session_retry(session_id: str):
+    try:
+        research_service.retry_session(session_id, before=spend_start)
+    except research_service.SessionControlError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    try:
+        _enqueue(run_research_session_task, session_id)
+    except HTTPException as exc:
+        research_session.close(session_id, "failed", str(exc.detail))
+        raise
+    return {"session_id": session_id, "status": "queued"}
+
+
 @app.get("/research_sessions")
 def research_sessions():
-    states = [state for state in (research_session.load(name) for name in research_session.list_sessions()) if state]
+    states = [research_service.effective_state(state) for state in (research_session.load(name) for name in research_session.list_sessions()) if state]
     states.sort(key=lambda state: (state.get("created", ""), state["id"]), reverse=True)
     return {"items": [research_session.summary_of(state) for state in states]}
 
 
 @app.get("/research_sessions/{session_id}")
 def research_session_detail(session_id: str):
-    state = _research_state(session_id)
+    state = research_service.effective_state(_research_state(session_id))
     try:
         intact = research_session.verify(session_id)
     except ProtocolError:
