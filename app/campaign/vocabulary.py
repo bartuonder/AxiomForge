@@ -59,6 +59,13 @@ DATASET_NAMES: dict[str, dict[str, str]] = {
         "tb_house16h": "Konut fiyatları (house 16H)",
         "tb_pol": "Telekomünikasyon verisi (pol)",
         "tb_eye": "Okurken göz hareketleri",
+        "tb_bioresponse": "Moleküllerin biyolojik tepkisi",
+        "tb_diabetes": "Diyabet hastası yeniden yatışı",
+        "tb_higgs": "Higgs bozonu sinyali",
+        "tb_miniboone": "Nötrino sinyali (MiniBooNE)",
+        "tb_covertype": "Orman örtüsü türü",
+        "tb_creditcard": "Kredi kartı temerrüdü (benchmark)",
+        "tb_jannis": "Jannis veri seti",
     },
     "en": {
         "breast_cancer": "Breast cancer diagnosis",
@@ -75,6 +82,13 @@ DATASET_NAMES: dict[str, dict[str, str]] = {
         "tb_house16h": "House prices (house 16H)",
         "tb_pol": "Telecommunication data (pol)",
         "tb_eye": "Eye movements while reading",
+        "tb_bioresponse": "Biological response of molecules",
+        "tb_diabetes": "Diabetes patient readmission",
+        "tb_higgs": "Higgs boson signal",
+        "tb_miniboone": "Neutrino signal (MiniBooNE)",
+        "tb_covertype": "Forest cover type",
+        "tb_creditcard": "Credit card default (benchmark)",
+        "tb_jannis": "Jannis dataset",
     },
 }
 

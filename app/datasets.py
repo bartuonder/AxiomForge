@@ -108,6 +108,30 @@ for _key, _config, _target, _positive, _summary in BENCHMARK_POOL:
         "max_rows": BENCHMARK_ROWS,
     }
 
+EXTENDED_POOL = (
+    ("tb_bioresponse", "clf_num_Bioresponse", "target", 1, "Bioresponse, biological response of molecules, 419 numeric features"),
+    ("tb_diabetes", "clf_num_Diabetes130US", "readmitted", 1, "Diabetes 130 US hospitals, readmission outcome, 7 numeric features"),
+    ("tb_higgs", "clf_num_Higgs", "target", 1, "Higgs boson signal against background, 24 numeric features"),
+    ("tb_miniboone", "clf_num_MiniBooNE", "signal", True, "MiniBooNE neutrino signal against background, 50 numeric features"),
+    ("tb_covertype", "clf_num_covertype", "Y", 1, "forest cover type, binary class, 10 numeric features"),
+    ("tb_creditcard", "clf_num_default-of-credit-card-clients", "y", 1, "default of credit card clients, 20 numeric features"),
+    ("tb_jannis", "clf_num_jannis", "class", 1, "Jannis, binary class, 54 numeric features"),
+)
+
+for _key, _config, _target, _positive, _summary in EXTENDED_POOL:
+    DATASETS[_key] = {
+        "hf_id": BENCHMARK_ID,
+        "config": _config,
+        "group": "extended",
+        "summary": f"Tabular benchmark of Grinsztajn et al. 2022, {_summary}; classes balanced 50/50 by the benchmark; {BENCHMARK_ROWS} rows sampled",
+        "topics": "benchmark",
+        "target": _target,
+        "positive": _positive,
+        "drop": [],
+        "clean": [],
+        "max_rows": BENCHMARK_ROWS,
+    }
+
 PREPROCESSING_LINES = (
     "from sklearn.base import clone",
     "from sklearn.compose import ColumnTransformer",
@@ -135,6 +159,14 @@ def core_keys() -> list[str]:
 
 def benchmark_keys() -> list[str]:
     return [key for key, entry in DATASETS.items() if entry.get("group") == "benchmark"]
+
+
+def extended_keys() -> list[str]:
+    return [key for key, entry in DATASETS.items() if entry.get("group") == "extended"]
+
+
+def research_pool() -> list[str]:
+    return benchmark_keys() + extended_keys()
 
 
 def hf_ids() -> list[str]:

@@ -18,6 +18,7 @@ from app.datasets import (
     dataset_keys,
     dataset_menu,
     describe,
+    extended_keys,
     hf_ids,
     loader_code,
     pick_dataset,
@@ -79,9 +80,9 @@ def run(key):
 
 
 def test_the_registry_is_made_of_real_hub_ids():
-    assert len(KEYS) == 14
+    assert len(KEYS) == 21
     assert dataset_keys() == KEYS
-    assert len({(entry["hf_id"], entry.get("config")) for entry in DATASETS.values()}) == 14
+    assert len({(entry["hf_id"], entry.get("config")) for entry in DATASETS.values()}) == 21
     assert len(set(hf_ids())) == 6
     for entry in DATASETS.values():
         assert re.fullmatch(r"[\w.-]+/[\w.-]+", entry["hf_id"])
@@ -90,8 +91,9 @@ def test_the_registry_is_made_of_real_hub_ids():
 def test_the_core_and_the_benchmark_groups_split_the_registry():
     assert core_keys() == ["breast_cancer", "credit_default", "customer_churn", "adult_income", "credit_fraud"]
     assert len(benchmark_keys()) == 9
-    assert set(core_keys()) | set(benchmark_keys()) == set(KEYS)
+    assert set(core_keys()) | set(benchmark_keys()) | set(extended_keys()) == set(KEYS)
     assert not set(core_keys()) & set(benchmark_keys())
+    assert len(extended_keys()) == 7 and not set(extended_keys()) & (set(core_keys()) | set(benchmark_keys()))
 
 
 @pytest.mark.parametrize("key", benchmark_keys())
