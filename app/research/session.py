@@ -203,6 +203,24 @@ def run_session(
     return _finish(state, "completed")
 
 
+def summary_of(state: dict[str, Any]) -> dict[str, Any]:
+    confirmations = state.get("confirmations", [])
+    return {
+        "id": state["id"],
+        "status": state["status"],
+        "reason": state.get("reason", ""),
+        "created": state.get("created", ""),
+        "finished": state.get("finished", ""),
+        "models": list(state["config"]["models"]),
+        "explore": list(state["explore"]),
+        "confirm": list(state["confirm"]),
+        "budget": state["budget"],
+        "registered": len(state["hypotheses"]),
+        "counts": {name: sum(1 for item in confirmations if item["status"] == name) for name in protocol.STATUSES},
+        "stages": [{"name": item["name"], "finished": len(item["finished"]), "failed": len(item["failed"])} for item in state.get("stages", [])],
+    }
+
+
 def _format(value: float | None, digits: int = 4) -> str:
     return "n/a" if value is None else f"{value:.{digits}f}"
 

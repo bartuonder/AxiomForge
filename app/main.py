@@ -17,6 +17,8 @@ from app.campaign.service import CampaignControlError, campaign_summary, cancel_
 from app.campaign.summary import build_summary
 from app.campaign.vocabulary import DATASET_NAMES, GLOSSARY, LANGUAGES, METRIC_LABELS, MODEL_NAMES
 from app.friendly_errors import explain_error
+from app.research import session as research_session
+from app.research.protocol import ProtocolError
 from app.campaign.spec import CampaignSpecError, validate_campaign
 from app.celery_app import celery_app
 from app.config import REDIS_URL
@@ -222,6 +224,42 @@ def start_campaign_endpoint(body: StartCampaignRequest):
         reject_campaign(campaign_id, str(exc.detail))
         raise
     return {"campaign_id": campaign_id, "status": "queued"}
+
+
+def _research_state(session_id: str) -> dict:
+    try:
+        state = research_session.load(session_id)
+    except ProtocolError as exc:
+        raise HTTPException(status_code=400, detail="invalid session id") from exc
+    if state is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    return state
+
+
+@app.get("/research_sessions")
+def research_sessions():
+    states = [state for state in (research_session.load(name) for name in research_session.list_sessions()) if state]
+    states.sort(key=lambda state: (state.get("created", ""), state["id"]), reverse=True)
+    return {"items": [research_session.summary_of(state) for state in states]}
+
+
+@app.get("/research_sessions/{session_id}")
+def research_session_detail(session_id: str):
+    state = _research_state(session_id)
+    try:
+        intact = research_session.verify(session_id)
+    except ProtocolError:
+        intact = False
+    return {"summary": research_session.summary_of(state), "session": state, "intact": intact}
+
+
+@app.get("/research_sessions/{session_id}/report")
+def research_session_report(session_id: str):
+    _research_state(session_id)
+    path = research_session.session_dir(session_id) / research_session.REPORT
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="report not ready")
+    return {"markdown": path.read_text(encoding="utf-8")}
 
 
 @app.get("/usage")
