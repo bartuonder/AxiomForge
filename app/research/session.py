@@ -107,6 +107,44 @@ def list_sessions() -> list[str]:
     return sorted(path.parent.name for path in ROOT.glob(f"*/{FILENAME}"))
 
 
+def _blank_state(config: SessionConfig, status: str) -> dict[str, Any]:
+    explore, confirm = protocol.split_pool(list(config.pool), config.explore, config.seed)
+    return {
+        "id": config.id,
+        "config": config.to_dict(),
+        "status": status,
+        "reason": "",
+        "phase": "",
+        "created": _now(),
+        "explore": explore,
+        "confirm": confirm,
+        "budget": protocol.max_hypotheses(len(confirm), config.alpha),
+        "alpha": config.alpha,
+        "generator": config.generator,
+        "stages": [],
+        "hypotheses": [],
+        "skipped": [],
+    }
+
+
+def queue_session(config: SessionConfig) -> dict[str, Any]:
+    if (session_dir(config.id) / FILENAME).exists():
+        raise ProtocolError(f"the session {config.id} exists already")
+    state = _blank_state(config, "queued")
+    save(state)
+    return state
+
+
+def reset_for_retry(session_id: str) -> None:
+    folder = session_dir(session_id)
+    if not (folder / FILENAME).exists():
+        raise ProtocolError(f"session {session_id} was not found")
+    for name in (FILENAME, REPORT):
+        path = folder / name
+        if path.exists():
+            path.unlink()
+
+
 def verify(session_id: str) -> bool:
     state = load(session_id)
     if state is None:
@@ -147,6 +185,7 @@ def stage_spec(models: list[str], datasets: list[str], tuning: int | None) -> di
 def _finish(state: dict[str, Any], status: str, reason: str = "") -> dict[str, Any]:
     state["status"] = status
     state["reason"] = reason
+    state["phase"] = ""
     state["finished"] = _now()
     save(state)
     _write(session_dir(state["id"]) / REPORT, render_report(state))
@@ -200,27 +239,20 @@ def run_session(
     workers: int = DEFAULT_WORKERS,
     runner: Callable[..., dict[str, Any]] = run_campaign,
     generator: Callable[..., Any] | None = None,
+    should_stop: Callable[[], bool] | None = None,
 ) -> dict[str, Any]:
-    if (session_dir(config.id) / FILENAME).exists():
+    existing = load(config.id)
+    if existing is not None and existing.get("status") != "queued":
         raise ProtocolError(f"the session {config.id} exists already")
     reused = _load_reused(config)
-    explore, confirm = protocol.split_pool(list(config.pool), config.explore, config.seed)
-    registry = Registry(protocol.max_hypotheses(len(confirm), config.alpha))
-    state: dict[str, Any] = {
-        "id": config.id,
-        "config": config.to_dict(),
-        "status": "running",
-        "reason": "",
-        "created": _now(),
-        "explore": explore,
-        "confirm": confirm,
-        "budget": registry.budget,
-        "alpha": config.alpha,
-        "generator": config.generator if generator is None else "custom",
-        "stages": [],
-        "hypotheses": [],
-        "skipped": [],
-    }
+    state = _blank_state(config, "running")
+    if existing is not None:
+        state["created"] = existing.get("created", state["created"])
+    state["generator"] = config.generator if generator is None else "custom"
+    explore, confirm = state["explore"], state["confirm"]
+    registry = Registry(state["budget"])
+    if should_stop and should_stop():
+        return _finish(state, "cancelled", "stopped on request")
     save(state)
     known = known_claims() if config.use_history else frozenset()
     propose = generator or (generate.propose if config.generator == "rules" else llm_generator.make_generator(llm_generator.make_complete(config.llm_model)))
@@ -232,7 +264,10 @@ def run_session(
                 if stage in reused:
                     results, failed = reused[stage]
                 else:
-                    outcome = runner(stage_spec(config.models, config.pool, config.tuning if stage == "tuned" else None), execute, workers)
+                    state["phase"] = stage
+                    save(state)
+                    stage_arguments = (stage_spec(config.models, config.pool, config.tuning if stage == "tuned" else None), execute, workers)
+                    outcome = runner(*stage_arguments, should_stop=should_stop) if should_stop else runner(*stage_arguments)
                     results = {key: record["summary"] for key, record in outcome["datasets"].items()}
                     failed = dict(outcome.get("failed") or {})
                 _save_stage(config, stage, results, failed)
@@ -242,6 +277,8 @@ def run_session(
                 state["stages"].append({"name": stage, "finished": [], "failed": {}, "error": f"{type(exc).__name__}: {exc}"})
                 state["reason"] = f"the {stage} stage failed ({type(exc).__name__}: {exc}); only the earlier stages were tested"
                 break
+            if should_stop and should_stop():
+                return _finish(state, "cancelled", "stopped on request")
             explored = [key for key in explore if key in results]
             confirmed = [key for key in confirm if key in results]
             state["stages"].append({"name": stage, "finished": [key for key in config.pool if key in results], "failed": failed})
@@ -291,12 +328,22 @@ def summary_of(state: dict[str, Any]) -> dict[str, Any]:
         "budget": state["budget"],
         "registered": len(state["hypotheses"]),
         "counts": {name: sum(1 for item in confirmations if item["status"] == name) for name in protocol.STATUSES},
+        "phase": state.get("phase", ""),
         "stages": [{"name": item["name"], "finished": len(item["finished"]), "failed": len(item["failed"])} for item in state.get("stages", [])],
     }
 
 
 def _format(value: float | None, digits: int = 4) -> str:
     return "n/a" if value is None else f"{value:.{digits}f}"
+
+
+def _reuse_note(state: dict[str, Any]) -> list[str]:
+    source = state["config"].get("reuse")
+    if not source:
+        return []
+    if source == state["id"]:
+        return ["The stage results saved by an earlier attempt of this session were reused; no experiment was run again for them.", ""]
+    return [f"The stage results were reused from session {source}; no experiment was run for them.", ""]
 
 
 def render_report(state: dict[str, Any]) -> str:
@@ -311,7 +358,7 @@ def render_report(state: dict[str, Any]) -> str:
         "",
         f"Hypothesis generator: {state.get('generator', 'rules')}" + (f" ({state['config'].get('llm_model', '')})" if state.get("generator") == "llm" else "") + ".",
         "",
-        *([f"The stage results were reused from session {state['config']['reuse']}; no experiment was run for them.", ""] if state["config"].get("reuse") else []),
+        *_reuse_note(state),
         f"The pool of {len(state['explore']) + len(state['confirm'])} datasets was split once and for good into {len(state['explore'])} exploration datasets and {len(state['confirm'])} confirmation datasets "
         "(seeded, deterministic). The hypothesis generator saw only the exploration datasets; the confirmation results stayed sealed until every hypothesis was registered and saved. "
         "Each registered hypothesis was tested exactly once on the confirmation datasets (two-sided Wilcoxon over datasets, one primary metric, ROC-AUC). "
