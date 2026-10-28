@@ -67,18 +67,18 @@ Bu dosya "projeyi bitirmek için ne kaldı" sorusunun cevabıdır. Yarın burada
 4. B2, B3, sonra B4.
 5. A2'nin kalanı ve A3 yalnız ihtiyaç doğarsa.
 
-## D. Durum (27 Ekim, üçüncü tur sonu)
-- Kod: 3220 pytest testi (3 atlandı), 123 frontend Node testi, 32 Playwright testi (12 işlev, 12 axe erişilebilirlik, 5 klavye, 3 araştırma yeniden deneme). GitHub CI'daki üç iş son pushta yeşildi; üçüncü tur commitleri yerelde, push kullanıcının isteğine bağlı.
-- Yapılanlar: B1, B2 (tek deney hattı ekranları ve yeniden deneme dahil), B3 (koyu tema, klavye ve axe taraması dahil), B4-16, A1-1, A1-2, A1-3 (yalnız meta makale kapısı), A1-4 (hem kampanya hem tek araştırma hattı), A2-5, A2-6. A2-8'de sayılan ölü kod adayları kodda zaten yoktu.
-- Kalanlar: B4-17 kullanıcı gözlemi (insan gerekir), ekran okuyucuyla gerçek dinleme, 17 regex kapısından 14'ünün yanlış alarm oranı (bu örneklerde hiç ateşlemediler; bilerek bozulmuş etiketli makale ister), iki paralel hattın birleştirilmesi (A2-8), iç içe çapraz doğrulamalı ayar (A2-9). (Kampanya görevinin çift çalışması nabız ile çözüldü ve Docker'da canlı doğrulandı.)
-- Karar bekleyen: arayüzün asıl hedef kullanıcısı (şimdilik "herkes" varsayımıyla yazıldı); veritabanındaki test kalıntılarının silinmesi (A2-7).
+## D. Durum (28 Ekim, dördüncü tur sonu)
+- Kod: 3600+ pytest testi (3 atlandı), 155 frontend Node testi, 38 Playwright testi (işlev, axe erişilebilirlik, klavye, araştırma yeniden deneme, araştırma sayfaları). Üçüncü tura kadarki her şey push edildi (CI yeşil); dördüncü tur commitleri yerelde, push kullanıcının isteğine bağlı.
+- Yapılanlar: B1, B2, B3, B4-16, A1-1, A1-2, A1-3 (meta makale kapısı), A1-4 (iki hat), A2-5, A2-6 ve **E4: araştırma ajanı** (bölüm E).
+- Kalanlar: B4-17 kullanıcı gözlemi (insan gerekir), ekran okuyucuyla gerçek dinleme, 17 regex kapısından 14'ünün yanlış alarm oranı (örneklerde hiç ateşlemediler; bilerek bozulmuş etiketli makale ister), iki paralel hattın birleştirilmesi (A2-8), iç içe çapraz doğrulamalı ayar (A2-9), bölüm E5.
+- Karar bekleyen: arayüzün asıl hedef kullanıcısı; veritabanındaki test kalıntılarının silinmesi (A2-7).
 - Sunucuları açmak için komutlar `CONTINUATION.md` "Çalıştırma" bölümünde; konsol `http://localhost:3000`, ya da `docker compose up`.
 
 ## E. Konumlandırma ve "araştırma ajanı"na giden yol (27 Ekim 2026 sohbeti)
 
 ### E1. Şu an projenin dürüst tanımı
 - Bugünkü sistem bir **iddia doğrulama / yeniden üretilebilirlik ajanıdır**: iddiayı makaleden çıkarır, 9 gerçek veri setinde sandbox'ta dener, kararı LLM'e değil istatistiğe (Wilcoxon, Holm, Friedman) bırakır, her sayıyı kanıt defterine bağlar. LLM yalnız planlar ve düz yazı yazar; yazı 17 kuralla denetlenir.
-- **Araştırma ajanı değildir:** yeni hipotez üretmez, sonuçtan sonraki adımı kendisi seçmez, tek turluktur. Kapsam: ikili sınıflandırma, tablo verisi, 9 veri seti. Ana sonuç (ağaçlar tabloda sinir ağlarını yener) 2022 Grinsztajn makalesinin tekrarıdır.
+- **27 Ekim itibarıyla araştırma ajanı değildi** (yeni hipotez üretmez, sonuçtan sonraki adımı seçmez, tek turluktur); **28 Ekim'de araştırma ajanı katmanı eklendi (E4)**, bu madde doğrulama katmanının tarifidir. Kapsam: ikili sınıflandırma, tablo verisi, 9 veri seti. Ana sonuç (ağaçlar tabloda sinir ağlarını yener) 2022 Grinsztajn makalesinin tekrarıdır.
 - Güçlü yanı: sahte pozitifi ölçmesi (simülasyonda %2,1; gerçek modellerle 45 testlenebilir etkide 0), bilinen iddialarda 10/10, yakın çiftlerde 0/6 çelişkili karar, sınırlarını kendisinin raporlaması.
 - Commit sayısı bir ölçüt değildir; değerlendirenler README'nin ilk ekranına, çalışan demoya, testlere ve ölçümlerin dürüstlüğüne bakar.
 
@@ -94,11 +94,18 @@ Kaçınılacak: "otonom araştırma yapan yapay zekâ", "bilimsel keşif", commi
 4. 3-5 kişiyle kullanım gözlemi (insan gerekir).
 5. Karşılaştırma: aynı soruyu düz GPT'ye sormak ile sistemin çıktısı yan yana.
 
-### E4. Araştırma ajanına dönüşüm yolu
-Araştırma ajanı ile mevcut sistem arasındaki fark **kapalı döngü**dür: sonuçtan yeni hipotez üretmek ve bunu istatistiksel güvenceyle yapmak. Aşamalar:
-1. **Kapalı döngü (en önemli adım):** kampanya bitince ajan sonuçlardan (`moderators.py` zaten veri seti özelliklerine göre etkiyi ölçüyor) takip hipotezleri önerir (örneğin "ağaçların üstünlüğü yüksek boyutlu setlerde daha mı büyük?"), bütçe ve durma kuralıyla birkaç tur çalıştırır. Altyapı hazır: planlayıcı, kampanya motoru, bellek, moderatörler. Eksik: sonuçtan hipotez üreten düğüm, tur bütçesi, durma kuralı.
-2. **Uyarlamalı analizin bilimsel güvencesi (bu olmadan "araştırma" iddiası çöker):** aynı verilerle tekrar tekrar hipotez denemek sahte pozitifi şişirir. Çözüm: veri setlerini **keşif** ve **doğrulama** olarak ayırmak (hipotezi keşif setlerinde üret, yalnız doğrulama setlerinde karara bağla) ve turlar arası FDR / alfa harcama uygulamak. Mevcut `null_seed` ve `null_calibration` araçları bunun sahte pozitif ölçümüne uyarlanabilir.
-3. **Ajanın kendisini ölçmek:** gerçek etkinin bilindiği **yerleştirilmiş etkili (planted effect) benchmark** (örneğin etkisi bilerek eklenmiş sentetik / bozulmuş veri setleri) üzerinde ajanın buldukları: kaç gerçek etkiyi buldu (duyarlılık), kaç sahte buldu (sahte pozitif). Düz bir LLM tabanlı ve kapısız bir ajanla karşılaştırmak "sistem neyi daha iyi yapıyor" sorusunun cevabıdır.
-4. **Yenilik denetimi:** önerilen hipotezin literatürde ya da bellekte zaten sınanıp sınanmadığına bakmak (bellek hazır; arXiv aramasını tam metne genişletmek gerekir).
-5. **Kapsamı genişletmek (isteğe bağlı):** regresyon, çok sınıf; model karşılaştırması dışında deney türleri (ablasyon, hiperparametre duyarlılığı, veri özelliği etkisi).
-6. **Dürüst beklenti:** bu yolun sonu "yeni bilimsel keşif yapan ajan" değil, "istatistiksel güvenceli, kendini ölçen keşifsel analiz ajanı"dır. Bu savunulabilir bir araştırma ajanı iddiasıdır; 1+2+3 birlikte portföy için yeterince güçlü bir hikâyedir.
+### E4. Araştırma ajanına dönüşüm yolu (28 Ekim 2026: uygulandı, ayrıntı `RESEARCH_AGENT.md` ve `TECHNICAL_REPORT.md`)
+Fark, **kapalı döngü**: sonuçtan yeni hipotez üretmek ve bunu istatistiksel güvenceyle yapmak. Aşamalar ve durumları:
+1. **Kapalı döngü: yapıldı.** `app/research/` (protokol, üretici, oturum, komut satırı). Üretici yalnız keşif görünümünü okur; iki aşama (varsayılan, ayarlı) ve ayarlı aşamayı tetikleme kuralı var. Üretici kural tabanlı ya da dil modeli (`--generator llm`) olabilir.
+2. **Uyarlamalı analizin güvencesi: yapıldı.** Veri setleri bir kez ve tohumlu bölünür (6 keşif, 10 doğrulama), hipotez önce dondurulup diske yazılır (SHA-256 özeti, `verify` komutu ile değişiklik denetimi), doğrulama tam bir kez, oturumdaki tüm hipotezler tek Holm düzeltmesinde (BH q de raporlanır), kayıt sayısı `⌈α·2ⁿ⁻¹⌉−1` ile sınırlı, doğrulama sonuçları üreticiye geri verilmez. 16 veri setlik havuz için 7 veri seti eklendi (`extended` grubu).
+3. **Ajanın kendini ölçmesi: yapıldı (simülasyon) ve gerçek veride bir oturum.** `tools/planted_effects.py`: 16 modelde aile hatası protokolde %3, aynı veride seçip test eden ajanda %24, düzeltmesiz %89; protokolün bedeli güç (%47 karşı %96). `tools/llm_baseline.py`: veri görmeyen dil modeli ile karşılaştırma. Gerçek oturum sonuçları `TECHNICAL_REPORT.md` bölüm 6.
+4. **Yenilik denetimi: kısmen.** Oturum içi tekrar ve önceki oturumlarda doğrulanmış iddialar atlanır (nedeni kayda yazılır); literatür tam metnine bakan yenilik denetimi yok.
+5. **Kapsam genişletme: yapılmadı** (regresyon, çok sınıf, model karşılaştırması dışı hipotez türleri, veri özelliği / moderatör hipotezleri).
+6. **Dürüst beklenti** değişmedi: sonuç "yeni bilimsel keşif yapan ajan" değil, "istatistiksel güvenceli, kendini ölçen keşifsel analiz ajanı"dır.
+
+### E5. Araştırma ajanı için sıradaki işler
+- Moderatör hipotezleri ("üstünlük yüksek boyutlu veri setlerinde daha mı büyük?"): `moderators.py` hazır, doğrulama kümesi alt kümeleri ve ayrı bir bütçe gerekir.
+- Konsoldan oturum başlatma (şimdi yalnız komut satırı; API anahtarı ve günlük sınır hazır) ve canlı ilerleme.
+- Daha çok veri seti (regresyon dahil) ile doğrulama gücünü artırmak: 10 veri setinde en küçük p 0,002; 13 hipotezden sonra Holm ile hiçbiri anlamlı olamaz.
+- Üreticiler arası sistematik karşılaştırma: `--reuse` ile aynı sonuçlar üzerinde kural, dil modeli ve (varsa) başka üreticiler, birden çok tohumla.
+- Kullanıcı gözlemi (insan gerekir) ve halka açık demo.
