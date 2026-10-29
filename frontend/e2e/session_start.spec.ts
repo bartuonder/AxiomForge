@@ -166,3 +166,28 @@ test("a queued session refreshes itself until it is running and then finished", 
   await expect(page.getByRole("button", { name: "Raporu indir (.md)" })).toBeVisible({ timeout: 12_000 });
   await expect(page.getByText("Ayarlı aşamanın deneyleri çalışıyor.")).toHaveCount(0);
 });
+
+test("a running session shows how many datasets finished and which ones run, and the bar moves", async ({ page }) => {
+  let reads = 0;
+  await mockApi(page, (call: Call) => {
+    if (call.path === "/research_sessions/r-1") {
+      reads += 1;
+      const progress = reads === 1 ? { stage: "default", total: 16, finished: 4, failed: 0, running: ["tb_credit", "tb_eye"] } : { stage: "default", total: 16, finished: 9, failed: 1, running: ["tb_pol"] };
+      return detail("running", { phase: "default", progress });
+    }
+    return common(call);
+  });
+  await page.goto("/research/r-1");
+  const bar = page.getByRole("progressbar", { name: "Veri seti ilerlemesi" });
+  await expect(bar).toHaveAttribute("aria-valuenow", "25");
+  await expect(page.getByText("4 / 16 veri seti bitti.")).toBeVisible();
+  await expect(page.getByText("Şu an çalışan: tb_credit, tb_eye")).toBeVisible();
+  await expect(bar).toHaveAttribute("aria-valuenow", "63", { timeout: 12_000 });
+  await expect(page.getByText("10 / 16 veri seti bitti. (1 tanesi başarısız oldu.)")).toBeVisible();
+  await expect(page.getByText("Şu an çalışan: tb_pol")).toBeVisible();
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+    expect(result.violations.map((item) => `${item.id}: ${item.nodes.map((node) => node.target.join(" ")).join(" | ")}`), scheme).toEqual([]);
+  }
+});
