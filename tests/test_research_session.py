@@ -18,15 +18,19 @@ def make_runner(abilities, tuned_abilities=None, noise=0.002, seed=0, fail=(), c
     extra = {dataset: {model: generator.normal(0, noise) for model in abilities} for dataset in POOL}
     default_extra = {dataset: {model: generator.normal(0, noise) for model in abilities} for dataset in POOL}
 
-    def runner(spec, execute, workers, should_stop=None):
+    def runner(spec, execute, workers, should_stop=None, on_update=None):
         tuned = bool(spec.get("tuning"))
         if calls is not None:
             calls.append({"datasets": list(spec["datasets"]), "tuned": tuned, "models": list(spec["models"])})
         levels = (tuned_abilities if tuned and tuned_abilities else abilities)
         datasets, failed = {}, {}
         for dataset in spec["datasets"]:
+            if on_update:
+                on_update(dataset, {"status": "running"})
             if dataset in fail or (tuned and dataset in fail_tuned):
                 failed[dataset] = {"error": "boom", "attempts": 2}
+                if on_update:
+                    on_update(dataset, {"status": "failed", "error": "boom", "attempts": 2})
                 continue
             record = {}
             for model in spec["models"]:
@@ -36,6 +40,8 @@ def make_runner(abilities, tuned_abilities=None, noise=0.002, seed=0, fail=(), c
                     default = base[dataset] + abilities[model] + default_extra[dataset][model]
                     record[f"{model}__default"] = {f"{metric}_mean": float(default) for metric in ("roc_auc", "pr_auc", "f1")}
             datasets[dataset] = {"summary": record}
+            if on_update:
+                on_update(dataset, {"status": "finished", "attempts": 1})
         return {"order": list(spec["datasets"]), "datasets": datasets, "failed": failed}
 
     return runner
@@ -153,7 +159,7 @@ class TestRun:
         confirm = set(base["confirm"])
         flipped = {"RandomForest": 0.0, "ExtraTrees": 0.0, "MLP": 0.05, "DecisionTree": 0.05}
 
-        def runner(spec, execute, workers):
+        def runner(spec, execute, workers, **_):
             outcome = make_runner(planted(), seed=0)(spec, execute, workers)
             other = make_runner(flipped, seed=0)(spec, execute, workers)
             for dataset in confirm:
@@ -206,7 +212,7 @@ class TestRecordedSettings:
     def test_the_session_is_saved_before_the_first_stage_runs(self, root):
         seen = []
 
-        def runner(spec, execute, workers):
+        def runner(spec, execute, workers, **_):
             saved = json.loads((root / "s1" / "session.json").read_text(encoding="utf-8"))
             seen.append({"status": saved["status"], "budget": saved["budget"]})
             return make_runner(planted())(spec, execute, workers)
@@ -322,7 +328,7 @@ class TestStages:
         specs = []
         original = make_runner(planted(), self.tuned())
 
-        def runner(spec, execute, workers):
+        def runner(spec, execute, workers, **_):
             specs.append(spec.get("tuning"))
             return original(spec, execute, workers)
 
@@ -363,7 +369,7 @@ class TestFailures:
         assert saved["status"] == "aborted" and not saved.get("confirmations")
 
     def test_a_runner_that_raises_marks_the_session_failed(self):
-        def broken(spec, execute, workers):
+        def broken(spec, execute, workers, **_):
             raise RuntimeError("sandbox down")
 
         state = session.run_session(config(), runner=broken)

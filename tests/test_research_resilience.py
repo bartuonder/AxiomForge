@@ -23,7 +23,7 @@ class TestLaterStageFailure:
     def runner_failing_when_tuned(self, error):
         inner = make_runner(planted(), TUNED)
 
-        def runner(spec, execute, workers):
+        def runner(spec, execute, workers, **_):
             if spec.get("tuning"):
                 raise error
             return inner(spec, execute, workers)
@@ -50,7 +50,7 @@ class TestLaterStageFailure:
         assert {item["stage"] for item in state["hypotheses"]} == {"default"} and state["confirmations"]
 
     def test_a_default_stage_that_raises_still_fails_the_session(self):
-        def broken(spec, execute, workers):
+        def broken(spec, execute, workers, **_):
             raise RuntimeError("down")
 
         assert session.run_session(config(tuning=12), runner=broken)["status"] == "failed"
@@ -89,7 +89,7 @@ class TestReuse:
         return session.run_session(config(id="src", **changes), runner=make_runner(planted()))
 
     @staticmethod
-    def never(spec, execute, workers):
+    def never(spec, execute, workers, **_):
         raise AssertionError("the runner must not be called")
 
     def test_a_session_can_reuse_the_results_of_another_without_running_anything(self):

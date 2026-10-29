@@ -116,7 +116,7 @@ class TestExecute:
     def test_an_unexpected_error_marks_the_session_failed(self):
         session.queue_session(config())
 
-        def broken(spec, execute, workers, should_stop=None):
+        def broken(spec, execute, workers, should_stop=None, on_update=None):
             raise KeyError("boom")
 
         state = service.execute_session("s1", runner=broken)

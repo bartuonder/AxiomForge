@@ -36,7 +36,7 @@ class TestHeartbeat:
         inner = make_runner(planted())
         seen = []
 
-        def runner(spec, execute, workers):
+        def runner(spec, execute, workers, **_):
             seen.append(service.is_alive("c1"))
             return inner(spec, execute, workers)
 
@@ -68,7 +68,7 @@ class TestDefaults:
         seen = []
         inner = make_runner(planted())
 
-        def runner(spec, execute, workers):
+        def runner(spec, execute, workers, **_):
             seen.append(workers)
             return inner(spec, execute, workers)
 
@@ -99,7 +99,7 @@ class TestReuseOption:
     def test_the_results_of_an_earlier_session_are_reused_without_a_runner(self):
         run(*BASE)
 
-        def never(spec, execute, workers):
+        def never(spec, execute, workers, **_):
             raise AssertionError("no experiment may run")
 
         code, text = run(*BASE[:-2], "--id", "c12", "--reuse", "c1", runner=never)

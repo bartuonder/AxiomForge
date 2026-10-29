@@ -55,7 +55,7 @@ class TestPhase:
         seen = []
         inner = make_runner(planted(), tuned_abilities=planted())
 
-        def runner(spec, execute, workers, should_stop=None):
+        def runner(spec, execute, workers, should_stop=None, on_update=None):
             seen.append((session.load("s1")["status"], session.load("s1")["phase"]))
             return inner(spec, execute, workers)
 
@@ -84,7 +84,7 @@ class TestStop:
         flags = {"stop": False}
         inner = make_runner(planted())
 
-        def runner(spec, execute, workers, should_stop=None):
+        def runner(spec, execute, workers, should_stop=None, on_update=None):
             result = inner(spec, execute, workers)
             flags["stop"] = True
             return result
@@ -95,7 +95,7 @@ class TestStop:
     def test_a_stage_that_was_stopped_is_not_saved_for_a_later_retry(self, root):
         inner = make_runner(planted())
 
-        def runner(spec, execute, workers, should_stop=None):
+        def runner(spec, execute, workers, should_stop=None, on_update=None):
             outcome = inner(spec, execute, workers)
             outcome["datasets"] = dict(list(outcome["datasets"].items())[:3])
             outcome["cancelled"] = [key for key in spec["datasets"] if key not in outcome["datasets"]]
@@ -106,7 +106,7 @@ class TestStop:
         def stop_after_run():
             return flags["stop"]
 
-        def stopping_runner(spec, execute, workers, should_stop=None):
+        def stopping_runner(spec, execute, workers, should_stop=None, on_update=None):
             outcome = runner(spec, execute, workers)
             flags["stop"] = True
             return outcome
@@ -118,7 +118,7 @@ class TestStop:
     def test_the_stop_callback_reaches_the_runner(self):
         received = []
 
-        def runner(spec, execute, workers, should_stop=None):
+        def runner(spec, execute, workers, should_stop=None, on_update=None):
             received.append(should_stop)
             return make_runner(planted())(spec, execute, workers)
 

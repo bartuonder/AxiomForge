@@ -2,6 +2,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -107,6 +108,20 @@ def list_sessions() -> list[str]:
     return sorted(path.parent.name for path in ROOT.glob(f"*/{FILENAME}"))
 
 
+def _stage_keywords(state: dict[str, Any], should_stop: Callable[[], bool] | None) -> dict[str, Any]:
+    lock = threading.Lock()
+
+    def on_update(dataset: str, result: dict[str, Any]) -> None:
+        with lock:
+            state["progress"]["datasets"][dataset] = {"status": result["status"]}
+            save(state)
+
+    keywords: dict[str, Any] = {"on_update": on_update}
+    if should_stop:
+        keywords["should_stop"] = should_stop
+    return keywords
+
+
 def _blank_state(config: SessionConfig, status: str) -> dict[str, Any]:
     explore, confirm = protocol.split_pool(list(config.pool), config.explore, config.seed)
     return {
@@ -115,6 +130,7 @@ def _blank_state(config: SessionConfig, status: str) -> dict[str, Any]:
         "status": status,
         "reason": "",
         "phase": "",
+        "progress": {},
         "created": _now(),
         "explore": explore,
         "confirm": confirm,
@@ -186,6 +202,7 @@ def _finish(state: dict[str, Any], status: str, reason: str = "") -> dict[str, A
     state["status"] = status
     state["reason"] = reason
     state["phase"] = ""
+    state["progress"] = {}
     state["finished"] = _now()
     save(state)
     _write(session_dir(state["id"]) / REPORT, render_report(state))
@@ -276,9 +293,10 @@ def run_session(
                     results, failed = reused[stage]
                 else:
                     state["phase"] = stage
+                    state["progress"] = {"stage": stage, "datasets": {key: {"status": "queued"} for key in config.pool}}
                     save(state)
                     stage_arguments = (stage_spec(config.models, config.pool, config.tuning if stage == "tuned" else None), execute, workers)
-                    outcome = runner(*stage_arguments, should_stop=should_stop) if should_stop else runner(*stage_arguments)
+                    outcome = runner(*stage_arguments, **_stage_keywords(state, should_stop))
                     results = {key: record["summary"] for key, record in outcome["datasets"].items()}
                     failed = dict(outcome.get("failed") or {})
                     if should_stop and should_stop():
@@ -325,6 +343,18 @@ def run_session(
     return _finish(state, "completed", state["reason"])
 
 
+def _progress_of(state: dict[str, Any]) -> dict[str, Any]:
+    progress = state.get("progress") or {}
+    statuses = {key: item.get("status") for key, item in (progress.get("datasets") or {}).items()}
+    return {
+        "stage": progress.get("stage", ""),
+        "total": len(statuses),
+        "finished": sum(1 for value in statuses.values() if value == "finished"),
+        "failed": sum(1 for value in statuses.values() if value == "failed"),
+        "running": [key for key, value in statuses.items() if value == "running"],
+    }
+
+
 def summary_of(state: dict[str, Any]) -> dict[str, Any]:
     confirmations = state.get("confirmations", [])
     return {
@@ -340,6 +370,7 @@ def summary_of(state: dict[str, Any]) -> dict[str, Any]:
         "registered": len(state["hypotheses"]),
         "counts": {name: sum(1 for item in confirmations if item["status"] == name) for name in protocol.STATUSES},
         "phase": state.get("phase", ""),
+        "progress": _progress_of(state),
         "stages": [{"name": item["name"], "finished": len(item["finished"]), "failed": len(item["failed"])} for item in state.get("stages", [])],
     }
 

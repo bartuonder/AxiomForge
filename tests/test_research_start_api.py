@@ -190,6 +190,15 @@ class TestReading:
         assert client.get("/research_sessions").json()["items"][0]["phase"] == "tuned"
 
 
+    def test_the_progress_of_the_datasets_is_served_while_running(self, client):
+        progress = {"stage": "default", "datasets": {"a": {"status": "finished"}, "b": {"status": "running"}, "c": {"status": "queued"}}}
+        session.save({**session.queue_session(config()), "status": "running", "progress": progress})
+        service.beat("s1")
+        expected = {"stage": "default", "total": 3, "finished": 1, "failed": 0, "running": ["b"]}
+        assert client.get("/research_sessions").json()["items"][0]["progress"] == expected
+        assert client.get("/research_sessions/s1").json()["summary"]["progress"] == expected
+
+
 class TestTask:
     def test_the_task_runs_the_queued_session(self, monkeypatch):
         session.queue_session(config())
