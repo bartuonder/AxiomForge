@@ -8,7 +8,7 @@ Sahip: Bartu Önder, `onderbartu8@gmail.com`. Commitlerde yalnız bu ad ve e-pos
 
 ## Şu an neredeyiz
 
-Güncel (28 Ekim 2026, dördüncü tur): **araştırma ajanı yapıldı** (`app/research/`, `python -m app.research`, `/research` konsol sayfaları, `RESEARCH_AGENT.md`, `TECHNICAL_REPORT.md`). Gerçek oturum `real-2`: 16 hipotez, 15 doğrulandı. 3600+ pytest, 155 Node, 38 Playwright testi geçiyor. Üçüncü tura kadarki her şey push edildi ve CI yeşil; dördüncü tur commitleri yerelde. Konsolun `/research` sayfasından oturum başlatılabilir (form, iptal, yeniden başlat; API ve Celery işçisi çalışıyor olmalı). 3700+ pytest, 182 Node, 45 Playwright testi geçiyor. Sıradaki işler `ROADMAP.md` E5 ve D.
+Güncel (28 Ekim 2026, dördüncü tur): **araştırma ajanı yapıldı** (`app/research/`, `python -m app.research`, `/research` konsol sayfaları, `RESEARCH_AGENT.md`, `TECHNICAL_REPORT.md`). Gerçek oturum `real-2`: 16 hipotez, 15 doğrulandı. 3600+ pytest, 155 Node, 38 Playwright testi geçiyor. Üçüncü tura kadarki her şey push edildi ve CI yeşil; dördüncü tur commitleri yerelde. Konsolun `/research` sayfasından oturum başlatılabilir (form, iptal, yeniden başlat; API ve Celery işçisi çalışıyor olmalı). 3720 pytest, 190 Node, 46 Playwright testi geçiyor; çalışan oturumda veri seti ilerleme çubuğu var. Sıradaki işler `ROADMAP.md` E5 ve D.
 
 Önceki not (28 Ekim sabahı): kullanıcı projeyi bir **araştırma ajanına** doğru taşımak istiyor. Yol ve gerekçe `ROADMAP.md` E bölümünde; önerilen ilk adım, keşif / doğrulama veri seti ayrımı ve turlar arası çoklu karşılaştırma düzeltmesini içeren **kapalı döngü tasarımını yazıp kullanıcıya göstermek**. Tasarım onaylanmadan kod yazılmaz. Teknik kalanlar `ROADMAP.md` D bölümünde, CV ve konumlandırma notları E2-E3'te.
 
