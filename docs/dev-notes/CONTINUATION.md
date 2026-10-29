@@ -1,20 +1,14 @@
 # Devam rehberi
 
-Bu dosya, AxiomForge'u yeni bir bilgisayarda veya yeni bir Cursor oturumunda kaldığı yerden sürdürmek içindir. Yeni oturumda önce `AI_CONTEXT.md` (en güncel devir dosyası), sonra bu dosya, sonra `README.md` ve `GRAPH.md` okunur. Kullanıcı bir sonraki fazın metnini gönderene kadar yeni faz açılmaz.
+Bu dosya projenin geliştirme tarihçesini (fazlar) ve çalıştırma notlarını toplar. Geliştirme sırasında bir kodlama asistanıyla çalışırken tutulan devir notlarıdır; bu yüzden tarihli durum notları ve iş akışı kuralları içerir, notlarda 'kullanıcı' proje sahibidir. Okuma sırası: `AI_CONTEXT.md` (sistem haritası ve tasarım kararları), bu dosya, sonra kökteki [`README.md`](../../README.md) ve [`GRAPH.md`](../../GRAPH.md). Kalanlar ve sınırlar için [`ROADMAP.md`](../../ROADMAP.md). Metindeki `ROADMAP.md` bölüm numaraları (A-E) eski, ayrıntılı yol haritasına aittir; kökteki `ROADMAP.md` kısaltılmış sürümdür, eskisi git geçmişindedir.
 
 Depo: `https://github.com/bartuonder/AxiomForge.git`
 
-Sahip: Bartu Önder, `onderbartu8@gmail.com`. Commitlerde yalnız bu ad ve e-posta görünür.
+Sahip: Bartu Önder.
 
-## Şu an neredeyiz
+## Güncel durum ve geliştirme tarihçesi
 
-Güncel (28 Ekim 2026, dördüncü tur): **araştırma ajanı yapıldı** (`app/research/`, `python -m app.research`, `/research` konsol sayfaları, `RESEARCH_AGENT.md`, `TECHNICAL_REPORT.md`). Gerçek oturum `real-2`: 16 hipotez, 15 doğrulandı. 3600+ pytest, 155 Node, 38 Playwright testi geçiyor. Üçüncü tura kadarki her şey push edildi ve CI yeşil; dördüncü tur commitleri yerelde. Konsolun `/research` sayfasından oturum başlatılabilir (form, iptal, yeniden başlat; API ve Celery işçisi çalışıyor olmalı). 3720 pytest, 190 Node, 46 Playwright testi geçiyor; çalışan oturumda veri seti ilerleme çubuğu var. Sıradaki işler `ROADMAP.md` E5 ve D.
-
-Önceki not (28 Ekim sabahı): kullanıcı projeyi bir **araştırma ajanına** doğru taşımak istiyor. Yol ve gerekçe `ROADMAP.md` E bölümünde; önerilen ilk adım, keşif / doğrulama veri seti ayrımı ve turlar arası çoklu karşılaştırma düzeltmesini içeren **kapalı döngü tasarımını yazıp kullanıcıya göstermek**. Tasarım onaylanmadan kod yazılmaz. Teknik kalanlar `ROADMAP.md` D bölümünde, CV ve konumlandırma notları E2-E3'te.
-
-Güncel durum (27 Ekim 2026, üçüncü tur): kullanıcı yokken yol haritası üç turda otonom ilerletildi (`AUTONOMOUS_REPORT.md` 'Takip 7', 'Takip 8' ve 'Takip 9'). Konsol "herkes" için yeniden yazıldı (TR/EN, sade özet, güven göstergesi, grafik, sözlük, sebepli hata kutuları, Markdown indirme, koyu tema, canlı ilerleme, iptal ve yeniden başlatma, klavye ve ekran okuyucu uyumu); arka uçta `vocabulary.py`, `summary.py`, `friendly_errors.py`, `guard.py`, kampanya iptali / yeniden başlatma / bayat durum / işçi ölümünde yeniden teslim, tek araştırma hattı için `POST /research/{id}/retry`, `tools/null_calibration.py`, `tools/null_seed.py`, `tools/memory_report.py` var; makale kapısı artık olumsuz 'not supported'ı işaretlemez. 3220 pytest testi (3 atlandı), 123 frontend Node testi ve 32 Playwright testi geçiyor. **`origin/main` f6c9e09'a kadar güncel ve GitHub CI'daki üç iş yeşil; sonrasındaki üçüncü tur commitleri yerelde. Kullanıcı isteyince önce `git fetch -q` ve `git status -sb`, sonra push.** Test yalıtımı notu: `tests/conftest.py` günlük başlatma sayacını artık her teste geçici dosya olarak verir; eskiden testler gerçek `reports/usage.json` sayacını sınıra kadar dolduruyordu. Windows'ta Celery `--pool=threads` ile öldürülen işçinin iletisini yeniden teslim etmez (Linux/Docker'da eder); orada kullanıcı 'Yeniden başlat'ı kullanır. Sonraki oturum önce `ROADMAP.md` D bölümünü okumalı: kalanlar kullanıcı gözlemi, ekran okuyucuyla dinleme, 17 regex kapısının tek tek ölçümü, iki hattın birleştirilmesi ve (kullanıcının kararına bağlı) test kalıntılarının silinmesi.
-
-Önceki durum (26 Ekim 2026): Faz 14 kampanya genişletmeleri iki turda bitti (aşağıdaki 'Faz 14' paragrafları, ayrıntı `AUTONOMOUS_REPORT.md`). 2628 pytest testi ve 10 frontend Node testi geçiyor; sonraki oturum önce `ROADMAP.md` (kalan işler ve frontend yenileme listesi) ve `AUTONOMOUS_REPORT.md` 'Açık kalanlar' bölümünü okumalı. Frontend'in ilk gerçek denemesinde sonuç sayfasının kullanıcıya göre olmadığı görüldü ('sayı cümbüşü'); yenileme `ROADMAP.md` B bölümünde. Aşağıdaki satırlar eski fazların tarihçesidir.
+Güncel durum: planlanan kapsam tamam (graf, kampanya motoru, araştırma ajanı, TR/EN konsol); kalanlar ve sınırlar kök `ROADMAP.md` içindedir. Aşağıdaki paragraflar fazların tarih sırasıyla tarihçesidir, en eskisi üstte; ölçüm kayıtları `AUTONOMOUS_REPORT.md` içindedir.
 
 Faz 8 bitti. Son kod işi, raporun ve hakemin `statistical_conclusion` cümlesine bağlanmasıdır. Beraberlik kararında makale `superior`, `more stable`, `outperformed` veya `better` diyorsa hakem LLM'e gitmez. Ondan önce deney betiği `experiment-v5` oldu: sorguda adı geçmeyen model betiğe girmez. Doğrulayıcı varyansı `std ** 2` olarak yazar. ROC-AUC varyans farkı 0.005'i geçerse düşük varyanslı tek model kazanan ilan edilir.
 
@@ -83,10 +77,6 @@ Faz 13 (ajanlı kampanya orkestrasyonu) kullanıcının kararlarıyla yapıldı:
 Faz 13 canlı uçtan uca koşuları (25 Ekim 2026, `mode: campaign`, sorgu: Grinsztajn ve ark. 2022 iddiası, gerçek gpt-4o, E2B, Celery, MLflow, Postgres): üç koşu yapıldı ve her biri bir hata sınıfı gösterdi. Koşu 16: planlayıcı iddiayı sorgudan alamadı (`unsupported`; alakasız 3 literatür makalesi vardı ve model 'makale kaynaklarda yok' diye reddetti), düzeltme: istemde 'sorgunun kendi iddiası kaynak olabilir' kuralı. Sonra model `candidates` listesini atladı (yalnız `unsupported` yazdı) ve alıntıya nokta ekledi; düzeltme: şekil hatasında yeniden deneme, 3 deneme, alıntı uçlarındaki noktalama ve tırnakların atılması, alıntının kaynağını Python'ın belirlemesi (makalede yoksa sorguda aranır, sorgudaysa iddia makaleye atfedilmez) ve modelin kendi reddi `CampaignUnsupported` olarak aynen gösterilir. Gerçek modelle ölçüm: 8 denemede 8 başarı. Koşu 17: kampanya 9/9 veri setinde `replicated` bitti ama makale `NeedsReview` oldu; sebep kapının yanlış alarmıydı (Discussion'daki `F1` metrik adı rakam sayıldı) ve iki yeniden yazma boşa gitti; ayrıca Introduction'a ilgisiz üç makale doldurulmuş ve yorumlanmıştı, 'differs from the source' kaynak olmadığı halde yazılıyordu, iddia cümlesinin sonundaki nokta `.:` bırakıyordu, süre tahmini 186 sn iken gerçek 270 sn'ydi. Düzeltmeler: `F1`, `C1` ve veri seti adları rakam sayılmaz, anlamlılık sözcükleri (`significant`) yalnız Results'ta, `supported` yasak, Introduction'a yalnız iddianın kendi makalesi gösterilir, 'original study', `.rstrip('. ')`, GradientBoosting için +18 sn kalibrasyonu. Koşu 18 (`8c645484…`, kampanya `g-ae573a29…`): üç aday geldi (ROC-AUC, PR-AUC, F1 ve hepsi), geçmiş kampanyalar hafızadan görüldü, üç ölçütlü aday seçildi; kampanya 4 dk 26 sn sürdü, 9/9 veri seti, deneme 1, `replicated` (ROC-AUC, PR-AUC, F1 için Holm düzeltmeli p = 0,0234; genel lider GradientBoosting, ortalama sıra 1,67), makale ilk taslakta 'significant/significantly' yüzünden reddedildi, bir yeniden yazma sonrası kapı geçti ve `Completed` oldu. MLflow: 98 metrik, `report.md` ve `ledger.json` artefaktları, 9 iç içe run. Sonuç sayfasında tablolar ham metin görünüyordu (`remark-gfm` eksikti), düzeltildi. Hafızada üç kampanya kaydı var. Kalan gözlemler: LLM ilk taslakta 'significantly' alışkanlığını bırakmıyor (kapı yakalıyor ve bir turda düzeliyor); Discussion bazen 'consistently' gibi aşırı genelleyen sözcükler kullanıyor; planlayıcı 'tek aday' döndürebilir (istem varyasyon istiyor); MLflow kaydı kampanya raporunu tutuyor, meta makaleyi tutmuyor.
 
 Açık işler: kampanya başlatma düğmesi konsolda yok (yalnız API ve komut satırı); `highest` ve `best` gibi üstünlük sözcükleri makale kapısında hâlâ denetlenmiyor; OpenAI kredisi ön kontrolü yok; `overall` yokken eski ROC-AUC lider kuralı duruyor. Öneri: ikinci bir iddia (örneğin başka bir makale) ve literatürden iddia çıkarma adımı.
-
-Yeni iş için kullanıcının mesajı beklenir.
-
-Sıradaki iş, kullanıcının bir sonraki mesajıdır. O mesaj gelmeden Faz 9 diye bir iş başlatılmaz, doküman genişletilmez, ajan eklenmez.
 
 ## Çalıştırma
 
@@ -211,17 +201,14 @@ CSV şeması deney düğümünde sabittir: `age:float, monthly_spend:float, tenu
 
 Kararsızlık eşiği `UNSTABLE_STD = 0.05` ve yalnız `roc_auc_std` ile `f1_std` için geçerlidir. Eşiği aşmak bulgu üretir, döngüyü tetiklemez. Eğitim süresi sapması bu eşiğe sokulmaz. Anlamlılık eşiği `ALPHA = 0.05` ve hem varyans testi hem performans testleri için geçerlidir.
 
-## Yeni oturumun uyması gereken kurallar
+## Geliştirme kuralları
 
-Koda yorum satırı yazılmaz.
-
-Her özellik ayrı commit olur. README, GRAPH ve bu dosya gibi dokümanlar da birbirine karıştırılmaz. Dokümanlar her committe değil, 3-5 committe bir toplu güncellenir.
-
-Commit yazarı Bartu Önder ve `onderbartu8@gmail.com` olur. `Co-authored-by` satırı, Cursor adı veya başka bir yazar eklenmez. Normal `git commit` çağrısı bu satırı kendiliğinden ekleyebilir. O yüzden değişiklik `git add` ile dizine alınır, ağaç `write-tree` ile, commit `commit-tree` ile, dal `update-ref` ile ilerletilir. Komut metninde `git commit` ifadesi yan yana durmasın. `git config` değiştirilmez. `--no-verify` kullanılmaz. Force push yapılmaz. `.env` ve gizli anahtar commitlenmez.
-
-`reports/`, `mlflow.db`, `mlruns` gitte yoktur. Üretilen makaleler taşınmaz.
-
-Kullanıcı Türkçe yazar. Yanıt Türkçe ve kısa olur. İstemediği faz başlatılmaz.
+- Koda yorum satırı yazılmaz.
+- Her özellik ayrı commit olur; dokümanlar ayrı ve toplu güncellenir.
+- Her özellik önce testle yazılır, sonra mutasyon denetiminden geçer: kod bilerek bozulur ve testin hatayı gerçekten yakaladığı görülür.
+- Commit öncesi kapı: `pytest -q` geçmeli; konsol değiştiyse `cd frontend && npm test`, `npx tsc --noEmit`, `npx eslint` ve gerekirse `npm run e2e` de geçmeli.
+- Gerçek LLM ve E2B çağrıları maliyetlidir: testler ve mutasyon taramaları hiçbir dış servise gitmez, tam koşular bilinçli yapılır.
+- `.env`, `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
 
 ## Bilinen pürüzler
 
@@ -229,6 +216,4 @@ MLflow kapalıyken urllib uzun süre dener. Hafıza kaydı bundan önce yazılı
 
 Onaydan sonraki iş uzundur: üretim denemeleri, on bölme, sızıntı hakemi, rapor ve iddia turu. `POST /approve_plan` artık hemen döner; bu süre işçide geçer. İşçi görev sürerken ölürse araştırma `running` kalır, otomatik kurtarma yoktur.
 
-`test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı aynı hatayı tekrar etmemek için onu okuyabilir. Bu kayıt yeni koşunun `tested_models` listesine yazılmaz.
-
-Sonraki Cursor oturumu bu depoyu açınca bu dosyayı okuyup kullanıcının yeni isteğini bekler.
+`tools/memory_smoke.py` (`python -m tools.memory_smoke`) hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı aynı hatayı tekrar etmemek için onu okuyabilir. Bu kayıt yeni koşunun `tested_models` listesine yazılmaz.
