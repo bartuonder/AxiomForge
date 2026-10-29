@@ -220,6 +220,8 @@ export type ConfirmationStatus = "confirmed" | "reversed" | "not_confirmed" | "n
 
 export type SessionCounts = Record<ConfirmationStatus, number>;
 
+export type SessionProgress = { stage: string; total: number; finished: number; failed: number; running: string[] };
+
 export type SessionSummary = {
   id: string;
   status: SessionStatus;
@@ -233,6 +235,7 @@ export type SessionSummary = {
   registered: number;
   counts: SessionCounts;
   phase?: string;
+  progress?: SessionProgress;
   stages: { name: string; finished: number; failed: number }[];
 };
 

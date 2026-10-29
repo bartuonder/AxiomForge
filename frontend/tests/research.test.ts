@@ -8,6 +8,8 @@ import {
   isActiveSession,
   mergeRows,
   phaseMessage,
+  progressPercent,
+  showProgress,
   RESEARCH_MODELS,
   sessionActions,
   sessionTone,
@@ -206,5 +208,41 @@ describe("phaseMessage", () => {
     for (const status of ["completed", "failed", "cancelled", "aborted"]) {
       assert.equal(phaseMessage(status, "default"), null);
     }
+  });
+});
+
+describe("progressPercent", () => {
+  const progress = (finished: number, failed: number, total: number) => ({ stage: "default", total, finished, failed, running: [] });
+
+  it("counts finished and failed datasets as done", () => {
+    assert.equal(progressPercent(progress(4, 0, 16)), 25);
+    assert.equal(progressPercent(progress(3, 1, 16)), 25);
+    assert.equal(progressPercent(progress(16, 0, 16)), 100);
+  });
+
+  it("rounds to a whole percent", () => {
+    assert.equal(progressPercent(progress(1, 0, 3)), 33);
+    assert.equal(progressPercent(progress(2, 0, 3)), 67);
+  });
+
+  it("is zero without a total or without progress", () => {
+    assert.equal(progressPercent(progress(0, 0, 0)), 0);
+    assert.equal(progressPercent(undefined), 0);
+  });
+
+  it("never goes above one hundred", () => {
+    assert.equal(progressPercent(progress(20, 0, 16)), 100);
+  });
+});
+
+describe("showProgress", () => {
+  const progress = { stage: "default", total: 16, finished: 2, failed: 0, running: ["a"] };
+
+  it("shows the bar only for a running session that reports datasets", () => {
+    assert.equal(showProgress("running", progress), true);
+    assert.equal(showProgress("queued", progress), false);
+    assert.equal(showProgress("completed", progress), false);
+    assert.equal(showProgress("running", undefined), false);
+    assert.equal(showProgress("running", { ...progress, total: 0 }), false);
   });
 });

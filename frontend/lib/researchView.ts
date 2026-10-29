@@ -1,6 +1,6 @@
 import { formatNumber, type Tone } from "./format.ts";
 import type { Language } from "./i18n.ts";
-import type { Confirmation, ConfirmationStatus, RegisteredHypothesis } from "./types.ts";
+import type { Confirmation, ConfirmationStatus, RegisteredHypothesis, SessionProgress } from "./types.ts";
 
 export const STATUS_ORDER: ConfirmationStatus[] = ["confirmed", "reversed", "not_confirmed", "not_testable"];
 
@@ -99,4 +99,15 @@ export function phaseMessage(status: string, phase: string | undefined): string 
     return null;
   }
   return phase === "default" || phase === "tuned" ? `research.phase.${phase}` : "research.phase.working";
+}
+
+export function progressPercent(progress: SessionProgress | undefined): number {
+  if (!progress || progress.total <= 0) {
+    return 0;
+  }
+  return Math.min(100, Math.round(((progress.finished + progress.failed) / progress.total) * 100));
+}
+
+export function showProgress(status: string, progress: SessionProgress | undefined): boolean {
+  return status === "running" && Boolean(progress) && (progress?.total ?? 0) > 0;
 }
