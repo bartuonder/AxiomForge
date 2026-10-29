@@ -1,381 +1,289 @@
+<div align="center">
+
 # AxiomForge
 
-**AxiomForge, yayımlanmış makine öğrenmesi iddialarını gerçek veri setlerinde yeniden sınayan ve hipotezlerini sonuçlara bakarak kendisi öneren bir LLM ajan sistemidir. Kararı dil modeli değil istatistik verir.**
+**Replicate machine-learning claims with statistics, not with a language model.**
 
-| Ana sayfa | Sonuç özeti (açık tema) | Sonuç özeti (koyu tema) |
-| --- | --- | --- |
-| ![Ana sayfa](docs/images/home-light.png) | ![Özet, açık tema](docs/images/summary-light.png) | ![Özet, koyu tema](docs/images/summary-dark.png) |
+An LLM-agent system that reads a claim, tests it on many real datasets in a sandbox, and lets Python, not the language model, decide the verdict. Its research agent proposes its own follow-up hypotheses and tests them on datasets it never saw.
 
-**Ne yapar?**
-- Bir soruyu ya da arXiv makalesini alır, iddiayı çıkarır, üç deney planı önerir ve onayınızdan sonra planı E2B sandbox'ında 9 gerçek veri setinde 10 bölmeyle koşturur.
-- Karar, veri seti birimli Wilcoxon, Holm ve Friedman ile **hesaplanır**; LLM yalnız planlar ve düz yazı yazar. Rapordaki her sayı bir kanıt defterine bağlıdır, yazı 17 kuralla denetlenir.
-- **Araştırma ajanı** (`python -m app.research`): sonuçlara bakıp kendi hipotezlerini önerir. Uyarlamalı analizin sahte pozitif şişirmesini önlemek için veri setleri keşif ve doğrulama diye bölünür, ajan doğrulama sonuçlarını göremez, her hipotez dondurulup kaydedilir, tam bir kez sınanır ve hepsi tek düzeltmeye girer.
+[![CI](https://github.com/bartuonder/AxiomForge/actions/workflows/ci.yml/badge.svg)](https://github.com/bartuonder/AxiomForge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C)
+![Celery](https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![MLflow](https://img.shields.io/badge/MLflow-0194E2?logo=mlflow&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-3720%20backend%20%C2%B7%20190%20unit%20%C2%B7%2046%20browser-brightgreen)
 
-**Ölçümler** (hepsi depodaki araçlarla yeniden üretilir; ayrıntı `TECHNICAL_REPORT.md`):
-- Bilinen 10 iddiada 10/10 doğru karar; yakın model çiftlerinde çelişkili karar yok.
-- Gerçek fark yokken karar verme oranı %2,1 (simülasyon); aynı modelin yalnız tohumu farklı kopyasıyla gerçek modellerde 45 etkiden 0'ı anlamlı.
-- Araştırma protokolü, gerçek etkisi bilinen simülasyonda saf uyarlamalı ajana karşı: 16 modelde aile hatası %3 (aynı veride seçip test eden ajanda %24, düzeltmesiz tüm çiftlerde %89). Bedeli güçtür (8 modelli kurulumda, gerçek fark +0,02: %47; hipotezleri baştan bilen tüm çiftli Holm testinde %96).
-- Dil modeline aynı iddialar veri olmadan sorulunca (gpt-4o) bilinen 30 cevabın 21'i doğru, 0'ı yanlış, 9'u çekimser; sistem 10/10'u veriden karara bağlar. Dil modeli ünlü iddialarda pervasız değil, sistemin katkısı kanıt ve çekimser kaldığı yerde karardır.
-- 3600 backend, 150+ frontend ve 38 tarayıcı testi (axe erişilebilirlik taraması dahil), mutasyon denetimi, Docker ve CI.
+**English** · [Türkçe](README.tr.md) · [Technical report](TECHNICAL_REPORT.md) · [Demo](demo/README.md) · [API](docs/API.md)
 
-**Sınırlar:** yalnız ikili sınıflandırma ve tablo verisi, tek benchmark ailesi, en çok 16 veri seti; küçük farklarda (ROC-AUC'de bir puanın altı) güç düşük; yeni bir bilimsel bulgu iddiası yoktur (ağaçların tabloda sinir ağlarını yenmesi Grinsztajn ve arkadaşlarının 2022 sonucudur); gerçek kullanıcı ya da hakem incelemesi yok.
+<a href="docs/media/axiomforge-demo.mp4"><img src="docs/media/axiomforge-demo.gif" alt="AxiomForge demo: summary, evidence ledger, research agent session and live progress" width="760"></a>
 
-**Hızlı başlangıç:**
-```text
-docker compose up -d --build                      # API, işçi, MLflow, Postgres, Redis, konsol (http://localhost:3000)
-python -m pytest -q                               # backend testleri
-python -m app.research run --models RandomForest,ExtraTrees,MLP,LogisticRegression --id demo
-python -m app.research show demo                  # kaydedilmiş hipotezler, doğrulama sonuçları ve sınırlar
-```
-Aynı oturum konsoldan da başlatılır: `http://localhost:3000/research` sayfasında modelleri seçip 'Oturumu başlat'; iptal ve yeniden başlatma aynı sayfada (API: `POST /start_research_session`, `POST /research_sessions/{id}/cancel` ve `/retry`).
-Belgeler: `TECHNICAL_REPORT.md` (İngilizce teknik rapor), `RESEARCH_AGENT.md` (araştırma ajanının tasarımı ve sonuçları), `docs/dev-notes/CONTINUATION.md` ve `docs/dev-notes/AI_CONTEXT.md` (geliştirme notları), `docs/dev-notes/AUTONOMOUS_REPORT.md` (ölçümlerin kaydı), `ROADMAP.md`.
+<sub>Silent 70-second walkthrough recorded from the real console. Click for the MP4.</sub>
+
+</div>
 
 ---
 
-On dört katman ayakta: Faz 1 deney döngüsü, Faz 2 çoklu ajan grafı, Faz 2.5 deney hafızası, Faz 3 doğrulayıcı ve eleştiri döngüsü, Faz 4 rapor ajanı ve Next.js konsolu, Faz 5 bilimsel sıkılık, Faz 6 iddia doğrulama, Faz 7 deney tasarımı ve oturum izolasyonu, Faz 8 model seçimi ve istatistiksel karar kapısı, Faz 9 kontrol grubu, Faz 10 gerçek veri, Faz 11 makale kapısı ve hazır cümleler, Faz 12 replikasyon kampanyası, Faz 13 ajanlı kampanya orkestrasyonu.
+## Why this exists
 
-Başka bir bilgisayarda veya yeni bir oturumda devam etmek için önce `docs/dev-notes/CONTINUATION.md` okunur.
+Language-model agents can read a paper, write code and write up a result, but they are unreliable judges of evidence. Asked whether a published claim about machine-learning models holds, three things go wrong:
 
-Faz 1 tek başına bir sınıflandırma deneyi üretir, kodu E2B sandbox içinde çalıştırır ve hata olursa en fazla 3 denemede kendini düzeltir. Sonuç hem yerel MLflow sunucusuna hem de deney hafızasına yazılır.
+1. **Fluent but unsupported conclusions.** "Model A clearly outperforms B", with no number a reader can check.
+2. **No error rates.** Nobody knows how often the system says "yes" when there is no real difference.
+3. **Adaptive analysis.** An agent that looks at results and then chooses what to test next tests hypotheses selected by the same data, which inflates false discoveries.
 
-Faz 2 araştırma grafıdır. Literatür taranır, üç hipotez üretilir ve deney düğümüne geçmeden önce onay beklenir. Graf durumu PostgreSQL'de tutulur.
+AxiomForge answers the first two with a **replication engine whose verdicts are computed, not written**, and the third with a **research protocol** that keeps confirmation data sealed from the agent that proposes hypotheses.
 
-Faz 2.5 RAG tabanlı deney hafızasıdır. Geçmiş deneyler `pgvector` içinde gömülür. Planlayıcı yeni hipotez üretirken başarısız kayıtları okur ve aynı yaklaşımı tekrar etmez. Onaydan sonra `experiment_node`, seçilen hipotezi Faz 1 döngüsüne verir. Başarı `is_success=True` ve metriklerle, üç denemenin de başarısızlığı `is_success=False` ve hata loguyla kaydedilir. Grafın içinde bu kayıt deney düğümünden değil, doğrulamadan sonra `verifier_node` içinden bir kez yazılır: `hypothesis` onaylanan spesifikasyonun `statement` metnidir, `spec` alanı spesifikasyonu taşır, `metric` doğrulayıcının ortalama ± standart sapma özetidir. Doğrulama geçtiyse `outcome` `success` olur. Yüksek varyans bulgusu varsa `outcome` `finding` olur, `finding` alanı hangi modelin hangi metriğinin eşiği aştığını yazar ve `is_success` doğru kalır. Planlayıcı yalnız `is_success=False` kayıtları okuyup eler.
+The language model plans experiments and writes prose. It never decides. Python decides, and every number in a report points to an entry of an evidence ledger.
 
-Faz 3 doğrulayıcıdır. `verifier_node` kodu veri sızıntısı için inceler. Kararlılık ölçümü bölme tohumlarıdır (Faz 5'te beş, sonradan on). `verification_status` `Passed` veya `Failed` olur. Başarısız sonuç en fazla 2 kez eleştiriyle `experiment_node`'a geri gider. İkinci düzeltmeden sonra da onay yoksa kayıt `is_success=False` ve doğrulayıcının mesajıyla hafızaya yazılır.
+## Results at a glance
 
-Faz 4 rapor ajanı ve onu süren arayüzdür. Doğrulama `Passed` olunca ya da eleştiri hakkı bitip `Failed` hafızaya yazılınca `report_node` çalışır. Atölye makalesi `reports/{thread_id}_paper.md` dosyasına kaydedilir. `research_status` `Completed` olması Faz 6'daki iddia kontrolünden sonradır. Next.js konsolu aynı akışı `http://localhost:3000` üzerinde gösterir. Grafın düğüm sırası `GRAPH.md` içindedir.
+All numbers are produced by tools in this repository and can be reproduced (see the [technical report](TECHNICAL_REPORT.md)).
 
-Faz 5, Faz 4'ten sonraki bilimsel sıkılıktır. Deney ajanı `experiment-v3` ile soruda adı geçen modelleri aynı eğitim-test bölünmesinde karşılaştırır. Veri, `sklearn.datasets` içinden gerçekçi bir sınıflandırma seti ya da bilinçli dengesiz bir `make_classification` setidir. Küçük sentetik CSV tek kaynak olmaz. Dengesiz veride Accuracy tek başına yeterli sayılmaz. Betik önce veri seti satırını, sonra her model için Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık matrisini basar. Üst MLflow run'ı veri profilini tutar. Her model iç içe bir run olur. Doğrulayıcı aynı kodu 42, 100, 200, 300 ve 400 tohumlarıyla yeniden çalıştırır. Model başına ROC-AUC ve F1 için ortalama ve örneklem standart sapması hesaplanır. Sapma 0.05'i geçerse bu bir bulgu olarak kaydedilir ve sonuç `Failed` olmaz. Bu özet `statistical_results` alanına yazılır. Raporun teması kullanıcının sorgusudur. Bir modelin daha iyi olduğu yalnız ROC-AUC veya PR-AUC ile yazılır. Düşük F1, modelin kusursuz olduğu iddiasına çevrilmez. Metodoloji örnek sayısını, öznitelik sayısını ve sınıf dengesini içerir. Yöntem atfı yalnız `literature_context` içindeki yazar veya arXiv kaydından gelir. Results metrikleri Mean ± Std Dev biçimindedir. Birden fazla model varsa karşılaştırma tablosu eklenir. Konsolda sorgu kutusu boş açılır. Plan reddedilirse veya çalışma başarısız olursa yeni bir sorgu yazılabilir.
+| Question | Result |
+| --- | --- |
+| Does it get known claims right? | **10 of 10** well-established comparisons judged as expected on 9 real datasets |
+| Does it invent differences? | Decisive verdict in **2.1%** of simulated worlds with no true effect; **0 of 45** testable effects significant when each real model is compared with a copy that differs only in its random seed |
+| Does the research agent inflate discoveries? | Family-wise error **3%**, against **24%** for an agent that selects and tests on the same data and 89% for uncorrected testing (16 models, simulation with planted effects) |
+| Compared with a language model alone | gpt-4o, asked the same claims without data: 21 of 30 answers right, 0 wrong, 9 abstentions. The system decides all 10 from data and adds the evidence |
+| A real research session | 6 models, 16 datasets: **16 hypotheses registered, 15 confirmed, 0 reversed, 1 not confirmed**. The lead of tree ensembles over a neural network was overestimated about 3x on the exploration datasets (the winner's curse) and is reported from the confirmation datasets only |
 
-Faz 6 iddia doğrulamadır. Beş tohumun Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresi ortalaması ile standart sapması NumPy ile hesaplanır. Sonuç, model adına göre `statistical_results` sözlüğüne yazılır. Rapor bu sayıları kopyalar; kendi ortalamasını üretmez ve tabloyu tek koşuya göre kurmaz. `report_node` ardından `consistency_checker_node` çalışır. Hakem makaledeki sayıları bu sözlükle karşılaştırır, yüksek sapmaya rağmen kesin üstünlük iddiasını ve yalnız ROC-AUC övgüsünü arar. Tutarsızlık varsa eleştiri `consistency_feedback` olur ve rapor en fazla 2 kez yeniden yazılır. Kontrol temizse `research_status` `Completed` olur. İki yeniden yazmadan sonra da tutarsızlık sürerse `NeedsReview` olur. Konsoldaki son adım Claims'tir.
+The honest part: the decision layer is conservative and has low power for differences under one ROC-AUC point with nine datasets, and the real session reproduces a known finding (Grinsztajn et al., NeurIPS 2022); it is not a new scientific result. See [Limits](#limits).
 
-Faz 7 deney tasarımı ve bağlam izolasyonudur. Deney ajanı `experiment-v4` kullanır. Veri, döngünün dışında bir kez ve sabit bir tohumla yüklenir veya üretilir. `make_classification` kullanılıyorsa `class_sep` 0.5 veya daha düşüktür ve `weights` ile dengesiz bir dağılım kurulur. Beşli döngü yalnız `train_test_split` içindeki `random_state` değerini 42, 100, 200, 300 ve 400 yapar. Model tohumu ve veri üretim tohumu değişmez. Her model için beş satır basılır. Betik bu döngüyü içeriyorsa doğrulayıcı o satırlardan ortalama ve standart sapma hesaplar. İçermiyorsa doğrulayıcı yalnız bölme tohumunu değiştirerek beş kez çalıştırır. Standart sapma ile varyans ayrıdır. Varyans, standart sapmanın karesidir. `statistical_results` içindeki `std` alanları standart sapmadır. Her `/start_research` yeni bir `thread_id` ve boş `AgentState` açar. Checkpoint doluysa o oturuma yazılmaz. `tested_models` yalnız bu koşunun modelleridir. RAG kaydındaki eski kod ve metrik rapora verilmez. Results ve Conclusion, Methodology bölümünde yazılmayan ve test edilmeyen hiçbir modeli alamaz.
+## See it
 
-Faz 8 model seçimi ve istatistiksel karar kapısıdır. Deney ajanı `experiment-v5` kullanır. Betik yalnız sorguda açıkça adı geçen modelleri eğitir. Promptta varsayılan model yoktur. `models` sözlüğünün anahtarları bu listeyle birebir aynıdır. Hipotez listeye model ekleyemez. Sorguda yeterli model adı yoksa deney başlamaz (eşik sonradan iki modele çıktı, bkz. `POST /start_research`). Doğrulayıcı her metrik için `std ** 2` değerini `{metrik}_variance` alanına yazar. `statistical_conclusion` ve `statistical_decision` Python'da kurulur. Karar sabit bir fark eşiğine değil istatistik testine dayanır. Aynı beş bölme her modelde kullanıldığı için ROC-AUC değerleri eşleştirilmiş sayılır ve her model çifti Pitman-Morgan varyans eşitliği testiyle karşılaştırılır. Çoklu karşılaştırma Holm yöntemiyle düzeltilir, eşik `ALPHA = 0.05`. Bir model kendisine karşı tüm çiftlerde düzeltilmiş p < 0.05 ve daha düşük varyansa sahipse `winner`, aksi halde `tie` olur. `tie` eşdeğerliği kanıtlamaz, yalnız anlamlı fark bulunmadığını söyler. En az 3 bölme ve tüm modellerde eşit uzunlukta seri yoksa karar `none` olur. Tek modelde cümle boştur. Performans farkı için her model çifti ve ROC-AUC, PR-AUC, F1 üzerinde eşleştirilmiş farka düzeltilmiş yeniden örnekleme t-testi (Nadeau-Bengio) uygulanır. Test boyutu karışıklık matrisinden, eğitim boyutu veri profilindeki örnek sayısından okunur. Karar `statistical_decision` alanında yapısal olarak da tutulur: `outcome` (`tie`, `winner` veya `none`), `winner`, `metric`, `test`, `alpha`, `n_splits`, `min_adjusted_p`, çift başına `comparisons` ve `performance`. `performance` satırları `mean_difference`, `effect_size_dz`, `p_value`, Holm düzeltmeli `adjusted_p_value` ve `significant` taşır. Rapor bir metrikte fark iddiasını yalnız `significant` olan satır için kurabilir. `statistical_conclusion` bu kararın İngilizce cümlesidir ve tablo satırı değildir. Makale İngilizce yazılır. Rapor cümleyi aynen kopyalamak zorunda değildir ama kararın yönünü değiştiremez, kazanan seçmez. `outcome` `tie` iken olumsuzlama içermeyen bir cümlede `superior`, `more stable`, `outperformed` veya `better` geçiyorsa hakem LLM çağrısı yapmaz. Geri bildirim `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` olur ve rapor yeniden yazılır. `outcome` `winner` iken makale kazananı adlandırmalı ve fark olmadığını yazmamalıdır.
+<table>
+<tr>
+<td width="50%"><b>Plain-language summary</b><br>Verdict, confidence, per-dataset chart<br><img src="docs/images/summary-light.png" alt="Campaign summary in light theme"></td>
+<td width="50%"><b>Same page, dark theme</b><br>Light and dark, English and Turkish<br><img src="docs/images/summary-dark.png" alt="Campaign summary in dark theme"></td>
+</tr>
+<tr>
+<td width="50%"><b>Evidence ledger</b><br>Dataset revisions, scores, tests: every number traces here<br><img src="docs/images/ledger-light.png" alt="Evidence ledger"></td>
+<td width="50%"><b>Research agent session</b><br>16 registered hypotheses, tested once on sealed datasets<br><img src="docs/images/research-session-light.png" alt="Research session with the hypothesis table"></td>
+</tr>
+<tr>
+<td width="50%"><b>Start a session from the console</b><br>Choose models, optional tuned stage, who proposes<br><img src="docs/images/research-start-light.png" alt="Start form"></td>
+<td width="50%"><b>Live progress of a real run</b><br>Datasets finished and running now<br><img src="docs/images/research-live-light.png" alt="Live progress of a running session"></td>
+</tr>
+</table>
 
-Faz 9 varsayılan parametreli kontrol grubudur. Deney ajanı `experiment-v8` kullanır. Spesifikasyonda `params` dolu olan her model için `models` sözlüğüne bir `Model__default` girdisi eklenir: aynı estimator sınıfı, listelenen parametreler olmadan, aynı bölmelerde. Sözleşme dört yerde zorlanır: `models_dict_error` beklenen anahtar listesini `app/variants.py` içindeki `expected_keys` ile kurar, basılan model adları aynı listeyle karşılaştırılır, `spec_code_error` yapılandırılmış girdinin parametreleri sabit yazdığını, kontrol girdisinin ise listelenen parametreleri taşımadığını ve aynı sınıfı kurduğunu AST ile denetler, prompt kontrol grubunu anlatır. Doğrulayıcı kontrol serilerini ana aileden çıkarır (`without_baselines`): kararlılık testi, performans karşılaştırmaları, hipotez kararı ve kararsızlık bulgusu yalnız asıl modelleri görür. Kontrol serileri `statistical_results`, sonuç tablosu, `tested_models` ve MLflow'da kalır. `parameter_effects` her yapılandırılmış model ve ROC-AUC, PR-AUC, F1 için yapılandırılmış ile varsayılan seri arasındaki farka düzeltilmiş yeniden örnekleme t-testi uygular (`mean_difference` yapılandırılmış eksi varsayılan, `effect_size_dz`, `p_value`, kendi Holm ailesinde `adjusted_p_value`, `significant`). Bu sayede "parametre ayarı işe yaradı" iddiası kontrol grubuna karşı sınanır. `evidence.py` etki satırlarını hazır cümle yapar (`X with the listed parameters has a higher mean ROC-AUC than X with default parameters ...` veya `No significant effect of the listed parameters on ... `), yazıcı bunları kopyalar ve kontrol satırlarını tabloda `Model (default)` adıyla gösterir. Kapı iki yeni LLM'siz kontrol kazandı: `parameter_effect_issues` (anlamlı etki doğru yönle, `dz` ile yazılmış mı; anlamlı olmayan etki fark gibi anlatılmış mı) ve `leakage_description_issues` (doğrulama `Passed` iken makale ön işlemeyi bölmeden önce ya da tüm veri üzerinde yapılmış gibi anlatıyor mu). `default` geçen cümleler model karşılaştırması kontrollerinden (`performance_issues`, `direction_conflict`) muaftır, böylece etki cümleleri onları yanlışlıkla sağlamaz ya da tetiklemez. MLflow üst run'ı `significant_parameter_effects` metriğini ve etki başına `effect/{model}/{metrik}/mean_difference` ile `adjusted_p_value` metriklerini taşır.
+<details>
+<summary>More screens</summary>
 
-Faz 10 gerçek veridir. Sistem artık sentetik veri üretmez ve `sklearn.datasets` yükleyicilerini kullanmaz; Faz 5 ve Faz 7'deki `make_classification` ve `load_breast_cancer` anlatımı geçersizdir. `app/datasets.py` beş doğrulanmış Hugging Face veri setinden oluşan bir kayıt tutar: `breast_cancer` (`scikit-learn/breast-cancer-wisconsin`, 569 satır), `credit_default` (`scikit-learn/credit-card-clients`, 30000 satırdan 6000), `customer_churn` (`scikit-learn/churn-prediction`, 7043 satır), `adult_income` (`scikit-learn/adult-census-income`, 32561 satırdan 6000) ve `credit_fraud` (`David-Egea/Creditcard-fraud-detection`, 492 sahtekârlık ve 4000 normal satır). Büyük setler sabit tohumla (`random_state=0`) örneklenir ve gerçek oran profilde yazılır. Her set için Python tek bir veri bloğu üretir (`loader_code`): `load_dataset` çağrısı, kimlik sütunlarının atılması, gerekli temizlik, örnekleme, hedefin 0/1'e çevrilmesi, eksik değer doldurma, ölçekleme ve kategorik kodlamayı yapan `ColumnTransformer`, her tahmin ediciyi `Pipeline` içine saran `with_preprocessing` ve `dataset=...` satırı. Deney ajanı (`experiment-v9`) bloğu değiştirmeden yapıştırır ve her `models` değerini `with_preprocessing(...)` ile kurar, böylece ön işleme yalnız eğitim bölümüne uydurulur. AST denetimi (`dataset_code_error`) bloğun her ifadesini arar (biçim farkı kabul, içerik farkı reddedilir) ve `make_classification`, `load_breast_cancer`, `fetch_openml` gibi sentetik ya da paketle gelen yükleyicileri reddeder. Planlayıcı veri seti menüsünü (`dataset_menu`) görür ve sorgunun alanına uyanı seçer; spesifikasyonsuz `POST /experiments` ucunda Python alan sözcüklerinden seçer (`pick_dataset`, varsayılan `customer_churn`). Sandbox her koşudan önce `datasets` paketini kurar (yaklaşık 5 sn). Yazıcıya `Dataset source` satırı verilir ve Methodology'de Hub kimliğini yazması istenir. Sızıntı yargıcına Pipeline içindeki ön işlemenin sızıntı sayılmayacağı söylenir. Kayıtta olmayan bir alanda sorgu en yakın veri setine düşer. Eski spesifikasyonlardaki `imbalanced` artık geçersiz bir anahtardır.
+| Home | Past runs |
+| --- | --- |
+| ![Home](docs/images/home-light.png) | ![Past runs](docs/images/history-light.png) |
 
-Faz 11 makale kapısı ve hazır cümlelerdir. Yazıcının serbest yazdığı yerlerde canlı koşular tekrar eden hatalar gösterdi (sorgudaki talimatın spec yerine aktarılması, uydurma yöntem, kararsızlık, toplu üstünlük); bunlar LLM'siz kontrollerle yakalanır ve olabildiğince Python'ın ürettiği hazır cümlelerle önlenir. Doğrulayıcı her metrik için lideri ve ROC-AUC, PR-AUC, F1 sıralama ortalamasına göre genel en iyi modeli hesaplar (`leaders`, `overall`). Makale k-fold, cross-validation gibi bir yöntem anlatamaz ve Methodology'de `10 repeated stratified train/test splits` yazmalıdır. Abstract ve Conclusion genel en iyi modeli ve anlamlı parametre etkilerini kasten farklı iki hazır cümle listesiyle yazar ve aynı cümleyi tekrar edemez. Methodology'ye hangi modellerin ayarlandığını söyleyen hazır bir yapılandırma cümlesi girer; spec'te parametresi olmayan model ayarlanmış gibi anlatılamaz. Sorgudaki ayar ifadeleri literatür aramasına girmez (alan LLM'den, modeller Python'dan, en çok iki ifadeli aramalar). Planlayıcı her parametrenin kütüphane varsayılanını görür. Gerçek koşularda (Koşu 8-14) kapı bazen ilk turda geçti (Koşu 13 ve 14), iki kez de yeni kuralların çelişkisi ve yazıcının talimat aktarması yüzünden `NeedsReview` oldu (Koşu 10 ve 12); sonuncu koşuda hazır cümleler doğru aktarıldı. Ayrıntılar `docs/dev-notes/AI_CONTEXT.md` içindedir.
+| Research session, dark theme |
+| --- |
+| ![Research session in dark theme](docs/images/research-session-dark.png) |
 
-Faz 12 replikasyon kampanyasıdır ve LLM çağırmaz. Tek bir hipotezi tek veri setinde sınamak yerine yayımlanmış bir iddiayı birçok veri setinde yeniden sınar; her sayının izi bir kanıt kaydına bağlıdır. Kod `app/campaign/` altındadır. `spec.py` kampanya belirtimini doğrular: başlık, en az iki model, parametreler (kütüphane varsayılanına eşit değer reddedilir), veri setleri (varsayılan dokuz `benchmark` setinin tamamı), `subject` ve `other` model gruplarıyla iddialar, ölçütler ve kaynak makale ile makaleden sapmaları. `protocol.py` her veri seti için betiği şablondan üretir (LLM yok): standart veri bloğu, `Model__default` kontrolleri, on tohumlu katmanlı bölme ve aynı `model=...` satırları. `runner.py` veri setlerini paralel sandbox'larda (varsayılan üç) çalıştırır, her biri en çok iki deneme alır ve çıktının eksiksizliği denetlenir; bir veri setinin düşmesi diğerlerini durdurmaz. `stats.py` her veri setini birim sayar: model başına bölme ortalaması, model ailesi için en iyi üye, kesin iki yönlü Wilcoxon işaretli sıra testi (en az 6 sıfırdan farklı fark; 5 veri setiyle en küçük p 0,0625'tir), Holm düzeltmesi, Friedman testi (en az 3 model ve 5 veri seti) ve karar: `replicated`, `partially_replicated`, `contradicted`, `inconclusive`, `not_testable`. `analysis.py` bunları toplar ve parametre etkisini veri setleri arasında yapılandırılmış ile varsayılan seri üzerinden sınar. `ledger.py` her sonuca kararlı bir kimlik (E1, E2, ...), kaynağı ve onu üreten betiğin SHA-256 özetini verir. `report.py` raporu deterministik yazar ve her sayısal satıra `[E#]` atfı koyar; `report_issues` bilinmeyen atıfları, atıfsız sayısal satırları ve hiç atıf almamış kanıt kayıtlarını yakalar. `store.py` durumu ve çıktıları `reports/campaigns/{id}/` altına atomik yazar (`state.json`, `report.md`, `ledger.json`, `analysis.json`, `scripts/`). `service.py` bütünü yürütür: doğrula, çalıştır, analiz et, rapor yaz, izlenebilirliği denetle, kaydet. Durum `queued`, `running`, `completed`, `needs_review` (izlenebilirlik sorunu var) veya `failed` olur. `demos.py` hazır kampanyaları taşır; `grinsztajn-2022`, Grinsztajn ve ark. (NeurIPS 2022, arXiv 2207.08815) makalesinin iddiasını sınar: ağaç tabanlı modeller (RandomForest, HistGradientBoosting) MLP'den ve lojistik regresyondan iyidir. Sapmaları raporun Protocol bölümünde yazılıdır: hiperparametre araması yok, 6000 satırlık dengeli örnek, sklearn MLP, dokuz sayısal veri seti. Gerçek koşuda (Koşu 15, `demo-grinsztajn-1`, yaklaşık 4,5 dakika, yalnız E2B) dokuz veri setinin hepsi bitti ve iki iddia da `replicated` çıktı (Holm düzeltmeli p = 0,0117, ROC-AUC medyan farkı MLP'ye karşı +0,013, lojistik regresyona karşı +0,058). Komut satırı: `python -m app.campaign run --demo grinsztajn-2022 [--datasets a,b] [--workers N] [--id X] [--mlflow]`, `list`, `show ID`, `demos`. `tracking.py` kampanyayı MLflow'a yazar: `axiomforge-campaigns` deneyinde tek bir `Campaign Run {id}` üst run'ı (Friedman istatistiği ve p değeri, her model çifti için Wilcoxon p ve Holm düzeltmeli p, iddia kararları ve ölçüt başına istatistikler, parametre etkileri, ölçüt başına ve genel lider etiketleri, `report.md` ve `ledger.json` artefaktları) ve veri seti başına iç içe run'lar. Celery görevi ve `--mlflow` bunu açar; MLflow ya da artefakt deposu erişilemezse kampanya düşmez, durumda `mlflow_run_id` boş kalır. Konsolda `/campaigns` sayfası kampanyaları durumlarıyla (queued, running, completed, needs review, failed) listeler, `/campaign/{id}` sayfası veri seti ilerlemesini, iddia kararlarını, GFM tablolu raporu ve kanıt defterini gösterir. Uçlar `POST /start_campaign`, `GET /campaigns`, `GET /campaign/{id}` ve `GET /campaign/{id}/report` olarak aşağıda anlatılır.
+</details>
 
-Faz 14 kampanya genişletmeleridir (otonom oturum, ayrıntı ve ölçümler `docs/dev-notes/AUTONOMOUS_REPORT.md`). (1) Tekrarlanabilirlik: her veri setinin HF revision'ı, Python ve kütüphane sürümleri sandbox'ta basılır (`campaign/provenance.py`), rapor `Environment:` ve `Specification: SHA-256` satırlarını yazar ve onaydan sonra değişen spec çalıştırılmaz. (2) Moderatör analizi: sandbox'ta dört veri seti tanımlayıcısı ölçülür (`campaign/descriptors.py`), iddia başına model-ailesi avantajı tanımlayıcılarla Spearman ile ilişkilendirilir, Holm düzeltmeli ve keşif amaçlı etiketli (`campaign/moderators.py`, en az 6 veri seti). (3) Ayarlı protokol: spec'te `tuning` (`iterations` 4-40, varsayılan 12; `folds` 3-5), `params` ile birlikte kullanılmaz; veri %20 ayarlama ve %80 değerlendirme olarak bölünür, her model ROC-AUC ile rastgele aranır ve her modelin yanında kütüphane varsayılanı kontrolü koşar (`campaign/tuning.py`, CLI `--tuning N`, planlayıcıda aday `tuned` bayrağı). (4) Literatür alımı: sorguda arXiv kimliği ya da bağlantısı varsa (`app/tools/arxiv.py`) makale, yazarlar, künye ve sonuç bölümüyle doğrudan kaynak olur, LLM araması atlanır; makaleden gelen iddia alıntısı spec'e girer ve rapora 'Comparison with the source' bölümü eklenir. (5) Kıyas: `campaign/benchmark.py` 10 bilinen iddiayı (5 doğru, 5 ters) puanlar; motor 10/10, planlayıcı 9/10 birebir, yakın çiftlerde sahte pozitif 0.
+You can explore real results yourself without any API key: see the [demo](demo/README.md).
 
-Faz 14'ün ikinci turu (26 Ekim 2026, ayrıntı `docs/dev-notes/AUTONOMOUS_REPORT.md` 'Takip 2' ve 'Takip 3'): ayar etkilerinin Holm ailesi artık bir modelin üç ölçütüdür ve katı (tüm model ve ölçütler) düzeltmede kaç etkinin ayakta kaldığı raporun Limitations bölümünde yazılır (`adjusted_p_value_all`, `significant_all`); meta makale kapısı reddedilen taslağı yeniden yazım turuna gösterir (geçiş oranı 6/10 → 10/10) ve kapsamlı 'all datasets tested' ifadelerini kabul eder; planlayıcı makaleden gelen iddialar için ek bir hakem çağrısıyla alıntının iddiayı desteklediğini denetler, olumsuz cümleyi ters çevirmez, çalıştırılamayan mimarileri MLP vekiline eşler ve 3'ten az aday önerirse 'ROC-AUC only' ve 'tuned' varyantlarıyla tamamlanır; spec'te `revisions` ile HF veri seti commit'leri sabitlenebilir (`--pin-from`); meta makale, durumu ve yeniden yazım sayısı kampanyanın MLflow run'ına (`paper.md`), deney hattının `statistical_decision.json` dosyası da MLflow'a yazılır; `/approve_plan` 404/409/422 döner; deney hattında 30 dakikadır checkpoint yazmayan araştırma `failed` görünür; araştırma kuyruğa girmeden OpenAI anahtarı ve kotası tek çağrıyla denetlenir (`app/openai_check.py`); konsol ayarlı kampanyayı ve künyeyi gösterir, arXiv kimliğini bildirir ve hazır kampanya için onaylı başlatma düğmesi sunar (`npm test` Node test koşucusuyla); `.github/workflows/ci.yml` backend ve frontend testlerini koşar (GitHub'da yeşil; ilk koşu temiz checkout'ta `next typegen` eksikliğinden kırmızıydı); `tools/` altında kıyas ve simülasyon araçları durur. Ölçümler: zor kıyasta motor 10/10 ve yakın çiftlerde 0/6 karar, planlayıcı 8 muğlak sorguda 8/8 (düzeltmeden sonra), düzeltilmiş t testi muhafazakâr (boş durumda ret %0,7-2, orta fark gücü 10 bölmede %72).
+## How it works
 
-Kullanıcıya dönük yenileme (27 Ekim 2026, ayrıntı `docs/dev-notes/AUTONOMOUS_REPORT.md` 'Takip 7'): konsol "herkes" için yeniden yazıldı. Sonuç sayfası tek cümlelik özet, sade karar rozeti, güven göstergesi, veri seti başına çubuk grafik ve katlanır sayılarla açılır; Özet / Ayrıntılı rapor / Kanıtlar sekmeleri, terim sözlüğü balonları, TR/EN anahtarı, sebepli ve öneri veren hata kutuları, test koşularını gizleyen geçmiş ve Markdown rapor indirme eklendi. Güvence tarafında isteğe bağlı API anahtarı ve günlük başlatma sınırı, karar makinesinin sahte pozitif ölçümü (boş farkta karar oranı %2,1; küçük farkta güç düşük) ve bellek listeleme / silme aracı geldi. Konsol için Dockerfile ve compose servisi eklendi. Dördüncü turda (`docs/dev-notes/AUTONOMOUS_REPORT.md` 'Takip 10') araştırma ajanı kuruldu: 16 veri setlik havuz, keşif / doğrulama ayrımı, kayıtlı hipotezler, aşama sonuçlarının yeniden kullanımı, kural ve dil modeli üreticileri, `/research` konsol sayfaları, yerleştirilmiş etkili simülasyon ve gerçek bir oturum (16 hipotez, 15 doğrulandı). Üçüncü turda (`docs/dev-notes/AUTONOMOUS_REPORT.md` 'Takip 9'): makale kapısı olumsuz 'not supported'ı artık işaretlemiyor, erişilebilirlik (axe taraması, klavye ile sekmeler ve odak halkası) ve tek araştırma hattı için kaldığı yerden yeniden deneme eklendi, kampanya görevinin işçi ölümünde yeniden teslimi Linux/Docker'da canlı doğrulandı (Windows'ta Celery bunu yapmaz). Aynı günün ikinci turunda (`docs/dev-notes/AUTONOMOUS_REPORT.md` 'Takip 8'): kampanya iptali ve yeniden başlatma, bayat kampanyanın `failed` görünmesi, işçi ölünce kampanya görevinin yeniden teslimi, canlı ilerlemede çalışan veri setleri ve tahmini kalan süre, sistemi izleyen koyu tema, tek deney hattı ekranlarının Türkçe/İngilizce olması, 12 tarayıcı testi ve gerçek modellerle tohum-farkı boş karşılaştırması (`tools/null_seed.py`) eklendi.
-
-Kalan işler `ROADMAP.md` içindedir.
-
-Faz 13 ajanlı kampanya orkestrasyonudur: araştırma grafı artık tek veri setli deneye ek olarak kampanya motorunu da sürer. Mod açıkça verilir: `POST /start_research` gövdesinde `mode` `experiment` (varsayılan, eski hat) ya da `campaign` olabilir; `auto` yoktur ve bilinmeyen mod `422` döner, çünkü LLM'e kendi başına E2B harcatma yetkisi verilmez. Kampanya hattı: `literature_node` → `campaign_planner_node` → `approval_gate` → `campaign_dispatch_node` → (durur) → `campaign_collect_node` → `meta_report_node` ⇄ `meta_consistency_node`. `campaign/planning.py` kampanyayı deterministik kurar: makaledeki model adlarını estimator'a eşler (ResNet, FT-Transformer gibi mimariler MLP'ye eşlenir ve bu raporda sapma notu olur, eşlenemeyen model reddedilir), 5-10 veri seti seçer, istatistiksel güç kontrolü yapar (en küçük ulaşılabilir Holm düzeltmeli p 0,05'in altında değilse spec reddedilir: 3 ölçütte en az 7, pratikte 8-9 veri seti) ve süre tahmini verir. `agents/campaign_planner.py` yalnız iddiaları ayrıştırır: üç aday kampanya önerir, her iddia makale özetinden ya da sorgudan birebir `source_quote` ile kanıtlanmak zorundadır (alıntı metinde yoksa aday atılır), makale tablo sınıflandırması hakkında değilse gerekçeli `unsupported` döner; geçmiş kampanyalar hafızadan okunur ve tekrar eden iddialar adayda `repeats` olarak işaretlenir. Onay `selected` ile üç adaydan biridir. `campaign_dispatch_node` kampanyayı idempotent kuyruğa atar (kimlik thread ve spec özetinden türer, aynı düğüm yeniden çalışsa ikinci kampanya açılmaz); `run_campaign_task` bitince `resume_campaign_task` grafı uyandırır, graf henüz toplama noktasına gelmediyse 5 sn arayla 40 kez yeniden dener. 20 dakika ilerleme olmayan kampanya `failed` sayılır (bayat işçi). `agents/meta_report.py` makaleyi birleştirir: Abstract, Methodology, Results, Limitations, Conclusion ve kanıt defteri deterministiktir (kampanya raporu ve `campaign/meta_evidence.py` cümleleri, her sayısal satırda `[E#]`), yalnız Introduction ve Discussion'ı LLM yazar (Introduction'da sonuç, rakam ve karar yok; Discussion'a yalnız sistemin hesapladığı olgular verilir, rakam yok, neden açıklamaları hedge'li). `agents/consistency_meta.py` LLM'siz kapıdır: atıf izlenebilirliği, prose bölümlerinde rakam, kesinlik fiilleri (`confirmed`, `proved`), karar sözcüklerinin gerçek karara uyumu, hedge'siz neden, genelleme (`always`, `all tabular`), çalıştırılmamış model ya da veri seti adı, uydurma kaynak başlığı, Abstract'ta iddia kararı, Methodology'de sapmalar ve Limitations'ta başarısız veri setleri. Kapı yazıcıyı en çok iki kez geri gönderir; sonra `Completed` ya da `NeedsReview` olur (kampanyanın kendi denetimi sorun bulduysa her halükarda `NeedsReview`). Karar etiketi `contradicted`'tır (`reversed` değil); tek veri setli hipotez kararlarıyla aynı sözcük. Biten kampanya vektör hafızaya `campaign` sonucuyla yazılır ve MLflow run kimliği durumda görünür. Konsolda mod seçilir, kampanya onay penceresi üç adayı iddiaları, modelleri, veri setleri, tahmini süre ve sandbox sayısı, kaynak alıntısı ve daha önce çalıştırıldı uyarısıyla gösterir.
-
-## Ne var
-
-- FastAPI uygulaması
-- Celery işçisi, broker olarak Redis: araştırma onaya kadar ve onaydan sonra rapora kadar işçide çalışır
-- Experiment Agent: GPT-4o (`experiment-v9`) ile Hugging Face'ten indirilen gerçek bir veri setinde, sorguda adı geçen modelleri (parametre verilenler için varsayılan parametreli kontrol girdisiyle birlikte) ve yalnız bölme tohumunu değiştiren, stratify'lı on bölmelik karşılaştırma üretir
-- E2B Code Interpreter: üretilen kodu izole ortamda çalıştırır
-- Kendi kendini düzeltme: sandbox traceback'i ajana geri verilir, en fazla 3 deneme
-- MLflow: grafta doğrulamadan sonra tek bir üst run açılır. Veri profili, her modelin doğrulanmış ortalama, standart sapma ve varyansı ve karar etiketleri üst run'a, her bölme `seed` ve `split_index` ile iç içe run'a yazılır
-- LangGraph: literatür → plan → onay → deney → doğrulayıcı → rapor → iddia kontrolü
-- Replikasyon kampanyası (`app/campaign/`): yayımlanmış bir iddiayı çok veri setinde LLM'siz sınar, kanıt defteri ve her sayısal satırda `[E#]` atfı olan bir rapor üretir; Celery görevi, API uçları ve komut satırıyla çalışır
-- Doğrulayıcı: on tohum, NumPy ortalama, sapma ve varyans, Pitman-Morgan ve düzeltilmiş t-testleri, parametre etkisi (yapılandırılmış ve varsayılan seri), `statistical_conclusion`, sızıntı analizi ve en fazla 2 eleştiri turu
-- Rapor ajanı: makale İngilizcedir, Results ve Conclusion `statistical_decision` yönünde yazılır
-- İddia kontrolü: beraberlikte İngilizce üstünlük kelimesi LLM'den önce reddedilir. Doğrulama `Failed` iken özette bunu söylemeyen makale de LLM'siz reddedilir. Kararsızlık bulgusu varken özette `high variance across splits` yoksa veya işaretli model bir cümlede anlatılmıyorsa da reddedilir. `Passed` doğrulamayı sonuçların güvenilir olduğunun kanıtı gibi anlatan makale (doğrulamayla aynı cümlede `reliable`, `robust`, `trustworthy`, `credible`, `guarantee`) ve anlamlı bir performans farkını (ROC-AUC, PR-AUC, F1) ya da etki büyüklüğünü yazmayan makale de reddedilir. Abstract ve Conclusion'da hipotezin kararını (`the hypothesis was supported`, `contradicted` veya `inconclusive`) söylemeyen makale de reddedilir. Sonuç tablosundaki her hücre doğrulanmış ortalama ± standart sapmayla uyuşmalıdır (yazılan son basamağın yarısı kadar toleransla), tablo yoksa makale reddedilir. Parametre verilen modellerde anlamlı bir parametre etkisi yazılmamış ya da yanlış yönde yazılmışsa, anlamlı olmayan etki fark gibi anlatılmışsa ve doğrulama `Passed` iken makale ön işlemeyi (ölçekleme, standardizasyon gibi) bölmeden önce ya da tüm veri üzerinde yapılmış gibi anlatıyorsa da reddedilir. Spesifikasyonda parametresi olmayan bir modelin ayarlandığını söyleyen makale ve hiçbir parametre etkisi anlamlı değilken parametre ayarının sonucu etkilediğini söyleyen makale de reddedilir. Bir modeli "diğer tüm modellere" karşı üstün gösteren ama her rakibe karşı anlamlı olmayan makale ve doğrulayıcı kararsızlık bulmamışken kararsızlık ya da yüksek varyans iddia eden makale de reddedilir. Planlayıcı her parametrenin kütüphane varsayılanını görür; varsayılana eşit bir değer ayar sayılmaz ve spesifikasyon doğrulamasında reddedilir (son planlama denemesinde sessizce çıkarılır). Makale k-fold, cross-validation, CV veya bootstrap gibi bir yöntem anlatırsa ya da Methodology'de tekrarlı bölmeyi anlatmazsa, Abstract ve Conclusion genel olarak en iyi modeli ve anlamlı parametre etkilerini yazmazsa ya da bu iki bölüm aynı cümleyi tekrar ederse de reddedilir. Yazıcıya bu bilgilerin hazır cümleleri verilir: Abstract ve Conclusion için kasten farklı iki liste, Methodology için yapılandırma cümlesi. LLM hakem artık kapı değil danışmandır: yalnız bu LLM'siz kontroller `Completed` ya da `NeedsReview` kararını verir, hakemin notları `referee_notes` alanında tutulur ve sonuç sayfasında ayrı bir blokta gösterilir. En fazla 2 yeniden yazma. İki yeniden yazmadan sonra da tutarsızlık varsa `research_status` `NeedsReview` olur
-- Next.js konsolu: canlı zaman çizelgesi, onay ve makale görünümü
-- arXiv araması: LLM yalnız sorgunun alanını çıkarır, modelleri Python bulur, en çok iki ifadeli aramalar (alan ve model) denenir, adaylar gömü benzerliğiyle süzülür ve en alakalı 3 makalenin başlığı ve özeti alınır; sorgudaki ayarlar aramaya girmez
-- Planlayıcı: literatür ve geçmiş başarısız deneylerden, deney ajanının yapabildiği 3 doğrulanmış deney spesifikasyonu
-- PostgresSaver: her araştırma boş bir `thread_id` ile `DATABASE_URL` üzerine kaydedilir
-- Deney hafızası: `text-embedding-3-small` ile `experiment_memory` koleksiyonu
-
-Grafın dışındaki `POST /experiments` ucunda başarılı deneyde MLflow run'ı `Finished` olur, üç deneme de başarısızsa run `Failed` olarak kapanır. Grafın içinde run doğrulamadan sonra bir kez açılır: doğrulama geçtiyse `Verified`, eleştiri hakkı bitip reddedildiyse `Failed`. Run kimliği state'te `mlflow_run_id` olarak durur. MLflow kapalıysa araştırma sürer ve kimlik boş kalır. Grafın dışındaki `POST /experiments` ucunda hafıza kaydı MLflow çağrısından önce yazılır. Üretilen deney kodu yerel makinede çalıştırılmaz.
-
-## Dizin
-
-```text
-app/
-  main.py                    FastAPI uçları
-  config.py                  ortam ayarları
-  celery_app.py              Celery uygulaması
-  experiments.py             3 denemelik düzeltme döngüsü ve hafıza kaydı
-  agents/experiment.py       kod üreten ve düzelten ajan
-  agents/literature.py       anahtar kelime sorgusu ve alaka süzgeciyle literatür ajanı
-  agents/planner.py          geçmiş hataları eleyen hipotez ajanı
-  agents/spec.py             deney spesifikasyonu doğrulaması ve kod denetimi
-  agents/report.py           atölye makalesi yazan ajan
-  agents/consistency.py      makale sayıları ile istatistik sözlüğünü karşılaştıran hakem
-  tools/arxiv.py             arXiv arama aracı
-  tasks.py                   Celery görevleri: araştırmayı başlat, onaydan sonra sürdür ve kampanya çalıştır
-  campaign/spec.py           kampanya belirtimi doğrulaması
-  campaign/protocol.py       veri seti başına deterministik betik şablonu
-  campaign/runner.py         paralel sandbox koşusu, yeniden deneme, eksiksizlik denetimi
-  campaign/stats.py          veri seti birimli Wilcoxon, Holm, Friedman ve iddia kararı
-  campaign/analysis.py       kampanya analizi ve veri setleri arası parametre etkisi
-  campaign/ledger.py         kanıt defteri (kimlik, kaynak, betik özeti)
-  campaign/report.py         deterministik rapor ve izlenebilirlik denetimi
-  campaign/store.py          durum ve çıktıların atomik kaydı (reports/campaigns)
-  campaign/service.py        kampanyayı uçtan uca yürüten servis
-  campaign/demos.py          hazır kampanyalar (grinsztajn-2022)
-  campaign/__main__.py       python -m app.campaign komut satırı
-  campaign/planning.py       model eşleme, veri seti seçimi, güç kontrolü, maliyet tahmini
-  campaign/meta_evidence.py  meta rapor için atıflı cümleler ve liderler
-  campaign/memory.py         biten kampanyaları hafızaya yazma, geçmişi okuma, tekrar işaretleme
-  agents/campaign_planner.py makale ya da sorgudan üç aday kampanya
-  agents/meta_report.py      deterministik bölümler ve LLM'li Introduction ve Discussion
-  agents/consistency_meta.py meta makale kapısı (LLM'siz)
-  graph/campaign_nodes.py    dispatch, collect, meta report ve meta consistency düğümleri
-  graph/state.py             AgentState
-  graph/nodes.py             literatür, plan, deney, doğrulayıcı, rapor ve iddia düğümleri
-  graph/verifier.py          on tohum, sapma, yapısal karar ve sızıntı kararı
-  graph/errors.py            araştırma hatalarının PostgreSQL'e kaydı
-  graph/stats.py             Pitman-Morgan testi, düzeltilmiş t-testi ve Holm düzeltmesi
-  variants.py                kontrol grubu adlandırması ve beklenen model anahtarları
-  datasets.py                Hugging Face veri seti kaydı, veri bloğu ve veri bloğu denetimi
-  graph/workflow.py          StateGraph, kesinti, onay ve koşullu dönüş
-  memory/enable_pgvector.sql pgvector eklentisi
-  memory/rag_memory.py       vektör kayıt ve arama
-  sandbox/e2b_runner.py      E2B çalıştırma
-  tracking/mlflow_logger.py  metrik ayrıştırma ve MLflow kaydı
-tests/                       pytest testleri: ayrıştırma, model adları, spesifikasyon, istatistik, doğrulayıcı, hakem, durum ve düğümler
-pytest.ini                   test dizini ve import yolu
-GRAPH.md                     araştırma grafının mimarisi
-frontend/                    Next.js araştırma konsolu (TR/EN, sade özet, grafik, sözlük); Dockerfile ve Node testleri
-app/campaign/vocabulary.py   modeller, veri setleri, ölçütler, kararlar ve terimler için TR/EN sade adlar
-app/campaign/summary.py      kampanya durumundan sade özet (karar cümlesi, güven, grafik noktaları)
-app/friendly_errors.py       hata kodları ve kullanıcı dilinde sebep + öneri
-app/guard.py                 isteğe bağlı API anahtarı ve günlük başlatma sınırı
-tools/null_calibration.py    karar makinesinin boş farkta sahte pozitif oranı (Monte Carlo)
-tools/memory_report.py       planlayıcının okuduğu geçmiş kampanyaları listeler, onayla siler
-tools/memory_smoke.py        hafızaya yazıp okuma denemesi (elle çalıştırılır, Postgres ve OpenAI anahtarı ister)
-tools/null_seed.py           her modeli yalnız rastgele tohumu farklı kopyasıyla karşılaştırır (gerçek model boş karşılaştırması)
-tools/bench_gate_loop.py     meta makale kapısının geçiş oranını ölçer (`--tuning N` ayarlı kampanya için)
-frontend/e2e/                Playwright tarayıcı testleri (API taklit edilir); `npm run e2e`
-docker-compose.yml           Redis, pgvector PostgreSQL, MLflow, API, Celery işçisi ve konsol
-Dockerfile                   API, işçi ve MLflow için tek imaj
-requirements.txt
-requirements-dev.txt          requirements.txt ve pytest
-.env                         OPENAI_API_KEY, E2B_API_KEY, DATABASE_URL
+```mermaid
+flowchart LR
+  Q[Question or arXiv link] --> L[Literature<br/>arXiv and embeddings]
+  L --> P[Planner<br/>three plans, LLM]
+  P --> A{{Human approval}}
+  A --> C[Campaign engine<br/>E2B sandbox, 9+ datasets]
+  C --> S[Statistics in Python<br/>Wilcoxon, Holm, Friedman]
+  S --> E[(Evidence ledger)]
+  S --> W[Paper writer<br/>LLM: introduction and discussion]
+  E --> W
+  W --> G[17 deterministic rules]
+  G -->|rejected, rewrite at most twice| W
+  G --> R[Report and console]
 ```
 
-## Ortam
+**Who does what**
 
-`.env`:
+| The language model | Python (deterministic) |
+| --- | --- |
+| Reads literature and proposes three experiment plans | Runs the experiments in the sandbox and compares per-dataset scores |
+| Writes the introduction and discussion of the paper | Computes every verdict: replicated, partially replicated, contradicted, inconclusive or not testable |
+| | Fills the paper's key sentences from the ledger and rejects overclaims with 17 rules |
 
-```text
-OPENAI_API_KEY=
-E2B_API_KEY=
-DATABASE_URL=postgresql://axiomforge:axiomforge@localhost:5432/axiomforge
+### The research protocol
+
+A research agent looks at results and then decides what to test next. That is **adaptive analysis**, and it inflates false discoveries. The protocol prevents it:
+
+```mermaid
+flowchart TB
+  POOL[16 datasets] -->|seeded split, once| EXP[6 exploration datasets]
+  POOL --> CONF[10 confirmation datasets<br/>sealed]
+  EXP --> GEN[Hypothesis generator<br/>rules or LLM, sees exploration only]
+  GEN --> REG[Register and freeze<br/>SHA-256 digest, written to disk]
+  REG --> TEST[Test each hypothesis once<br/>one Holm correction per session]
+  CONF --> TEST
+  TEST --> OUT[Confirmed, reversed or not confirmed]
 ```
 
-`E2B_API_KEY` yoksa sandbox açılmaz. `DATABASE_URL` yoksa araştırma grafı ve deney hafızası başlamaz. `REDIS_URL` varsayılanı `redis://localhost:6379/0`, `MLFLOW_TRACKING_URI` varsayılanı `http://127.0.0.1:5000` olur ve ortam değişkeniyle değiştirilir. Postgres imajı `pgvector/pgvector:pg16` kullanır.
+- The generator's function signature has no confirmation argument; it receives a copy of exploration results only.
+- Hypotheses are saved **before** any confirmation result is read, and `python -m app.research verify` detects tampering.
+- The number of registered hypotheses is capped by arithmetic: with *n* confirmation datasets at most ⌈0.05·2ⁿ⁻¹⌉−1 hypotheses can all be significant (25 for ten).
+- Effect sizes are reported from the confirmation datasets; the exploration estimate is inflated by selection and is labelled as such.
 
-`AgentState` alanları `GRAPH.md` içindedir. İddia kontrolü temiz bitince `research_status` değeri `Completed`, tutarsızlık sürerse `NeedsReview` olur.
+### Architecture
 
-## Kurulum
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-docker compose up -d redis postgres
+```mermaid
+flowchart LR
+  UI[Next.js console] --> API[FastAPI]
+  API --> RQ[(Redis)]
+  RQ --> WK[Celery worker]
+  WK --> AG[LangGraph agents]
+  WK --> SB[E2B sandbox]
+  AG --> PG[(PostgreSQL and pgvector)]
+  WK --> ML[MLflow]
 ```
 
-## Çalıştırma
+## Concepts in plain words
 
-İki yol var. Yerelde API, kuyruk, takip ve konsol ayrı ayrı açılır. Ya da API, işçi ve MLflow konteynerde çalışır (aşağıdaki Docker bölümü).
+| Term | Meaning here |
+| --- | --- |
+| **Replication campaign** | One claim tested on many datasets instead of one experiment |
+| **Dataset as the unit** | Scores are averaged over ten splits per dataset, and the *datasets* are what the statistical test compares |
+| **Wilcoxon signed-rank test** | A non-parametric test of whether one model beats another across datasets more often than chance allows |
+| **Holm correction** | Controls the chance of at least one false positive when many comparisons are made |
+| **Friedman test** | Whether a set of models differs at all across datasets |
+| **Evidence ledger** | A record per number: dataset revision, row count, library versions, script digest. Reports cite it as `[E1]`, `[E2]`... |
+| **Exploration / confirmation datasets** | Data the agent may look at / data it may only be tested on, once |
+| **Registered hypothesis** | A hypothesis frozen and saved with a digest before it is tested |
+| **Winner's curse** | The best-looking effect in the exploration data is overestimated because it was selected for looking best |
+| **Family-wise error** | The probability of at least one false discovery in a set of tests |
+| **Mutation testing** | Changing the code on purpose to check that a test fails |
 
-Yerel yol:
+## Tech stack
 
-```powershell
-.\.venv\Scripts\mlflow.exe server --host 127.0.0.1 --port 5000
-.\.venv\Scripts\celery.exe -A app.celery_app worker --pool=threads --concurrency=4 --loglevel=info
-.\.venv\Scripts\uvicorn.exe app.main:app --host 127.0.0.1 --port 8000
-cd frontend
-npm run dev
+| Layer | Technology |
+| --- | --- |
+| Agents and orchestration | LangGraph (human-in-the-loop interrupts, PostgreSQL checkpoints), OpenAI gpt-4o, `text-embedding-3-small` |
+| Execution | E2B Code Interpreter sandbox, scikit-learn, XGBoost, LightGBM, CatBoost |
+| Statistics | NumPy, SciPy (Wilcoxon, Friedman, Pitman-Morgan, corrected t-tests), Holm and Benjamini-Hochberg |
+| Backend | FastAPI, Celery with Redis, pydantic |
+| Memory | PostgreSQL with pgvector (experiment memory), MLflow (tracking) |
+| Console | Next.js 16, React 19, Tailwind CSS 4; Turkish and English, light and dark; keyboard and screen reader support |
+| Quality | pytest, mutation checks, Node test runner, Playwright with axe accessibility scans, GitHub Actions CI |
+| Delivery | Docker and Docker Compose (API, worker, MLflow, console, Redis, PostgreSQL) |
+
+## Quick start
+
+### 1. Explore real results, no keys needed
+
+```bash
+python -m venv .venv && .venv/bin/pip install -r requirements.txt     # Windows: .venv\Scripts\pip
+bash demo/load.sh                                                     # Windows: powershell -File demo/load.ps1
+.venv/bin/uvicorn app.main:app --port 8000
+cd frontend && npm install && npm run dev
 ```
 
-Konsol `http://localhost:3000` adresindedir (`127.0.0.1:3000` adresinde Next dev sunucusu istemci kodunu çalıştırmaz). Windows üzerinde Celery `--pool=threads` ile çalışır. `--pool=solo` da çalışır ama tek görev yürüttüğü için uzun bir araştırma başka araştırmaların başlamasını bekletir.
+Open <http://localhost:3000> (use `localhost`, not `127.0.0.1`). Details in [`demo/README.md`](demo/README.md).
 
-Hafızayı grafın dışında denemek için:
+### 2. The full system with Docker
 
-```powershell
-.\.venv\Scripts\python.exe -m tools.memory_smoke
-```
+You need an OpenAI key and an E2B key. Real runs cost money: a research session with 6 models takes about 20 minutes of sandbox time (about 50 with the tuned stage).
 
-## Docker
-
-API, Celery işçisi ve MLflow sunucusu tek imajdan (`Dockerfile`) çalışır. Komut servise göre değişir. Redis ve Postgres hazır imajlardır.
-
-```powershell
+```bash
+cp .env.example .env            # add OPENAI_API_KEY and E2B_API_KEY
 docker compose up -d --build
 ```
 
-API `http://127.0.0.1:8000`, MLflow `http://127.0.0.1:5000` adresindedir. Konteynerler `DATABASE_URL`, `REDIS_URL` ve `MLFLOW_TRACKING_URI` değerlerini compose içinden alır (`postgres`, `redis`, `mlflow` servis adları). `OPENAI_API_KEY` ve `E2B_API_KEY` yerel `.env` dosyasından gelir; dosya imaja girmez ve yoksa compose yine çalışır. Makaleler `reports` hacmindedir ve API ile işçi aynı hacmi paylaşır. MLflow verisi `mlflow` hacmindedir. Konsol (Next.js) `frontend` servisidir ve `http://127.0.0.1:3000` adresindedir; API adresi ve isteğe bağlı API anahtarı imaj yapılırken `NEXT_PUBLIC_API_URL` ve `NEXT_PUBLIC_API_KEY` yapı argümanlarıyla gömülür. Yerelde geliştirirken `npm run dev` de kullanılır. Yerel yolu kullanırken konteynerdeki API, işçi ve MLflow'u açmayın, 5000 ve 8000 portları çakışır: yalnız `docker compose up -d redis postgres` çalıştırın.
+| Service | Address |
+| --- | --- |
+| Console | <http://localhost:3000> |
+| API and OpenAPI docs | <http://localhost:8000/docs> |
+| MLflow | <http://localhost:5000> |
 
-## Testler
+### 3. Command line
 
-Testler LLM, E2B, MLflow, Postgres ve Redis çağırmaz. Bu servisler düğüm testlerinde taklit edilir.
+```bash
+python -m app.campaign demos                                    # ready campaigns
+python -m app.campaign run --demo grinsztajn-2022 --id my-run   # replicate a published claim
+python -m app.campaign show my-run                              # the report with its evidence ledger
 
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python.exe -m pytest
+python -m app.research run --models RandomForest,ExtraTrees,MLP,LogisticRegression --id demo
+python -m app.research show demo                                # hypotheses, confirmation results, limits
+python -m app.research verify demo                              # were the registered hypotheses changed?
 ```
 
-Konsol testleri (yardımcı kitaplıklar ve bileşenlerin sunucuda TR/EN çizimi) `frontend` dizininde `npm test` ile koşar. Tarayıcı testleri (Playwright, API tarayıcıda taklit edilir, arka uç gerekmez) önce `npm run build`, sonra `npm run e2e` ile koşar; yerelde kurulu Edge için `PW_CHANNEL=msedge`, yoksa `npx playwright install chromium` gerekir. CI'da ayrı bir `e2e` işi bunu yapar.
+### Configuration
 
-## Uçlar
+Copy [`.env.example`](.env.example) to `.env`. Docker Compose overrides the database, Redis and MLflow addresses for its containers.
 
-### `GET /health`
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Planner, writer and embeddings. Without it the graph cannot run |
+| `E2B_API_KEY` | Sandbox for experiments. Without it no sandbox opens |
+| `DATABASE_URL` | PostgreSQL with pgvector (graph checkpoints and experiment memory) |
+| `REDIS_URL`, `MLFLOW_TRACKING_URI` | Queue and tracking addresses (defaults for local development) |
+| `API_KEY` | If set, endpoints that start paid work require an `X-API-Key` header. Build the console with the same value in `NEXT_PUBLIC_API_KEY` |
+| `DAILY_START_LIMIT` | Starts allowed per day (default 100, `0` means unlimited) |
+| `CELERY_VISIBILITY_TIMEOUT` | Seconds before a campaign message is redelivered after a worker dies (default 7200) |
 
-Redis ve Celery durumunu döner. İkisi de ayaktaysa `200`, biri kapalıysa `503`.
+### Local development
 
-```json
-{"redis": "ok", "celery": "ok"}
+```bash
+docker compose up -d redis postgres
+celery -A app.celery_app worker --pool=threads --concurrency=4     # threads pool also works on Windows
+uvicorn app.main:app --port 8000
+cd frontend && npm run dev
 ```
 
-### `POST /experiments`
+### Tests
 
-Faz 1. Gövde:
-
-```json
-{
-  "prompt": "Predict whether a customer churned. The target column is churn.",
-  "csv_schema": "age:float, monthly_spend:float, tenure_months:int, churn:int"
-}
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q                       # backend: no LLM, sandbox, database or queue is called
+cd frontend
+npm test                                  # unit and component tests
+npm run build && npm run e2e              # browser tests, with accessibility scans in both themes
 ```
 
-Akış:
-
-1. Ajan, sorudaki modelleri aynı bölünmede eğiten bir scikit-learn betiği üretir; veri, sorgunun alanına uyan Hugging Face veri setinin hazır veri bloğudur (`pick_dataset`, varsayılan `customer_churn`). Önce `dataset=<name> samples=<int> features=<int> negative_ratio=<float> positive_ratio=<float>` basar. Her model için `model=<name> accuracy=<float> f1=<float> roc_auc=<float> pr_auc=<float> train_seconds=<float> tn=<int> fp=<int> fn=<int> tp=<int>` basar.
-2. Şema yapısına uygun küçük bir CSV sandbox içine yazılır.
-3. Betik E2B içinde çalıştırılır.
-4. Kod hata verirse traceback ve hatalı kod ajana geri gönderilir. Döngü en fazla 3 denemedir.
-5. Çıktıdan veri profili ve model satırları okunur. Grafın dışındaki bu uçta üst MLflow run'ına profil ve `prompt_version=experiment-v9` yazılır. Her model kendi iç içe run'ında Accuracy, F1, ROC-AUC, PR-AUC, eğitim süresi ve karışıklık sayılarını alır. Sayılar bilimsel gösterimle de yazılabilir (`4.5e-05`); ayrıştırıcı bunu okur. Sorguda en az iki model yoksa istek `422` ve `query names fewer than two models` ile reddedilir. Basılan model adları izin listesinden farklıysa betik sandbox başarısı sayılmaz.
-6. Grafın dışındaki `POST /experiments` ucunda aynı sonuç `save_experiment` ile vektör hafızaya da yazılır. Başarıda `is_success=true` ve metrik, üç deneme de düşerse `is_success=false` ve hata logu kaydedilir.
-
-Başarılı yanıt:
-
-```json
-{
-  "code": "...",
-  "status": "Finished",
-  "attempts": 1,
-  "mlflow_run_id": "...",
-  "accuracy": 0.8,
-  "f1": 0.75
-}
-```
-
-Üç deneme de başarısızsa:
-
-```json
-{
-  "code": "...",
-  "status": "Failed",
-  "attempts": 3,
-  "mlflow_run_id": "..."
-}
-```
-
-Deneme ayrıntısı FastAPI logundaki `sandbox attempt` satırlarındadır. MLflow arayüzü: `http://127.0.0.1:5000`
-
-### `POST /start_research`
-
-Faz 2. Gövde:
-
-```json
-{"query": "Compare SVM and Random Forest on tabular data classification", "mode": "experiment"}
-```
-
-`mode` `experiment` (varsayılan) ya da `campaign` olur; başka değer `422` döner. `campaign` modunda sorguda model adı aranmaz ve graf kampanya planlayıcısına gider (Faz 13). Yanıt `mode` alanını da taşır. Kampanya modunda `GET /research/{thread_id}` ek olarak `campaign_specs` (üç aday: `spec`, `estimate`, `evidence`, `repeats`), `selected_campaign`, `campaign_id`, `campaign_status` ve `campaign_mlflow_run_id` döner; `POST /approve_plan` `selected` ile aday sırasını alır ve `selected_campaign` döner.
-
-Sorguda en az iki model adı geçmelidir, çünkü her hipotez iki model arasında bir karşılaştırma iddiasıdır. Sıfır, bir ya da aynı modelin farklı yazılışları (`SVM, svm`) geçiyorsa literatür, LLM ve sandbox çalışmadan `422` ve `query names fewer than two models` döner. Aynı kural `POST /experiments` ucunda da geçerlidir.
-
-Akış `literature_node` ve `planner_node` çalıştıktan sonra, `experiment_node` öncesinde durur.
-
-1. Literatür ajanı LLM'e yalnız sorgunun alanını çıkarttırır (en çok 2 konu, en çok 3 kelime, örneğin `customer churn`); model adı, hiperparametre, rakam, ayar ve talimat sözcükleri Python'da süzülür (`clean_topics`, sonu `prediction`, `classification` gibi genel bir sözcükse dördüncü kelime atılır). Modelleri sorgudan Python çıkarır ve arama adlarına eşler (`MODEL_SEARCH_NAMES`). Aramalar en çok iki ifadelidir ve sırayla `[konu, model1]`, `[konu, model2]`, `[konu, machine learning]`, `[model1, model2]`, `[konu]` olur (en çok 5 arama, 12 aday bulununca durur, aramalar arasında 3 saniye). Böylece sorgudaki `n_neighbors=5` gibi ayar ifadeleri aramaya giremez ve dört ifadenin `AND`'i yüzünden boş dönen arama olmaz. Alaka süzgeci aynıdır: orijinal sorgunun gömüsüyle kosinüs benzerliği, `0.35` altı elenir, en iyi 3 makale alınır. Hiç aday yoksa `arxiv returned no papers`, hiçbiri eşiği geçmezse `arxiv returned no relevant papers` ile çalışma `failed` olur. Adaylar tekilleştirilir, sorunun gömüsüyle makale gömüsü arasındaki kosinüs benzerliği hesaplanır, `0.35` altındakiler elenir ve en iyi 3 makalenin başlığı ve özeti `literature_context` listesine yazılır. Hiçbiri eşiği geçmezse çalışma `arxiv returned no relevant papers` ile `failed` olur. Her skor logda `literature relevance` satırı olarak görünür.
-2. Planlayıcı `search_past_experiments` ile sorguya en yakın 3 geçmiş deneyi okur. Başarısız kayıtları prompta koyar ve aynı yaklaşımı tekrar etmez.
-3. Üç hipotez `hypotheses` listesine, spesifikasyonları `experiment_specs` listesine yazılır. Her hipotez bir deney spesifikasyonudur: `statement`, `models` (sorgudaki modellerin tamamı, Python doldurur), `claim` (iki modelin karşılaştırma iddiası: `kind` `performance` veya `stability`, `metric`, `subject` daha yüksek ya da daha kararlı olduğu iddia edilen model, `other`; en az iki model şartı olduğundan ürün akışında her hipotezde bulunur), `dataset` (`breast_cancer`, `credit_default`, `customer_churn`, `adult_income` veya `credit_fraud`; hepsi gerçek Hugging Face veri setidir) ve `params` (model başına izinli kurucu parametreleri). Hipotez yalnız iki model arasında bir karşılaştırma iddiasıdır (biri diğerinden daha yüksek ROC-AUC, PR-AUC veya F1'e sahiptir, ya da ROC-AUC varyansında daha kararlıdır); `params` yalnız modellerin nasıl yapılandırılacağını belirler, hipotezin konusu olamaz; parametre verilen her model ayrıca varsayılan parametreli bir kontrol girdisiyle (`Model__default`) koşar ve parametrelerin etkisi bu kontrole karşı ölçülür (`parameter_effects`). İki veya daha çok modelli sorguda `claim` zorunludur ve `statement` iki modeli de adlandırmalıdır. Geçersiz bir spesifikasyon bir kez düzeltme istenerek yeniden denenir, yine geçersizse çalışma `failed` olur.
-4. Graf `approval_gate` öncesinde duraklar. Eleştiri turları bu kapıdan tekrar geçmez.
-
-Geçmiş hata bulunursa logda `planner memory_note` satırı görünür. Örnek: geçmiş `KeyError: missing_target` deneyi yüzünden planlayıcı farklı bir yaklaşım önerir.
-
-Duraklayan yanıt:
-
-```json
-{
-  "thread_id": "...",
-  "status": "paused",
-  "hypotheses": ["...", "...", "..."],
-  "state": {}
-}
-```
-
-Hipotezler FastAPI logunda `paused hypothesis` satırları olarak da görünür.
-
-`GET /research/{thread_id}` durumu `starting`, `running`, `paused`, `rejected`, `completed`, `needs_review` veya `failed` olarak döner. Onay öncesi ya da sonrası bir düğüm hata verirse mesaj PostgreSQL'deki `research_errors` tablosuna yazılır, durum `failed` olur ve mesaj `error` alanında görünür. `needs_review` makalenin iddia kontrolünden geçemediğini gösterir; sebep `consistency_feedback` alanındadır. Yanıt ayrıca `referee_notes` (LLM hakemin danışman notları, durumu belirlemez), `verification_status` ile birlikte `verifier_feedback` (doğrulama reddinin sebebi) ve `instability` alanını taşır: `{unstable, std_threshold, flagged: [{model, metric, std}]}`. Sonuç sayfası (`/result/{thread_id}`) bu alanlarla üç satırlık bir kontrol paneli gösterir: doğrulama geçti veya reddedildi (sebebiyle), eşiği aşan varyans bulgusu, iddia kontrolünün sonucu. Araştırma sürerken sayfa her 2 saniyede durumu okur ve hangi adımda olduğunu yazar. Araştırma `completed`, `needs_review`, `failed` veya `rejected` olunca yoklama durur ve rapor bir kez okunur.
-
-### `POST /start_campaign`
-
-Gövde `demo` (hazır kampanya adı) ya da `spec` (kampanya belirtimi) alanlarından tam birini taşır; `datasets` verilirse belirtimdeki veri setlerinin yerine geçer:
-
-```json
-{"demo": "grinsztajn-2022", "datasets": ["tb_credit", "tb_pol"]}
-```
-
-Belirtim eşzamanlı doğrulanır; geçersizse `422` döner ve hiçbir şey saklanmaz. Geçerliyse durum `queued` olarak yazılır, `run_campaign` görevi kuyruğa atılır ve `{"campaign_id": "...", "status": "queued"}` döner. Kuyruk kapalıysa `503` döner ve kayıt `failed` olur. Kampanya LLM çağırmaz, yalnız E2B kullanır.
-
-### `GET /campaigns`, `GET /campaign/{campaign_id}`, `GET /campaign/{campaign_id}/report`
-
-`/campaigns` `campaigns` (sıralı kimlikler) ve `items` döner; `items` en yeni başta, her biri `id`, `title`, `statement` (ilk iddia cümlesi), `origin` (api / console / cli), `status`, `updated`, `datasets`, `finished`, `failed` ve `verdicts` taşır. `/campaign/{id}` durumu döner: `status`, her veri setinin `status`, `attempts`, `seconds`, `error` alanları, bitince `verdicts` (iddia kimliği, cümle ve karar), `issues`, `finished_datasets` ve `failed_datasets`. Geçersiz kimlik `400`, bilinmeyen kampanya `404` döner. `/campaign/{id}/report` rapor hazırsa `{"markdown": ..., "ledger": [...]}` döner, değilse `404 report not ready`.
-
-### `POST /campaign/{campaign_id}/cancel`, `POST /campaign/{campaign_id}/retry`
-
-İkisi de API anahtarı tanımlıysa onu ister. İptal sıradaki kampanyayı hemen `cancelled` yapar; çalışan kampanyada iptal isteği bırakır (`cancel_requested`), şu an çalışan veri setleri biter, kalanlar hiç başlamaz ve kampanya analiz üretmeden `cancelled` olur. Bitmiş kampanya için `409`, bilinmeyen kampanya için `404` döner. Yeniden başlatma yalnız `failed` ya da `cancelled` (20 dakika ilerlemeyip bayat sayılanlar dahil) kampanyada çalışır, kayıtlı belirtimle kampanyayı baştan kuyruğa alır, `recoveries` sayacını artırır ve bir günlük başlatma hakkı harcar; kuyruk kapalıysa `503` döner ve kampanya `failed` kalır. 20 dakikadır ilerlemeyen `queued` / `running` kampanya durum ve liste uçlarında `failed` (`stale: true`) görünür; depoya yazılmaz. Kampanya görevi `acks_late` ile çalışır: işçi ölürse ileti (en çok 2 saat sonra) yeniden teslim edilir, bitmiş kampanya ise yeniden çalıştırılmaz.
-
-### `POST /research/{thread_id}/retry`
-
-API anahtarı tanımlıysa onu ister. Başarısız ya da 30 dakika ilerlemeyen (bayat) araştırmayı son checkpoint'ten yeniden başlatır; biten adımlar korunur. Onay bekleyen, bitmiş, reddedilmiş ya da kalan adımı olmayan araştırma için `409`, bilinmeyen iş parçacığı için `404` döner. Kampanya modunda kampanya durmuşsa (`failed`, `cancelled` ya da bayat) kampanya yeniden kuyruğa alınır ve araştırma iş parçacığına bağlanır; kampanya bitince araştırma kaldığı yerden devam eder. Hata kaydı silinir, bir günlük başlatma hakkı harcanır. `GET /research/{id}` yanıtındaki `can_retry` bu uçun kullanılabilir olup olmadığını söyler.
-
-### `GET /campaign/{campaign_id}/summary`, `GET /glossary`, `GET /vocabulary`
-
-`/campaign/{id}/summary?lang=tr|en` kampanyayı herkesin okuyacağı dille özetler: tek cümlelik başlık, her iddia için sade karar etiketi ve tonu, güven düzeyi, "kaç veri setinde üstün" sayıları, veri seti başına skor grafiği noktaları, genel sıralama, yöntem maddeleri, dikkat notları, ilerleme ve (varsa) `error_info` (başlık, sebep, öneri, teknik ayrıntı). Bilinmeyen dil `422` döner. `/glossary?lang=` terim sözlüğünü, `/vocabulary?lang=` model, veri seti ve ölçüt adlarını verir. Karar mantığı değişmez, bu uçlar yalnız sunar.
-
-### Erişim koruması: `API_KEY`, `DAILY_START_LIMIT`, `GET /usage`
-
-`CELERY_VISIBILITY_TIMEOUT` (saniye, varsayılan 7200) kampanya görevinin işçi öldüğünde yeniden teslim edilmeden önce bekleme süresidir; çalışan kampanya 15 saniyede bir nabız yazdığından kopya teslimler canlı işçiyi bekler, ölü işçinin kampanyası ise yeniden çalışır. `.env` içinde `API_KEY` tanımlıysa `POST /experiments`, `/start_research`, `/approve_plan` ve `/start_campaign` `X-API-Key` başlığı ister (yoksa ya da yanlışsa `401`, `[unauthorized]`); tanımlı değilse uçlar açıktır. `DAILY_START_LIMIT` (varsayılan 100, `0` sınırsız) günlük başlatma sayısını sınırlar; aşılırsa `429` (`[daily_limit]`). Sayaç `reports/usage.json` dosyasındadır, `GET /usage` bugünkü kullanımı ve kalan hakkı verir. Konsol anahtarı `NEXT_PUBLIC_API_KEY` ile gönderir ve iki durumu da sade dille anlatır.
-
-### `POST /approve_plan`
-
-Gövde:
-
-```json
-{"thread_id": "...", "decision": "Y", "selected": 1}
-```
-
-`selected` çalıştırılacak hipotezin sıfırdan başlayan sırasıdır ve `Y` için zorunludur. Eksik, aralık dışı veya sayı olmayan bir değer `422` döner ve hiçbir şey değişmez. `N` için gerekmez. Yalnız seçilen hipotez çalışır, hafızaya yazılır ve makaleye girer; öbür ikisi atılır. Konsoldaki onay diyalogu üç hipotezi veri seti ve parametreleriyle gösterir, başta hiçbiri seçili değildir ve onay düğmesi seçim yapılana kadar pasiftir. `GET /research/{thread_id}` `experiment_specs` ve `selected_hypothesis` alanlarını da döner.
-
-`Y` state'i `approval_status="approved"` yapar, devam görevini Celery kuyruğuna atar ve hemen `{"status": "running"}` döner. Graf işçide kaldığı yerden devam eder; ilerleme `GET /research/{thread_id}` ile izlenir. Aynı araştırmaya ikinci karar `research thread was already decided` ile reddedilir. Kuyruk kapalıysa `503` döner ve onay geri alınır. `experiment_node` `Onaylandı, deneylere başlanıyor` logunu basar. Betiğe yalnız sorguda adı geçen modeller girer. Ardından seçilen hipotezi ve `experiment_specs` içindeki spesifikasyonunu şu CSV şemasıyla Faz 1 döngüsüne verir. Üretilen kod veri setini ve `params` değerlerini kurucularda aynen kullanmıyorsa AST denetimi reddeder ve kod düzeltilir:
+## What is in the repository
 
 ```text
-age:float, monthly_spend:float, tenure_months:int, churn:int
+app/
+  agents/        literature, planner, experiment, report, consistency checks
+  graph/         LangGraph workflow, verifier, statistics, errors
+  campaign/      replication engine: spec, protocol, runner, stats, ledger, report, tuning
+  research/      research agent: protocol, generators, sessions, service
+  sandbox/       E2B runner          memory/   pgvector experiment memory
+  datasets.py    real dataset registry (16 numeric datasets for the research pool)
+frontend/        Next.js console, unit tests and Playwright specs
+tools/           measurements: null calibration, planted effects, language-model baseline, gate benchmarks
+tests/           backend tests
+demo/            real results to explore without keys
+docs/            API reference, development history, screenshots, video, developer notes
 ```
 
-Son çalışan kod `current_experiment_code` alanına, ilk modelin Accuracy ve F1 değerleri `experiment_metrics` alanına, tüm modeller `model_results` alanına, veri profili `dataset_profile` alanına yazılır. Ardından `verifier_node` iki kontrol yapar:
+## Limits
 
-1. Betik on bölme tohumunu kendi döngüsünde basıyorsa o satırlar kullanılır. Basılmıyorsa yalnız `train_test_split` içindeki `random_state` 42, 100, 200, 300, 400, 500, 600, 700, 800 ve 900 yapılır ve her değer E2B'de yeniden çalışır (on ayrı sandbox koşusu). Bölmeler stratify'lıdır: deney ajanı her `train_test_split` çağrısına `stratify=y` verir ve üretilen kod bunu taşımıyorsa AST denetimi reddedip kodu düzelttirir. Tohumlar `app/seeds.py` içinde tek yerde durur, prompt ve doğrulayıcı oradan okur. Veri üretim tohumu ve model tohumu değişmez. Her model için Accuracy, F1, ROC-AUC, PR-AUC ve eğitim süresinin ortalaması, standart sapması ve varyansı NumPy ile hesaplanır ve `statistical_results` sözlüğüne yazılır. Varyans, standart sapmanın karesidir. Kontrol girdileri bu sözlükte ve sonuç tablosunda yer alır ama kararlılık, performans ve hipotez testlerine girmez. Aynı sözlüğe `statistical_conclusion` yazılır. Karar ROC-AUC için eşleştirilmiş Pitman-Morgan testi ve Holm düzeltmesiyle verilir, alfa 0.05'tir. Anlamlı fark yoksa beraberlik cümlesi kurulur. Tek bir model her rakibine karşı anlamlı biçimde düşük varyanslıysa o model daha kararlı ilan edilir. ROC-AUC veya F1 standart sapması 0.05'i geçerse doğrulayıcı bunu `statistical_decision` içindeki `instability` bulgusuna yazar (`unstable`, `std_threshold`, `flagged`). Bu bir hata değildir, kodu yeniden ürettirmez ve `Passed` sonucunu bozmaz.
-2. Kodu veri sızıntısı için inceler. Örneğin ayrılmadan önce `fit_transform` veya imputation varsa sebebiyle birlikte `Failed` döner.
+- Binary classification on tabular data from one benchmark family; 16 datasets at most. Nothing is claimed about regression, multi-class, text or images.
+- The decision layer has low power for differences under one ROC-AUC point with nine datasets.
+- The research agent's hypotheses are model comparisons and tuning effects. One real session was run, and the generator comparison reuses its experiments.
+- Paper text is written by one language model (gpt-4o); the deterministic rules are tuned to its habits, and only 3 of the 17 rules fired in the audited drafts.
+- No external users or reviewers yet. The research agent is an *exploratory analysis agent with statistical safeguards*, not a discovery engine; the finding it reproduces (tree-based models lead neural networks on medium-sized tabular data) is from Grinsztajn et al., 2022.
 
-`verification_status` `Passed` ise akış `report_node`'a gider. Yalnız gerçek hatalar `Failed` yapar: metrik üretilmemesi, sandbox çökmesi ve veri sızıntısı. Yüksek varyans `Failed` yapmaz; rapor onu Results ve Conclusion içinde limitasyon olarak yazar, hakem raporlandığını kontrol eder. `Failed` ise eleştiri `verifier_feedback` olarak `experiment_node`'a geri gider ve kod düzeltilir. Bu dönüş en fazla 2 kez olur. İkinci düzeltmeden sonra doğrulayıcı hâlâ onaylamazsa deney `is_success=False` ile hafızaya yazılır ve yine `report_node` çalışır. Sızıntı mesajı `Leakage çözülemedi` ile başlar.
+## Documentation
 
-Rapor `reports/{thread_id}_paper.md` dosyasına yazılır. Tema kullanıcının sorgusudur. Metodoloji örnek, öznitelik ve dengesizlik oranını yazar. Atıf yalnız literatür bağlamındaki kaynaktan gelir. Results tablosu `statistical_results` içindeki Mean ± Std Dev değerleridir. Sütunlar Model, Accuracy, F1, ROC-AUC, PR-AUC ve Train seconds olur. Results ve Conclusion, kazanan seçmez; `statistical_decision` yönünde İngilizce yazılır. Ardından `consistency_checker_node` makaleyi bu sözlük ve karar ile okur. `outcome` `tie` iken makalede üstünlük kelimesi varsa LLM çağrılmaz ve rapor `Yön Çelişkisi: İstatistiksel fark yokken üstünlük iddia edildi` ile yeniden yazılır. Başka tutarsızlık varsa da rapor en fazla 2 kez yeniden yazılır. Kontrol temizse `research_status` `Completed` olur. İki yeniden yazmadan sonra da tutarsızlık sürerse `NeedsReview` olur ve konsol makalenin üstünde uyarı gösterir. Aynı metin `GET /reports/{thread_id}` ucundan ve konsoldaki `/result/{thread_id}` sayfasından okunur.
+| Document | What it covers |
+| --- | --- |
+| [`TECHNICAL_REPORT.md`](TECHNICAL_REPORT.md) | Problem, method, measurements and limits (English) |
+| [`RESEARCH_AGENT.md`](RESEARCH_AGENT.md) | Design of the research agent protocol (Turkish) |
+| [`GRAPH.md`](GRAPH.md) | The agent graph, node by node (Turkish) |
+| [`docs/API.md`](docs/API.md) · [`docs/API.tr.md`](docs/API.tr.md) | API reference |
+| [`docs/HISTORY.md`](docs/HISTORY.md) · [`docs/HISTORY.tr.md`](docs/HISTORY.tr.md) | How the project was built, phase by phase, and what real runs taught |
+| [`demo/`](demo/README.md) | Real results to explore without keys |
+| [`ROADMAP.md`](ROADMAP.md) | State, known limits and possible next work |
+| [`docs/dev-notes/`](docs/dev-notes/) | Developer handover notes and the session log |
 
-Konsolda araştırma kutusu boştur. Start Research, kutu doluyken isteği gönderir. Çalışma bitene, plan reddedilene veya doğrulama başarısız olana kadar kutu kilitli kalır. Red veya başarısızlıktan sonra yeni bir sorgu yazılabilir.
+## License and author
 
-`N` state'i `approval_status="rejected"` yapar ve akış orada biter. Deney düğümü çalışmaz.
-
-```json
-{"thread_id": "...", "status": "ended", "approval_status": "rejected"}
-```
+[MIT](LICENSE) © 2026 Bartu Önder.
