@@ -1,5 +1,7 @@
 # Otonom çalışma raporu
 
+Bu belge geliştirme sırasında tutulan ölçüm ve oturum kaydıdır; metindeki `ROADMAP.md` bölüm numaraları (A-E) eski, ayrıntılı yol haritasına aittir (kökteki `ROADMAP.md` kısaltılmış sürümdür, eskisi git geçmişindedir) ve 'kullanıcı' proje sahibidir.
+
 Bu dosya, kullanıcı bilgisayar başında değilken yürütülen otonom oturumun kaydıdır (25 Ekim 2026 devamı). Kapsam: 1 → 2 → 3 → 4 → 5 sırası (tekrarlanabilirlik künyesi, moderatör analizi, ayarlı protokol, literatür girişi, ajan kıyası).
 
 ## Kurallar (kullanıcının talimatı)
