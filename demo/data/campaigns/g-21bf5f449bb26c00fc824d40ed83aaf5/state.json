@@ -1,0 +1,67 @@
+{
+ "id": "g-21bf5f449bb26c00fc824d40ed83aaf5",
+ "title": "Tree-based vs Neural Networks (ROC-AUC)",
+ "status": "completed",
+ "spec_sha256": "57f90480a21957ca6525d0e2c2e5590592d2c8212519fb4191068abb481dab84",
+ "datasets": {
+  "tb_credit": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 139.02351069450378
+  },
+  "tb_california": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 115.98169279098511
+  },
+  "tb_electricity": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 113.2608289718628
+  },
+  "tb_magic": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 203.40895056724548
+  },
+  "tb_bank": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 125.41267037391663
+  },
+  "tb_heloc": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 182.45380210876465
+  },
+  "tb_house16h": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 272.4661831855774
+  },
+  "tb_pol": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 110.40350937843323
+  },
+  "tb_eye": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 142.66945362091064
+  }
+ },
+ "started": "2026-10-26T12:03:11+00:00",
+ "finished": "2026-10-26T12:11:59+00:00",
+ "issues": [],
+ "verdicts": [
+  {
+   "id": "C1",
+   "statement": "Tree-based models outperform Neural Networks on medium-sized tabular classification data",
+   "verdict": "replicated"
+  }
+ ],
+ "finished_datasets": 9,
+ "failed_datasets": 0,
+ "mlflow_run_id": "0346031641234f5889174ca8960499d8",
+ "updated": "2026-10-26T12:11:59+00:00"
+}

@@ -1,0 +1,815 @@
+[
+ {
+  "id": "E1",
+  "kind": "dataset",
+  "key": "tb_credit",
+  "source": "inria-soda/tabular-benchmark (clf_num_credit)",
+  "samples": 6000.0,
+  "features": 10.0,
+  "positive_ratio": 0.5,
+  "seconds": 75.14677286148071,
+  "attempts": 1,
+  "script_sha256": "7a11beaf0e05e92068412cf58374a3c669266e24fddf966117d53c70e232e991",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.8415800000000001,
+    "pr_auc": 0.8343999999999999,
+    "f1": 0.7692400000000001
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.8416599999999999,
+    "pr_auc": 0.83973,
+    "f1": 0.7618499999999999
+   },
+   "MLP": {
+    "roc_auc": 0.8346300000000001,
+    "pr_auc": 0.8393599999999999,
+    "f1": 0.74461
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.80493,
+    "pr_auc": 0.82154,
+    "f1": 0.70186
+   }
+  }
+ },
+ {
+  "id": "E2",
+  "kind": "dataset",
+  "key": "tb_california",
+  "source": "inria-soda/tabular-benchmark (clf_num_california)",
+  "samples": 6000.0,
+  "features": 8.0,
+  "positive_ratio": 0.5,
+  "seconds": 55.75082492828369,
+  "attempts": 1,
+  "script_sha256": "5855211783ebf019532803529936dd8d3e3268aec2968a9292f810efc906a3da",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.9513900000000002,
+    "pr_auc": 0.9537099999999998,
+    "f1": 0.8762799999999998
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.9595699999999999,
+    "pr_auc": 0.96235,
+    "f1": 0.8920999999999999
+   },
+   "MLP": {
+    "roc_auc": 0.9429300000000002,
+    "pr_auc": 0.94558,
+    "f1": 0.8665299999999998
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.9156299999999998,
+    "pr_auc": 0.9186,
+    "f1": 0.83625
+   }
+  }
+ },
+ {
+  "id": "E3",
+  "kind": "dataset",
+  "key": "tb_electricity",
+  "source": "inria-soda/tabular-benchmark (clf_num_electricity)",
+  "samples": 6000.0,
+  "features": 7.0,
+  "positive_ratio": 0.5,
+  "seconds": 88.26480841636658,
+  "attempts": 1,
+  "script_sha256": "6e7b338d0312ab8903fdfbde21e373bd369517c381248461de3f67b5cddaaec5",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.9011999999999999,
+    "pr_auc": 0.89706,
+    "f1": 0.8206199999999999
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.9084099999999999,
+    "pr_auc": 0.90913,
+    "f1": 0.8259000000000001
+   },
+   "MLP": {
+    "roc_auc": 0.8592599999999999,
+    "pr_auc": 0.86492,
+    "f1": 0.7790999999999999
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.8157099999999999,
+    "pr_auc": 0.8312199999999998,
+    "f1": 0.7231099999999999
+   }
+  }
+ },
+ {
+  "id": "E4",
+  "kind": "dataset",
+  "key": "tb_magic",
+  "source": "inria-soda/tabular-benchmark (clf_num_MagicTelescope)",
+  "samples": 6000.0,
+  "features": 10.0,
+  "positive_ratio": 0.51,
+  "seconds": 78.74845242500305,
+  "attempts": 1,
+  "script_sha256": "bac94e63d9918882f38b964d70035e3da3651849b5648cbaf4db725dfe87ee08",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.9231499999999999,
+    "pr_auc": 0.9329500000000002,
+    "f1": 0.8449
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.9229900000000001,
+    "pr_auc": 0.9352500000000001,
+    "f1": 0.84755
+   },
+   "MLP": {
+    "roc_auc": 0.92071,
+    "pr_auc": 0.9331099999999999,
+    "f1": 0.8364900000000001
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.84017,
+    "pr_auc": 0.85921,
+    "f1": 0.7573
+   }
+  }
+ },
+ {
+  "id": "E5",
+  "kind": "dataset",
+  "key": "tb_bank",
+  "source": "inria-soda/tabular-benchmark (clf_num_bank-marketing)",
+  "samples": 6000.0,
+  "features": 7.0,
+  "positive_ratio": 0.51,
+  "seconds": 40.3233277797699,
+  "attempts": 1,
+  "script_sha256": "02d85190eb802c5729a75f584a362d369cca0c071ccabc8d4febddb43fb1eb20",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.8635300000000001,
+    "pr_auc": 0.8406100000000001,
+    "f1": 0.7944000000000001
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.87227,
+    "pr_auc": 0.8592000000000001,
+    "f1": 0.80006
+   },
+   "MLP": {
+    "roc_auc": 0.85882,
+    "pr_auc": 0.8374600000000001,
+    "f1": 0.7898400000000001
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.82318,
+    "pr_auc": 0.8129899999999999,
+    "f1": 0.72762
+   }
+  }
+ },
+ {
+  "id": "E6",
+  "kind": "dataset",
+  "key": "tb_heloc",
+  "source": "inria-soda/tabular-benchmark (clf_num_heloc)",
+  "samples": 6000.0,
+  "features": 22.0,
+  "positive_ratio": 0.51,
+  "seconds": 81.63394141197205,
+  "attempts": 1,
+  "script_sha256": "bd3763330ce028983de4507b56346708cd0a77577b1b037f30bf1ef43578957c",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.7928499999999999,
+    "pr_auc": 0.79629,
+    "f1": 0.72325
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.7922999999999999,
+    "pr_auc": 0.79699,
+    "f1": 0.722
+   },
+   "MLP": {
+    "roc_auc": 0.7653200000000001,
+    "pr_auc": 0.76346,
+    "f1": 0.69241
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.78435,
+    "pr_auc": 0.77647,
+    "f1": 0.70902
+   }
+  }
+ },
+ {
+  "id": "E7",
+  "kind": "dataset",
+  "key": "tb_house16h",
+  "source": "inria-soda/tabular-benchmark (clf_num_house_16H)",
+  "samples": 6000.0,
+  "features": 16.0,
+  "positive_ratio": 0.51,
+  "seconds": 94.61029195785522,
+  "attempts": 1,
+  "script_sha256": "449cb85d7a457e11cea7a6ed5613e02e860e489172b1366cabf9bac106d62df6",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.94511,
+    "pr_auc": 0.9424300000000001,
+    "f1": 0.8803599999999999
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.9491900000000001,
+    "pr_auc": 0.9503299999999999,
+    "f1": 0.8832700000000001
+   },
+   "MLP": {
+    "roc_auc": 0.9374,
+    "pr_auc": 0.93315,
+    "f1": 0.8727499999999999
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.8916600000000001,
+    "pr_auc": 0.86568,
+    "f1": 0.83137
+   }
+  }
+ },
+ {
+  "id": "E8",
+  "kind": "dataset",
+  "key": "tb_pol",
+  "source": "inria-soda/tabular-benchmark (clf_num_pol)",
+  "samples": 6000.0,
+  "features": 26.0,
+  "positive_ratio": 0.51,
+  "seconds": 52.67035412788391,
+  "attempts": 1,
+  "script_sha256": "e499629d34da135ddadfe9ef50a5168718feeb41357319d6cd9236c5f7fde95b",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.99831,
+    "pr_auc": 0.99832,
+    "f1": 0.97966
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.9985999999999999,
+    "pr_auc": 0.99855,
+    "f1": 0.9844100000000001
+   },
+   "MLP": {
+    "roc_auc": 0.99849,
+    "pr_auc": 0.99861,
+    "f1": 0.9829799999999999
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.93904,
+    "pr_auc": 0.9495899999999999,
+    "f1": 0.8633599999999999
+   }
+  }
+ },
+ {
+  "id": "E9",
+  "kind": "dataset",
+  "key": "tb_eye",
+  "source": "inria-soda/tabular-benchmark (clf_num_eye_movements)",
+  "samples": 6000.0,
+  "features": 20.0,
+  "positive_ratio": 0.5,
+  "seconds": 95.02291631698608,
+  "attempts": 1,
+  "script_sha256": "c127359b3806948c3c0464f950f8450c81f0935fb6d00ec33f3dd629b1f75504",
+  "means": {
+   "RandomForest": {
+    "roc_auc": 0.68204,
+    "pr_auc": 0.66105,
+    "f1": 0.61596
+   },
+   "HistGradientBoosting": {
+    "roc_auc": 0.6919299999999999,
+    "pr_auc": 0.6775100000000001,
+    "f1": 0.63114
+   },
+   "MLP": {
+    "roc_auc": 0.6034999999999999,
+    "pr_auc": 0.5964700000000002,
+    "f1": 0.5718799999999999
+   },
+   "LogisticRegression": {
+    "roc_auc": 0.5779700000000001,
+    "pr_auc": 0.5644600000000001,
+    "f1": 0.5544499999999999
+   }
+  }
+ },
+ {
+  "id": "E10",
+  "kind": "claim",
+  "key": "C1:roc_auc",
+  "claim": "C1",
+  "metric": "roc_auc",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.024063333333333253,
+  "median_difference": 0.013449999999999962,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.01171875,
+  "significant": true,
+  "verdict": "replicated"
+ },
+ {
+  "id": "E11",
+  "kind": "claim",
+  "key": "C1:pr_auc",
+  "claim": "C1",
+  "metric": "pr_auc",
+  "datasets": 9,
+  "wins": 8,
+  "losses": 1,
+  "ties": 0,
+  "mean_difference": 0.024102222222222233,
+  "median_difference": 0.017179999999999862,
+  "testable": true,
+  "p_value": 0.0078125,
+  "rank_biserial": 0.9555555555555556,
+  "adjusted_p_value": 0.01171875,
+  "significant": true,
+  "verdict": "replicated"
+ },
+ {
+  "id": "E12",
+  "kind": "claim",
+  "key": "C1:f1",
+  "claim": "C1",
+  "metric": "f1",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.0244811111111112,
+  "median_difference": 0.024630000000000152,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.01171875,
+  "significant": true,
+  "verdict": "replicated"
+ },
+ {
+  "id": "E13",
+  "kind": "claim",
+  "key": "C2:roc_auc",
+  "claim": "C2",
+  "metric": "roc_auc",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.06055444444444439,
+  "median_difference": 0.05752999999999997,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.01171875,
+  "significant": true,
+  "verdict": "replicated"
+ },
+ {
+  "id": "E14",
+  "kind": "claim",
+  "key": "C2:pr_auc",
+  "claim": "C2",
+  "metric": "pr_auc",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.05880888888888894,
+  "median_difference": 0.048960000000000115,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.01171875,
+  "significant": true,
+  "verdict": "replicated"
+ },
+ {
+  "id": "E15",
+  "kind": "claim",
+  "key": "C2:f1",
+  "claim": "C2",
+  "metric": "f1",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.07250888888888894,
+  "median_difference": 0.07243999999999995,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.01171875,
+  "significant": true,
+  "verdict": "replicated"
+ },
+ {
+  "id": "E16",
+  "kind": "friedman",
+  "key": "roc_auc",
+  "metric": "roc_auc",
+  "datasets": 9,
+  "mean_ranks": {
+   "RandomForest": 1.8888888888888888,
+   "HistGradientBoosting": 1.2222222222222223,
+   "MLP": 3.0,
+   "LogisticRegression": 3.888888888888889
+  },
+  "testable": true,
+  "statistic": 22.599999999999994,
+  "p_value": 4.892658384980545e-05,
+  "significant": true
+ },
+ {
+  "id": "E17",
+  "kind": "friedman",
+  "key": "pr_auc",
+  "metric": "pr_auc",
+  "datasets": 9,
+  "mean_ranks": {
+   "RandomForest": 2.3333333333333335,
+   "HistGradientBoosting": 1.1111111111111112,
+   "MLP": 2.6666666666666665,
+   "LogisticRegression": 3.888888888888889
+  },
+  "testable": true,
+  "statistic": 21.133333333333326,
+  "p_value": 9.877262737042603e-05,
+  "significant": true
+ },
+ {
+  "id": "E18",
+  "kind": "friedman",
+  "key": "f1",
+  "metric": "f1",
+  "datasets": 9,
+  "mean_ranks": {
+   "RandomForest": 1.8888888888888888,
+   "HistGradientBoosting": 1.2222222222222223,
+   "MLP": 3.0,
+   "LogisticRegression": 3.888888888888889
+  },
+  "testable": true,
+  "statistic": 22.599999999999994,
+  "p_value": 4.892658384980545e-05,
+  "significant": true
+ },
+ {
+  "id": "E19",
+  "kind": "pairwise",
+  "key": "roc_auc:RandomForest:HistGradientBoosting",
+  "metric": "roc_auc",
+  "a": "RandomForest",
+  "b": "HistGradientBoosting",
+  "datasets": 9,
+  "wins": 2,
+  "losses": 7,
+  "ties": 0,
+  "mean_difference": -0.004195555555555496,
+  "median_difference": -0.0040800000000000836,
+  "testable": true,
+  "p_value": 0.0546875,
+  "rank_biserial": -0.7333333333333333,
+  "adjusted_p_value": 0.0546875,
+  "significant": false
+ },
+ {
+  "id": "E20",
+  "kind": "pairwise",
+  "key": "roc_auc:RandomForest:MLP",
+  "metric": "roc_auc",
+  "a": "RandomForest",
+  "b": "MLP",
+  "datasets": 9,
+  "wins": 8,
+  "losses": 1,
+  "ties": 0,
+  "mean_difference": 0.01978888888888888,
+  "median_difference": 0.007709999999999995,
+  "testable": true,
+  "p_value": 0.0078125,
+  "rank_biserial": 0.9555555555555556,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E21",
+  "kind": "pairwise",
+  "key": "roc_auc:RandomForest:LogisticRegression",
+  "metric": "roc_auc",
+  "a": "RandomForest",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.056280000000000024,
+  "median_difference": 0.053449999999999886,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E22",
+  "kind": "pairwise",
+  "key": "roc_auc:HistGradientBoosting:MLP",
+  "metric": "roc_auc",
+  "a": "HistGradientBoosting",
+  "b": "MLP",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.023984444444444378,
+  "median_difference": 0.013449999999999962,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E23",
+  "kind": "pairwise",
+  "key": "roc_auc:HistGradientBoosting:LogisticRegression",
+  "metric": "roc_auc",
+  "a": "HistGradientBoosting",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.06047555555555552,
+  "median_difference": 0.05752999999999997,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E24",
+  "kind": "pairwise",
+  "key": "roc_auc:MLP:LogisticRegression",
+  "metric": "roc_auc",
+  "a": "MLP",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 8,
+  "losses": 1,
+  "ties": 0,
+  "mean_difference": 0.03649111111111114,
+  "median_difference": 0.035640000000000005,
+  "testable": true,
+  "p_value": 0.0078125,
+  "rank_biserial": 0.9555555555555556,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E25",
+  "kind": "pairwise",
+  "key": "pr_auc:RandomForest:HistGradientBoosting",
+  "metric": "pr_auc",
+  "a": "RandomForest",
+  "b": "HistGradientBoosting",
+  "datasets": 9,
+  "wins": 0,
+  "losses": 9,
+  "ties": 0,
+  "mean_difference": -0.008024444444444452,
+  "median_difference": -0.007899999999999796,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": -1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E26",
+  "kind": "pairwise",
+  "key": "pr_auc:RandomForest:MLP",
+  "metric": "pr_auc",
+  "a": "RandomForest",
+  "b": "MLP",
+  "datasets": 9,
+  "wins": 6,
+  "losses": 3,
+  "ties": 0,
+  "mean_difference": 0.016077777777777785,
+  "median_difference": 0.00812999999999986,
+  "testable": true,
+  "p_value": 0.07421875,
+  "rank_biserial": 0.6888888888888889,
+  "adjusted_p_value": 0.07421875,
+  "significant": false
+ },
+ {
+  "id": "E27",
+  "kind": "pairwise",
+  "key": "pr_auc:RandomForest:LogisticRegression",
+  "metric": "pr_auc",
+  "a": "RandomForest",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.050784444444444486,
+  "median_difference": 0.04873000000000005,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E28",
+  "kind": "pairwise",
+  "key": "pr_auc:HistGradientBoosting:MLP",
+  "metric": "pr_auc",
+  "a": "HistGradientBoosting",
+  "b": "MLP",
+  "datasets": 9,
+  "wins": 8,
+  "losses": 1,
+  "ties": 0,
+  "mean_difference": 0.024102222222222233,
+  "median_difference": 0.017179999999999862,
+  "testable": true,
+  "p_value": 0.0078125,
+  "rank_biserial": 0.9555555555555556,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E29",
+  "kind": "pairwise",
+  "key": "pr_auc:HistGradientBoosting:LogisticRegression",
+  "metric": "pr_auc",
+  "a": "HistGradientBoosting",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.05880888888888894,
+  "median_difference": 0.048960000000000115,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E30",
+  "kind": "pairwise",
+  "key": "pr_auc:MLP:LogisticRegression",
+  "metric": "pr_auc",
+  "a": "MLP",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 8,
+  "losses": 1,
+  "ties": 0,
+  "mean_difference": 0.0347066666666667,
+  "median_difference": 0.032010000000000094,
+  "testable": true,
+  "p_value": 0.0078125,
+  "rank_biserial": 0.9555555555555556,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E31",
+  "kind": "pairwise",
+  "key": "f1:RandomForest:HistGradientBoosting",
+  "metric": "f1",
+  "a": "RandomForest",
+  "b": "HistGradientBoosting",
+  "datasets": 9,
+  "wins": 2,
+  "losses": 7,
+  "ties": 0,
+  "mean_difference": -0.004845555555555597,
+  "median_difference": -0.004750000000000143,
+  "testable": true,
+  "p_value": 0.09765625,
+  "rank_biserial": -0.6444444444444445,
+  "adjusted_p_value": 0.09765625,
+  "significant": false
+ },
+ {
+  "id": "E32",
+  "kind": "pairwise",
+  "key": "f1:RandomForest:MLP",
+  "metric": "f1",
+  "a": "RandomForest",
+  "b": "MLP",
+  "datasets": 9,
+  "wins": 8,
+  "losses": 1,
+  "ties": 0,
+  "mean_difference": 0.01867555555555558,
+  "median_difference": 0.009750000000000036,
+  "testable": true,
+  "p_value": 0.0078125,
+  "rank_biserial": 0.9555555555555556,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E33",
+  "kind": "pairwise",
+  "key": "f1:RandomForest:LogisticRegression",
+  "metric": "f1",
+  "a": "RandomForest",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.06670333333333332,
+  "median_difference": 0.06678000000000006,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E34",
+  "kind": "pairwise",
+  "key": "f1:HistGradientBoosting:MLP",
+  "metric": "f1",
+  "a": "HistGradientBoosting",
+  "b": "MLP",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.023521111111111177,
+  "median_difference": 0.017239999999999922,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E35",
+  "kind": "pairwise",
+  "key": "f1:HistGradientBoosting:LogisticRegression",
+  "metric": "f1",
+  "a": "HistGradientBoosting",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 9,
+  "losses": 0,
+  "ties": 0,
+  "mean_difference": 0.07154888888888893,
+  "median_difference": 0.07243999999999995,
+  "testable": true,
+  "p_value": 0.00390625,
+  "rank_biserial": 1.0,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ },
+ {
+  "id": "E36",
+  "kind": "pairwise",
+  "key": "f1:MLP:LogisticRegression",
+  "metric": "f1",
+  "a": "MLP",
+  "b": "LogisticRegression",
+  "datasets": 9,
+  "wins": 8,
+  "losses": 1,
+  "ties": 0,
+  "mean_difference": 0.048027777777777746,
+  "median_difference": 0.042749999999999955,
+  "testable": true,
+  "p_value": 0.0078125,
+  "rank_biserial": 0.9555555555555556,
+  "adjusted_p_value": 0.0234375,
+  "significant": true
+ }
+]

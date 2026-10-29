@@ -1,0 +1,649 @@
+{
+ "id": "real-2",
+ "config": {
+  "id": "real-2",
+  "models": [
+   "RandomForest",
+   "ExtraTrees",
+   "GradientBoosting",
+   "HistGradientBoosting",
+   "MLP",
+   "LogisticRegression"
+  ],
+  "pool": [
+   "tb_credit",
+   "tb_california",
+   "tb_electricity",
+   "tb_magic",
+   "tb_bank",
+   "tb_heloc",
+   "tb_house16h",
+   "tb_pol",
+   "tb_eye",
+   "tb_bioresponse",
+   "tb_diabetes",
+   "tb_higgs",
+   "tb_miniboone",
+   "tb_covertype",
+   "tb_creditcard",
+   "tb_jannis"
+  ],
+  "explore": 6,
+  "seed": 0,
+  "tuning": 12,
+  "per_stage": 8,
+  "effect": 0.01,
+  "consistency": 0.8333333333333334,
+  "tuning_trigger": 0.02,
+  "alpha": 0.05,
+  "generator": "rules",
+  "llm_model": "gpt-4o",
+  "reuse": null
+ },
+ "status": "completed",
+ "reason": "",
+ "created": "2026-10-28T11:45:54+00:00",
+ "explore": [
+  "tb_magic",
+  "tb_heloc",
+  "tb_eye",
+  "tb_bioresponse",
+  "tb_diabetes",
+  "tb_jannis"
+ ],
+ "confirm": [
+  "tb_credit",
+  "tb_california",
+  "tb_electricity",
+  "tb_bank",
+  "tb_house16h",
+  "tb_pol",
+  "tb_higgs",
+  "tb_miniboone",
+  "tb_covertype",
+  "tb_creditcard"
+ ],
+ "budget": 25,
+ "alpha": 0.05,
+ "generator": "rules",
+ "stages": [
+  {
+   "name": "default",
+   "finished": [
+    "tb_credit",
+    "tb_california",
+    "tb_electricity",
+    "tb_magic",
+    "tb_bank",
+    "tb_heloc",
+    "tb_house16h",
+    "tb_pol",
+    "tb_eye",
+    "tb_bioresponse",
+    "tb_diabetes",
+    "tb_higgs",
+    "tb_miniboone",
+    "tb_covertype",
+    "tb_creditcard",
+    "tb_jannis"
+   ],
+   "failed": {}
+  },
+  {
+   "name": "tuned",
+   "finished": [
+    "tb_credit",
+    "tb_california",
+    "tb_electricity",
+    "tb_magic",
+    "tb_bank",
+    "tb_heloc",
+    "tb_house16h",
+    "tb_pol",
+    "tb_eye",
+    "tb_bioresponse",
+    "tb_diabetes",
+    "tb_higgs",
+    "tb_miniboone",
+    "tb_covertype",
+    "tb_creditcard",
+    "tb_jannis"
+   ],
+   "failed": {}
+  }
+ ],
+ "hypotheses": [
+  {
+   "id": "H1",
+   "subject": [
+    "HistGradientBoosting"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "HistGradientBoosting scores higher than LogisticRegression on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.04401499999999986,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "9223a50a2076081abe372626351df7204680c560264b3c7dc82bf96b802de3c1",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H2",
+   "subject": [
+    "RandomForest"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "RandomForest scores higher than LogisticRegression on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.04025499999999993,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "2c6fd8524f1c7753e1cc2a60c380e8eabc9af2c1f7b242c3fc39d2bc82b4b23e",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H3",
+   "subject": [
+    "ExtraTrees"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "ExtraTrees scores higher than LogisticRegression on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.035389999999999866,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "cbd74527b8a1f1ea7b4f48f7848860366274b22aa89f235847845a5af38f15d4",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H4",
+   "subject": [
+    "GradientBoosting"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "GradientBoosting scores higher than LogisticRegression on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.032789999999999875,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "9531e96794372c6b110cf57e1624e7ab97f818494758f3b473ac7bf5fcbcaf67",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H5",
+   "subject": [
+    "HistGradientBoosting"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "HistGradientBoosting scores higher than MLP on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.031124999999999847,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "e2740bb5c830e9df59b2fc450199fb1524d2652da4184adeed3c6da5f424cf88",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H6",
+   "subject": [
+    "ExtraTrees"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "ExtraTrees scores higher than MLP on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.029164999999999885,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "1903b34cb68753f3034c6c2f28761ea875ee09afa56c4841f9ed62d3b480c45a",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H7",
+   "subject": [
+    "RandomForest"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "RandomForest scores higher than MLP on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.029094999999999926,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "e899e2439f6c1d78616c5dfd1b55f0697a666a9f0e7af4f11d79b4f708b1e548",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H8",
+   "subject": [
+    "GradientBoosting"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "default",
+   "metric": "roc_auc",
+   "statement": "GradientBoosting scores higher than MLP on roc_auc (default stage)",
+   "evidence": {
+    "median_difference": 0.023504999999999887,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "81169200b13c2a9f6f4d00df51a7dff0ff95111bee7700f3407866543bd13003",
+   "registered_at": "2026-10-28T11:58:19+00:00"
+  },
+  {
+   "id": "H9",
+   "subject": [
+    "ExtraTrees"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "ExtraTrees scores higher than MLP on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.054480000000000084,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "98f5f378e91cb3fbfb24783ac319999b24380361f1bc7356e78506023692c5df",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  },
+  {
+   "id": "H10",
+   "subject": [
+    "RandomForest"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "RandomForest scores higher than MLP on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.052159999999999984,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "11aa7dd5a123c359ac223e4ac6802f309f9d45e0bb36385385f0b226ef7bb0cf",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  },
+  {
+   "id": "H11",
+   "subject": [
+    "HistGradientBoosting"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "HistGradientBoosting scores higher than MLP on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.05149500000000001,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "d6e5a60dad5ac27618d00acaaab231ce72557b59ff40ade5533b4ca08c87c901",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  },
+  {
+   "id": "H12",
+   "subject": [
+    "GradientBoosting"
+   ],
+   "other": [
+    "MLP"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "GradientBoosting scores higher than MLP on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.05026000000000003,
+    "wins": 5,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "b957d24fa658ed5ca48be206cb7bbda1955fe2e01753da85913b5be881b6ca89",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  },
+  {
+   "id": "H13",
+   "subject": [
+    "RandomForest"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "RandomForest scores higher than LogisticRegression on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.03642500000000004,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "41a0d2568aa6cc27341a9bde2b9b856a36a48f3b439f763a863f613fc1e77288",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  },
+  {
+   "id": "H14",
+   "subject": [
+    "HistGradientBoosting"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "HistGradientBoosting scores higher than LogisticRegression on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.03575499999999998,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "911707d7798be5111ccdceab034a18029323bea3278e165fe148b41665b42b05",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  },
+  {
+   "id": "H15",
+   "subject": [
+    "ExtraTrees"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "ExtraTrees scores higher than LogisticRegression on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.03462000000000004,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "c7eb368b4d8b4382623a94f4d46966aeee04614b09db4e6b6a4f5e9808ef0907",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  },
+  {
+   "id": "H16",
+   "subject": [
+    "GradientBoosting"
+   ],
+   "other": [
+    "LogisticRegression"
+   ],
+   "stage": "tuned",
+   "metric": "roc_auc",
+   "statement": "GradientBoosting scores higher than LogisticRegression on roc_auc (tuned stage)",
+   "evidence": {
+    "median_difference": 0.03217000000000003,
+    "wins": 6,
+    "datasets": 6,
+    "scope": "exploration"
+   },
+   "digest": "80465e471d49cf464014df02c897fa57f21b189732ce0e90dceb56f8e503ba4b",
+   "registered_at": "2026-10-28T12:29:19+00:00"
+  }
+ ],
+ "skipped": [],
+ "confirmations": [
+  {
+   "id": "H1",
+   "stage": "default",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.05854499999999996,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H2",
+   "stage": "default",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.054839999999999944,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H3",
+   "stage": "default",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.055309999999999915,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H4",
+   "stage": "default",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.05591499999999994,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H5",
+   "stage": "default",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.01262000000000002,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H6",
+   "stage": "default",
+   "status": "not_confirmed",
+   "p_value": 0.083984375,
+   "adjusted_p_value": 0.083984375,
+   "q_value": 0.083984375,
+   "median_difference": 0.004944999999999922,
+   "wins": 7,
+   "losses": 3,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H7",
+   "stage": "default",
+   "status": "confirmed",
+   "p_value": 0.009765625,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.011160714285714286,
+   "median_difference": 0.007330000000000003,
+   "wins": 8,
+   "losses": 2,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H8",
+   "stage": "default",
+   "status": "confirmed",
+   "p_value": 0.013671875,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.014583333333333334,
+   "median_difference": 0.011714999999999864,
+   "wins": 8,
+   "losses": 2,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H9",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.00390625,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.005208333333333333,
+   "median_difference": 0.010500000000000065,
+   "wins": 9,
+   "losses": 1,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H10",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.00390625,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.005208333333333333,
+   "median_difference": 0.020460000000000034,
+   "wins": 9,
+   "losses": 1,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H11",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.01640999999999998,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H12",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.005859375,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.007211538461538462,
+   "median_difference": 0.014570000000000083,
+   "wins": 9,
+   "losses": 1,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H13",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.04797999999999997,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H14",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.052835000000000076,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H15",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.045349999999999946,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  },
+  {
+   "id": "H16",
+   "stage": "tuned",
+   "status": "confirmed",
+   "p_value": 0.001953125,
+   "adjusted_p_value": 0.03125,
+   "q_value": 0.003125,
+   "median_difference": 0.050289999999999946,
+   "wins": 10,
+   "losses": 0,
+   "ties": 0,
+   "datasets": 10
+  }
+ ],
+ "finished": "2026-10-28T12:29:19+00:00"
+}

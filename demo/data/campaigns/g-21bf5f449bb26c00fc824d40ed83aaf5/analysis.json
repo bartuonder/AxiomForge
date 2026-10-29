@@ -1,0 +1,517 @@
+{
+ "coverage": {
+  "requested": [
+   "tb_credit",
+   "tb_california",
+   "tb_electricity",
+   "tb_magic",
+   "tb_bank",
+   "tb_heloc",
+   "tb_house16h",
+   "tb_pol",
+   "tb_eye"
+  ],
+  "finished": [
+   "tb_credit",
+   "tb_california",
+   "tb_electricity",
+   "tb_magic",
+   "tb_bank",
+   "tb_heloc",
+   "tb_house16h",
+   "tb_pol",
+   "tb_eye"
+  ],
+  "failed": {},
+  "enough_for_tests": true,
+  "minimum": 6
+ },
+ "models": [
+  "XGBoost",
+  "RandomForest",
+  "MLP"
+ ],
+ "pairwise": {
+  "roc_auc": [
+   {
+    "metric": "roc_auc",
+    "a": "XGBoost",
+    "b": "RandomForest",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.007317777777777781,
+    "median_difference": 0.00374999999999992,
+    "testable": true,
+    "p_value": 0.07421875,
+    "rank_biserial": 0.6888888888888889,
+    "adjusted_p_value": 0.07421875,
+    "significant": false
+   },
+   {
+    "metric": "roc_auc",
+    "a": "XGBoost",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.03050888888888888,
+    "median_difference": 0.02434000000000003,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.01171875,
+    "significant": true
+   },
+   {
+    "metric": "roc_auc",
+    "a": "RandomForest",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.0231911111111111,
+    "median_difference": 0.021230000000000082,
+    "testable": true,
+    "p_value": 0.0078125,
+    "rank_biserial": 0.9555555555555556,
+    "adjusted_p_value": 0.015625,
+    "significant": true
+   }
+  ],
+  "pr_auc": [
+   {
+    "metric": "pr_auc",
+    "a": "XGBoost",
+    "b": "RandomForest",
+    "datasets": 9,
+    "wins": 7,
+    "losses": 2,
+    "ties": 0,
+    "mean_difference": 0.0073200000000000305,
+    "median_difference": 0.0033400000000000096,
+    "testable": true,
+    "p_value": 0.07421875,
+    "rank_biserial": 0.6888888888888889,
+    "adjusted_p_value": 0.109375,
+    "significant": false
+   },
+   {
+    "metric": "pr_auc",
+    "a": "XGBoost",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.03147000000000005,
+    "median_difference": 0.018249999999999877,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.01171875,
+    "significant": true
+   },
+   {
+    "metric": "pr_auc",
+    "a": "RandomForest",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 6,
+    "losses": 3,
+    "ties": 0,
+    "mean_difference": 0.02415000000000002,
+    "median_difference": 0.0182500000000001,
+    "testable": true,
+    "p_value": 0.0546875,
+    "rank_biserial": 0.7333333333333333,
+    "adjusted_p_value": 0.109375,
+    "significant": false
+   }
+  ],
+  "f1": [
+   {
+    "metric": "f1",
+    "a": "XGBoost",
+    "b": "RandomForest",
+    "datasets": 9,
+    "wins": 6,
+    "losses": 3,
+    "ties": 0,
+    "mean_difference": 0.005596666666666706,
+    "median_difference": 0.0004700000000001925,
+    "testable": true,
+    "p_value": 0.42578125,
+    "rank_biserial": 0.3333333333333333,
+    "adjusted_p_value": 0.42578125,
+    "significant": false
+   },
+   {
+    "metric": "f1",
+    "a": "XGBoost",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.026608888888888942,
+    "median_difference": 0.028229999999999977,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.01171875,
+    "significant": true
+   },
+   {
+    "metric": "f1",
+    "a": "RandomForest",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.021012222222222234,
+    "median_difference": 0.028100000000000014,
+    "testable": true,
+    "p_value": 0.01171875,
+    "rank_biserial": 0.9111111111111111,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   }
+  ]
+ },
+ "friedman": {
+  "roc_auc": {
+   "metric": "roc_auc",
+   "datasets": 9,
+   "mean_ranks": {
+    "XGBoost": 1.1111111111111112,
+    "RandomForest": 2.0,
+    "MLP": 2.888888888888889
+   },
+   "testable": true,
+   "statistic": 14.222222222222214,
+   "p_value": 0.0008159878350721515,
+   "significant": true
+  },
+  "pr_auc": {
+   "metric": "pr_auc",
+   "datasets": 9,
+   "mean_ranks": {
+    "XGBoost": 1.2222222222222223,
+    "RandomForest": 2.111111111111111,
+    "MLP": 2.6666666666666665
+   },
+   "testable": true,
+   "statistic": 9.555555555555543,
+   "p_value": 0.008414677489201218,
+   "significant": true
+  },
+  "f1": {
+   "metric": "f1",
+   "datasets": 9,
+   "mean_ranks": {
+    "XGBoost": 1.3333333333333333,
+    "RandomForest": 1.7777777777777777,
+    "MLP": 2.888888888888889
+   },
+   "testable": true,
+   "statistic": 11.555555555555543,
+   "p_value": 0.00309558685236526,
+   "significant": true
+  }
+ },
+ "claims": [
+  {
+   "claim": {
+    "id": "C1",
+    "statement": "Tree-based models outperform Neural Networks on medium-sized tabular classification data",
+    "metric": "roc_auc",
+    "metrics": [
+     "roc_auc"
+    ],
+    "subject": [
+     "XGBoost",
+     "RandomForest"
+    ],
+    "other": [
+     "MLP"
+    ],
+    "quote": "Results show that tree-based models remain state-of-the-art on medium-sized data ($\\sim$10K samples) even without accounting for their superior speed"
+   },
+   "rows": [
+    {
+     "metric": "roc_auc",
+     "datasets": 9,
+     "wins": 9,
+     "losses": 0,
+     "ties": 0,
+     "mean_difference": 0.03142111111111111,
+     "median_difference": 0.02434000000000003,
+     "testable": true,
+     "p_value": 0.00390625,
+     "rank_biserial": 1.0,
+     "adjusted_p_value": 0.00390625,
+     "significant": true,
+     "verdict": "replicated"
+    }
+   ],
+   "verdict": "replicated",
+   "id": "C1",
+   "statement": "Tree-based models outperform Neural Networks on medium-sized tabular classification data"
+  }
+ ],
+ "parameter_effects": [
+  {
+   "model": "XGBoost",
+   "params": {
+    "tuned": true
+   },
+   "metric": "roc_auc",
+   "datasets": 9,
+   "wins": 6,
+   "losses": 3,
+   "ties": 0,
+   "mean_difference": 0.0078066666666666285,
+   "median_difference": 0.0039599999999997415,
+   "testable": true,
+   "p_value": 0.25,
+   "rank_biserial": 0.4666666666666667,
+   "adjusted_p_value": 0.4921875,
+   "significant": false,
+   "adjusted_p_value_all": 1.0,
+   "significant_all": false
+  },
+  {
+   "model": "XGBoost",
+   "params": {
+    "tuned": true
+   },
+   "metric": "pr_auc",
+   "datasets": 9,
+   "wins": 7,
+   "losses": 2,
+   "ties": 0,
+   "mean_difference": 0.007680000000000008,
+   "median_difference": 0.0032200000000000006,
+   "testable": true,
+   "p_value": 0.1640625,
+   "rank_biserial": 0.5555555555555556,
+   "adjusted_p_value": 0.4921875,
+   "significant": false,
+   "adjusted_p_value_all": 0.984375,
+   "significant_all": false
+  },
+  {
+   "model": "XGBoost",
+   "params": {
+    "tuned": true
+   },
+   "metric": "f1",
+   "datasets": 9,
+   "wins": 7,
+   "losses": 2,
+   "ties": 0,
+   "mean_difference": 0.00564444444444444,
+   "median_difference": 0.005639999999999978,
+   "testable": true,
+   "p_value": 0.203125,
+   "rank_biserial": 0.5111111111111111,
+   "adjusted_p_value": 0.4921875,
+   "significant": false,
+   "adjusted_p_value_all": 1.0,
+   "significant_all": false
+  },
+  {
+   "model": "RandomForest",
+   "params": {
+    "tuned": true
+   },
+   "metric": "roc_auc",
+   "datasets": 9,
+   "wins": 4,
+   "losses": 4,
+   "ties": 1,
+   "mean_difference": -0.0024077777777778728,
+   "median_difference": 0.0,
+   "testable": true,
+   "p_value": 0.9453125,
+   "rank_biserial": -0.05555555555555555,
+   "adjusted_p_value": 1.0,
+   "significant": false,
+   "adjusted_p_value_all": 1.0,
+   "significant_all": false
+  },
+  {
+   "model": "RandomForest",
+   "params": {
+    "tuned": true
+   },
+   "metric": "pr_auc",
+   "datasets": 9,
+   "wins": 6,
+   "losses": 3,
+   "ties": 0,
+   "mean_difference": 0.0007355555555555634,
+   "median_difference": 0.0005899999999998684,
+   "testable": true,
+   "p_value": 0.49609375,
+   "rank_biserial": 0.28888888888888886,
+   "adjusted_p_value": 1.0,
+   "significant": false,
+   "adjusted_p_value_all": 1.0,
+   "significant_all": false
+  },
+  {
+   "model": "RandomForest",
+   "params": {
+    "tuned": true
+   },
+   "metric": "f1",
+   "datasets": 9,
+   "wins": 4,
+   "losses": 5,
+   "ties": 0,
+   "mean_difference": -0.0028577777777777985,
+   "median_difference": -0.0009900000000001574,
+   "testable": true,
+   "p_value": 0.42578125,
+   "rank_biserial": -0.3333333333333333,
+   "adjusted_p_value": 1.0,
+   "significant": false,
+   "adjusted_p_value_all": 1.0,
+   "significant_all": false
+  },
+  {
+   "model": "MLP",
+   "params": {
+    "tuned": true
+   },
+   "metric": "roc_auc",
+   "datasets": 9,
+   "wins": 0,
+   "losses": 9,
+   "ties": 0,
+   "mean_difference": -0.006990000000000014,
+   "median_difference": -0.0021700000000002273,
+   "testable": true,
+   "p_value": 0.00390625,
+   "rank_biserial": -1.0,
+   "adjusted_p_value": 0.01171875,
+   "significant": true,
+   "adjusted_p_value_all": 0.03515625,
+   "significant_all": true
+  },
+  {
+   "model": "MLP",
+   "params": {
+    "tuned": true
+   },
+   "metric": "pr_auc",
+   "datasets": 9,
+   "wins": 0,
+   "losses": 9,
+   "ties": 0,
+   "mean_difference": -0.007964444444444465,
+   "median_difference": -0.0017800000000001148,
+   "testable": true,
+   "p_value": 0.00390625,
+   "rank_biserial": -1.0,
+   "adjusted_p_value": 0.01171875,
+   "significant": true,
+   "adjusted_p_value_all": 0.03515625,
+   "significant_all": true
+  },
+  {
+   "model": "MLP",
+   "params": {
+    "tuned": true
+   },
+   "metric": "f1",
+   "datasets": 9,
+   "wins": 0,
+   "losses": 9,
+   "ties": 0,
+   "mean_difference": -0.0063666666666667305,
+   "median_difference": -0.003770000000000273,
+   "testable": true,
+   "p_value": 0.00390625,
+   "rank_biserial": -1.0,
+   "adjusted_p_value": 0.01171875,
+   "significant": true,
+   "adjusted_p_value_all": 0.03515625,
+   "significant_all": true
+  }
+ ],
+ "moderators": [
+  {
+   "claim": "C1",
+   "metric": "roc_auc",
+   "descriptor": "features",
+   "datasets": 9,
+   "testable": true,
+   "rho": 0.06722926454528143,
+   "p_value": 0.863556468880559,
+   "adjusted_p_value": 1.0,
+   "significant": false
+  },
+  {
+   "claim": "C1",
+   "metric": "roc_auc",
+   "descriptor": "minority_ratio",
+   "datasets": 9,
+   "testable": true,
+   "rho": 0.3464101615137754,
+   "p_value": 0.3611134216129306,
+   "adjusted_p_value": 1.0,
+   "significant": false
+  },
+  {
+   "claim": "C1",
+   "metric": "roc_auc",
+   "descriptor": "categorical_share",
+   "datasets": 9,
+   "testable": false,
+   "rho": 0.0,
+   "p_value": 1.0,
+   "adjusted_p_value": null,
+   "significant": false
+  },
+  {
+   "claim": "C1",
+   "metric": "roc_auc",
+   "descriptor": "mean_abs_correlation",
+   "datasets": 9,
+   "testable": true,
+   "rho": 0.26666666666666666,
+   "p_value": 0.48792227483870076,
+   "adjusted_p_value": 1.0,
+   "significant": false
+  },
+  {
+   "claim": "C1",
+   "metric": "roc_auc",
+   "descriptor": "mean_abs_skew",
+   "datasets": 9,
+   "testable": true,
+   "rho": -0.08333333333333334,
+   "p_value": 0.831214097710308,
+   "adjusted_p_value": 1.0,
+   "significant": false
+  },
+  {
+   "claim": "C1",
+   "metric": "roc_auc",
+   "descriptor": "missing_share",
+   "datasets": 9,
+   "testable": false,
+   "rho": 0.0,
+   "p_value": 1.0,
+   "adjusted_p_value": null,
+   "significant": false
+  }
+ ]
+}

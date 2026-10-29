@@ -1,0 +1,70 @@
+{
+ "id": "demo-grinsztajn-1",
+ "title": "Do tree-based models still outperform neural networks on medium-sized tabular data?",
+ "status": "completed",
+ "started": "2026-10-24T17:06:24+00:00",
+ "datasets": {
+  "tb_credit": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 75.14677286148071
+  },
+  "tb_california": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 55.75082492828369
+  },
+  "tb_electricity": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 88.26480841636658
+  },
+  "tb_magic": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 78.74845242500305
+  },
+  "tb_bank": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 40.3233277797699
+  },
+  "tb_heloc": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 81.63394141197205
+  },
+  "tb_house16h": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 94.61029195785522
+  },
+  "tb_pol": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 52.67035412788391
+  },
+  "tb_eye": {
+   "status": "finished",
+   "attempts": 1,
+   "seconds": 95.02291631698608
+  }
+ },
+ "finished": "2026-10-24T17:10:49+00:00",
+ "issues": [],
+ "verdicts": [
+  {
+   "id": "C1",
+   "statement": "Tree-based models outperform a neural network (MLP) on tabular classification data",
+   "verdict": "replicated"
+  },
+  {
+   "id": "C2",
+   "statement": "Tree-based models outperform linear models on tabular classification data",
+   "verdict": "replicated"
+  }
+ ],
+ "finished_datasets": 9,
+ "failed_datasets": 0,
+ "updated": "2026-10-24T17:10:49+00:00"
+}

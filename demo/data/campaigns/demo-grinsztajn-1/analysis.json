@@ -1,0 +1,516 @@
+{
+ "coverage": {
+  "requested": [
+   "tb_credit",
+   "tb_california",
+   "tb_electricity",
+   "tb_magic",
+   "tb_bank",
+   "tb_heloc",
+   "tb_house16h",
+   "tb_pol",
+   "tb_eye"
+  ],
+  "finished": [
+   "tb_credit",
+   "tb_california",
+   "tb_electricity",
+   "tb_magic",
+   "tb_bank",
+   "tb_heloc",
+   "tb_house16h",
+   "tb_pol",
+   "tb_eye"
+  ],
+  "failed": {},
+  "enough_for_tests": true,
+  "minimum": 6
+ },
+ "models": [
+  "RandomForest",
+  "HistGradientBoosting",
+  "MLP",
+  "LogisticRegression"
+ ],
+ "pairwise": {
+  "roc_auc": [
+   {
+    "metric": "roc_auc",
+    "a": "RandomForest",
+    "b": "HistGradientBoosting",
+    "datasets": 9,
+    "wins": 2,
+    "losses": 7,
+    "ties": 0,
+    "mean_difference": -0.004195555555555496,
+    "median_difference": -0.0040800000000000836,
+    "testable": true,
+    "p_value": 0.0546875,
+    "rank_biserial": -0.7333333333333333,
+    "adjusted_p_value": 0.0546875,
+    "significant": false
+   },
+   {
+    "metric": "roc_auc",
+    "a": "RandomForest",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.01978888888888888,
+    "median_difference": 0.007709999999999995,
+    "testable": true,
+    "p_value": 0.0078125,
+    "rank_biserial": 0.9555555555555556,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "roc_auc",
+    "a": "RandomForest",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.056280000000000024,
+    "median_difference": 0.053449999999999886,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "roc_auc",
+    "a": "HistGradientBoosting",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.023984444444444378,
+    "median_difference": 0.013449999999999962,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "roc_auc",
+    "a": "HistGradientBoosting",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.06047555555555552,
+    "median_difference": 0.05752999999999997,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "roc_auc",
+    "a": "MLP",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.03649111111111114,
+    "median_difference": 0.035640000000000005,
+    "testable": true,
+    "p_value": 0.0078125,
+    "rank_biserial": 0.9555555555555556,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   }
+  ],
+  "pr_auc": [
+   {
+    "metric": "pr_auc",
+    "a": "RandomForest",
+    "b": "HistGradientBoosting",
+    "datasets": 9,
+    "wins": 0,
+    "losses": 9,
+    "ties": 0,
+    "mean_difference": -0.008024444444444452,
+    "median_difference": -0.007899999999999796,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": -1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "pr_auc",
+    "a": "RandomForest",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 6,
+    "losses": 3,
+    "ties": 0,
+    "mean_difference": 0.016077777777777785,
+    "median_difference": 0.00812999999999986,
+    "testable": true,
+    "p_value": 0.07421875,
+    "rank_biserial": 0.6888888888888889,
+    "adjusted_p_value": 0.07421875,
+    "significant": false
+   },
+   {
+    "metric": "pr_auc",
+    "a": "RandomForest",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.050784444444444486,
+    "median_difference": 0.04873000000000005,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "pr_auc",
+    "a": "HistGradientBoosting",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.024102222222222233,
+    "median_difference": 0.017179999999999862,
+    "testable": true,
+    "p_value": 0.0078125,
+    "rank_biserial": 0.9555555555555556,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "pr_auc",
+    "a": "HistGradientBoosting",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.05880888888888894,
+    "median_difference": 0.048960000000000115,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "pr_auc",
+    "a": "MLP",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.0347066666666667,
+    "median_difference": 0.032010000000000094,
+    "testable": true,
+    "p_value": 0.0078125,
+    "rank_biserial": 0.9555555555555556,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   }
+  ],
+  "f1": [
+   {
+    "metric": "f1",
+    "a": "RandomForest",
+    "b": "HistGradientBoosting",
+    "datasets": 9,
+    "wins": 2,
+    "losses": 7,
+    "ties": 0,
+    "mean_difference": -0.004845555555555597,
+    "median_difference": -0.004750000000000143,
+    "testable": true,
+    "p_value": 0.09765625,
+    "rank_biserial": -0.6444444444444445,
+    "adjusted_p_value": 0.09765625,
+    "significant": false
+   },
+   {
+    "metric": "f1",
+    "a": "RandomForest",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.01867555555555558,
+    "median_difference": 0.009750000000000036,
+    "testable": true,
+    "p_value": 0.0078125,
+    "rank_biserial": 0.9555555555555556,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "f1",
+    "a": "RandomForest",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.06670333333333332,
+    "median_difference": 0.06678000000000006,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "f1",
+    "a": "HistGradientBoosting",
+    "b": "MLP",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.023521111111111177,
+    "median_difference": 0.017239999999999922,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "f1",
+    "a": "HistGradientBoosting",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 9,
+    "losses": 0,
+    "ties": 0,
+    "mean_difference": 0.07154888888888893,
+    "median_difference": 0.07243999999999995,
+    "testable": true,
+    "p_value": 0.00390625,
+    "rank_biserial": 1.0,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   },
+   {
+    "metric": "f1",
+    "a": "MLP",
+    "b": "LogisticRegression",
+    "datasets": 9,
+    "wins": 8,
+    "losses": 1,
+    "ties": 0,
+    "mean_difference": 0.048027777777777746,
+    "median_difference": 0.042749999999999955,
+    "testable": true,
+    "p_value": 0.0078125,
+    "rank_biserial": 0.9555555555555556,
+    "adjusted_p_value": 0.0234375,
+    "significant": true
+   }
+  ]
+ },
+ "friedman": {
+  "roc_auc": {
+   "metric": "roc_auc",
+   "datasets": 9,
+   "mean_ranks": {
+    "RandomForest": 1.8888888888888888,
+    "HistGradientBoosting": 1.2222222222222223,
+    "MLP": 3.0,
+    "LogisticRegression": 3.888888888888889
+   },
+   "testable": true,
+   "statistic": 22.599999999999994,
+   "p_value": 4.892658384980545e-05,
+   "significant": true
+  },
+  "pr_auc": {
+   "metric": "pr_auc",
+   "datasets": 9,
+   "mean_ranks": {
+    "RandomForest": 2.3333333333333335,
+    "HistGradientBoosting": 1.1111111111111112,
+    "MLP": 2.6666666666666665,
+    "LogisticRegression": 3.888888888888889
+   },
+   "testable": true,
+   "statistic": 21.133333333333326,
+   "p_value": 9.877262737042603e-05,
+   "significant": true
+  },
+  "f1": {
+   "metric": "f1",
+   "datasets": 9,
+   "mean_ranks": {
+    "RandomForest": 1.8888888888888888,
+    "HistGradientBoosting": 1.2222222222222223,
+    "MLP": 3.0,
+    "LogisticRegression": 3.888888888888889
+   },
+   "testable": true,
+   "statistic": 22.599999999999994,
+   "p_value": 4.892658384980545e-05,
+   "significant": true
+  }
+ },
+ "claims": [
+  {
+   "claim": {
+    "id": "C1",
+    "statement": "Tree-based models outperform a neural network (MLP) on tabular classification data",
+    "metric": "roc_auc",
+    "metrics": [
+     "roc_auc",
+     "pr_auc",
+     "f1"
+    ],
+    "subject": [
+     "RandomForest",
+     "HistGradientBoosting"
+    ],
+    "other": [
+     "MLP"
+    ]
+   },
+   "rows": [
+    {
+     "metric": "roc_auc",
+     "datasets": 9,
+     "wins": 9,
+     "losses": 0,
+     "ties": 0,
+     "mean_difference": 0.024063333333333253,
+     "median_difference": 0.013449999999999962,
+     "testable": true,
+     "p_value": 0.00390625,
+     "rank_biserial": 1.0,
+     "adjusted_p_value": 0.01171875,
+     "significant": true,
+     "verdict": "replicated"
+    },
+    {
+     "metric": "pr_auc",
+     "datasets": 9,
+     "wins": 8,
+     "losses": 1,
+     "ties": 0,
+     "mean_difference": 0.024102222222222233,
+     "median_difference": 0.017179999999999862,
+     "testable": true,
+     "p_value": 0.0078125,
+     "rank_biserial": 0.9555555555555556,
+     "adjusted_p_value": 0.01171875,
+     "significant": true,
+     "verdict": "replicated"
+    },
+    {
+     "metric": "f1",
+     "datasets": 9,
+     "wins": 9,
+     "losses": 0,
+     "ties": 0,
+     "mean_difference": 0.0244811111111112,
+     "median_difference": 0.024630000000000152,
+     "testable": true,
+     "p_value": 0.00390625,
+     "rank_biserial": 1.0,
+     "adjusted_p_value": 0.01171875,
+     "significant": true,
+     "verdict": "replicated"
+    }
+   ],
+   "verdict": "replicated",
+   "id": "C1",
+   "statement": "Tree-based models outperform a neural network (MLP) on tabular classification data"
+  },
+  {
+   "claim": {
+    "id": "C2",
+    "statement": "Tree-based models outperform linear models on tabular classification data",
+    "metric": "roc_auc",
+    "metrics": [
+     "roc_auc",
+     "pr_auc",
+     "f1"
+    ],
+    "subject": [
+     "RandomForest",
+     "HistGradientBoosting"
+    ],
+    "other": [
+     "LogisticRegression"
+    ]
+   },
+   "rows": [
+    {
+     "metric": "roc_auc",
+     "datasets": 9,
+     "wins": 9,
+     "losses": 0,
+     "ties": 0,
+     "mean_difference": 0.06055444444444439,
+     "median_difference": 0.05752999999999997,
+     "testable": true,
+     "p_value": 0.00390625,
+     "rank_biserial": 1.0,
+     "adjusted_p_value": 0.01171875,
+     "significant": true,
+     "verdict": "replicated"
+    },
+    {
+     "metric": "pr_auc",
+     "datasets": 9,
+     "wins": 9,
+     "losses": 0,
+     "ties": 0,
+     "mean_difference": 0.05880888888888894,
+     "median_difference": 0.048960000000000115,
+     "testable": true,
+     "p_value": 0.00390625,
+     "rank_biserial": 1.0,
+     "adjusted_p_value": 0.01171875,
+     "significant": true,
+     "verdict": "replicated"
+    },
+    {
+     "metric": "f1",
+     "datasets": 9,
+     "wins": 9,
+     "losses": 0,
+     "ties": 0,
+     "mean_difference": 0.07250888888888894,
+     "median_difference": 0.07243999999999995,
+     "testable": true,
+     "p_value": 0.00390625,
+     "rank_biserial": 1.0,
+     "adjusted_p_value": 0.01171875,
+     "significant": true,
+     "verdict": "replicated"
+    }
+   ],
+   "verdict": "replicated",
+   "id": "C2",
+   "statement": "Tree-based models outperform linear models on tabular classification data"
+  }
+ ],
+ "parameter_effects": []
+}
