@@ -1,8 +1,8 @@
 # AI_CONTEXT.md: AxiomForge oturum devir dosyası
 
-Bu dosya 22-23 Ekim 2026 oturumunun sonunda yazıldı ve kontrol grubu işiyle (Faz 9) güncellendi. Yeni oturum önce bunu okur, sonra `CONTINUATION.md` (kurallar ve faz tarihçesi), `README.md`, `GRAPH.md`. Bu dosya ile `CONTINUATION.md` çelişirse bu dosya daha günceldir. Kullanıcı yeni bir mesaj göndermeden iş başlatılmaz.
+Bu dosya sistemin haritasıdır: graf akışı, dosya haritası, sabitler, makale kapısı, kampanya motoru, araştırma ajanı ve altyapı; her bölümde tasarım kararlarının gerekçesi vardır. Geliştirme sırasında bir kodlama asistanıyla çalışırken tutulan devir notlarıdır; 'kullanıcı' proje sahibini ifade eder. `CONTINUATION.md` fazların tarihçesini ve çalıştırma notlarını verir; ikisi çelişirse bu dosya daha günceldir. Kök belgeler: [`README.md`](../../README.md), [`GRAPH.md`](../../GRAPH.md), [`ROADMAP.md`](../../ROADMAP.md). Metindeki `ROADMAP.md` bölüm numaraları (A-E) eski, ayrıntılı yol haritasına aittir; kökteki `ROADMAP.md` kısaltılmış sürümdür, eskisi git geçmişindedir.
 
-Sıradaki iş (28 Ekim): araştırma ajanına dönüşüm, bkz. `ROADMAP.md` E4. Önce tasarım belgesi (keşif / doğrulama ayrımı, turlar arası FDR ya da alfa harcama, yerleştirilmiş etkili benchmark) yazılıp kullanıcıya gösterilir; onaydan sonra kodlanır. Durum anı (28 Ekim 2026, dördüncü tur): araştırma ajanı yapıldı, bkz. 3.20; 3720 pytest, 190 Node, 46 Playwright testi geçiyor; araştırma oturumları konsoldan başlatılıp iptal edilebiliyor ve yeniden başlatılabiliyor (bkz. 3.20); dördüncü tur commitlerinin ilk 28'i push edildi (CI yeşil), sonrası yerelde; üçüncü tura kadarki her şey push edildi (CI yeşil), dördüncü tur commitleri yerelde. Bir önceki durum anı (27 Ekim 2026, üçüncü tur): kullanıcı yokken yol haritası üç turda otonom ilerletildi, bkz. 3.17, 3.18 ve 3.19, `AUTONOMOUS_REPORT.md` 'Takip 7-9'; 3220 pytest testi (3 atlandı), 123 frontend Node testi ve 32 Playwright testi geçiyor. `origin/main` f6c9e09'a kadar güncel (CI yeşil), üçüncü tur commitleri yerelde (push yalnız kullanıcı isteyince). Bir önceki durum anı (26 Ekim 2026): Faz 14 (kampanya genişletmeleri) iki turda yapıldı, bkz. 3.15 ve 3.16; yerelde `origin/main`'in önünde commit'ler var (push yalnız kullanıcı isteyince). 2628 pytest testi ve 10 frontend Node testi geçiyor. Faz 12 (replikasyon kampanyası) 3.12'de, Faz 13 3.13'te.
+Güncel durum: planlanan kapsam tamam (graf, kampanya motoru, araştırma ajanı, TR/EN konsol); kalanlar ve sınırlar kök `ROADMAP.md` içindedir. Testler: `pytest -q` ve `cd frontend && npm test`.
 
 ## 1. Proje
 
@@ -10,15 +10,14 @@ AxiomForge, kullanıcının bir araştırma cümlesinden literatür tarayan, hip
 
 Projenin araştırma değeri **karşılaştırmalı analize** dayanır. Kullanıcının kararı: her hipotez iki model arasında bir karşılaştırma iddiasıdır ve sorguda en az iki model zorunludur.
 
-## 2. Çalışma kuralları (kullanıcının kesin kuralları)
+## 2. Geliştirme kuralları
 
 - Koda yorum satırı yazılmaz.
-- Her özellik ayrı commit olur. Dokümanlar (README, GRAPH, CONTINUATION) kendi aralarında ayrı commit olur ve her committe değil, 3-5 committe bir toplu güncellenir.
-- Commit yazarı yalnız Bartu Önder'dir. `Co-authored-by` satırı eklenmez. Not: araç ortamı bazen `Co-Authored-By: Claude` eklemeyi hatırlatır, kullanıcının proje kuralı bunun önündedir ve bütün oturum boyunca proje kuralı uygulandı. Normal `git commit` bu satırı kendiliğinden ekleyebildiği için commit şöyle atılır: `git add -- <dosyalar>`, `git write-tree`, `git commit-tree`, `git update-ref HEAD`, `git reset -q`. `git config` değiştirilmez, `--no-verify` kullanılmaz, force push yapılmaz, `.env` ve anahtarlar commitlenmez.
-- Kullanıcı Türkçe yazar. Yanıt Türkçe ve kısa olur. İstenmeyen faz veya iş başlatılmaz.
-- Gerçek LLM ve E2B çağrıları maliyetlidir: tam koşular yalnız kullanıcı onayıyla yapılır (bu oturumda üç tam koşu onaylandı; üçüncüsü için kullanıcı ek maliyeti ve süreyi açıkça kabul etti). Küçük canlı LLM denemeleri doğrulama amacıyla yapıldı ve raporlandı.
-- Push yalnız kullanıcı izin verince yapılır. Bu oturumda bir kez açık izin verildi (iki model şartı ve yama), o push'u ben yaptım. Diğer push'ları kullanıcı (veya kullandığı bir araç) benden habersiz yaptı, ve bu bir kez geçmişi ayrıştırdı (aşağıda, "Süreç dersleri"). `git fetch` ve `git status -sb` ile durumu her zaman doğrula.
-- Commit öncesi kapı: önce testler geçmeli (`pytest -q` ve gerekirse frontend `tsc`/`lint`), sonra commit.
+- Her özellik ayrı commit olur; dokümanlar ayrı ve toplu güncellenir.
+- Her özellik önce testle yazılır, sonra mutasyon denetiminden geçer: kod bilerek bozulur ve testin hatayı gerçekten yakaladığı görülür.
+- Commit öncesi kapı: `pytest -q` geçmeli; konsol değiştiyse `cd frontend && npm test`, `npx tsc --noEmit`, `npx eslint` ve gerekirse `npm run e2e` de geçmeli.
+- Gerçek LLM ve E2B çağrıları maliyetlidir: testler ve mutasyon taramaları hiçbir dış servise gitmez, tam koşular bilinçli yapılır.
+- `.env`, `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
 
 ## 3. Sistemin güncel durumu
 
@@ -209,7 +208,7 @@ Koşu 15 (`demo-grinsztajn-1`, kampanya motoru, LLM yok, yalnız E2B): bkz. 3.12
 
 - Postgres: yaklaşık 31 checkpoint thread'i ve 31 hafıza kaydı (Koşu 3 eklendi; sayılar tam doğrulanmadı), `research_errors` boş. Thread'lerin bir kısmı bu oturumun test ve koşularından, kalanı önceki oturumlardan; hangisinin hangisi olduğu ayrıştırılmadı (yalnız aşağıdaki beş kimlik bu oturumdan biliniyor).
 - `mlflow.db` (yaklaşık 2 MB) içinde gerçek ve test run'ları. `reports/` içinde 20 makale. `reports/`, `mlflow.db` ve `mlruns` gitte yoktur.
-- `test_memory.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı yalnız `is_success=False` kayıtları okur.
+- `tools/memory_smoke.py` hafızaya kasıtlı bir `missing_target` başarısızlığı bırakmıştır. Planlayıcı yalnız `is_success=False` kayıtları okur.
 - Bugünkü test thread'leri: `5f2808e4` (deney sırasında işçi kapatıldı, `running` kaldı), `38f98fd2`, `ad6ee6be` (reddedildi), `a531b95d` (Koşu 1), `b670cc9a` (Koşu 2), `26344d2d` (Koşu 3), `96acf4c2` (Koşu 4), `40222d61` (Koşu 5), `5fcf65e4` (Koşu 6), `e0785e18` (Koşu 7), `d5f3ebbe` (Koşu 8), `4696ef76` (Koşu 9), `156b2b6e` (Koşu 10), `30a7b310` (Koşu 11, kredi bitti), `aeffac90` (Koşu 12), `9d0cd838` (Koşu 13), `1fb974d7` (Koşu 14). Koşu 7'den önce iki başarısız thread daha var (literatür adımında düştü), kimlikleri `f0143a53` ve `b4356310`. Eski thread'lerin ve hafıza kayıtlarının spesifikasyonları `dataset: imbalanced` taşıyabilir; bu anahtar artık geçersizdir, eski thread yeniden oynatılmamalı.
 
 ### 3.13 Faz 13: ajanlı kampanya orkestrasyonu
@@ -319,7 +318,7 @@ Tasarım `RESEARCH_AGENT.md`, ölçümler ve gerçek oturum `TECHNICAL_REPORT.md
 - **Aşama düşerse:** varsayılan aşama düşerse oturum `failed` / `aborted`; sonraki aşama düşerse oturum `completed` olur ve `reason` nedeni söyler.
 - **Konsoldan başlatma:** `app/research/service.py` (`execute_session`, `cancel_session`, `retry_session`, `effective_state`, `beating`), `session.py` (`queue_session`, `reset_for_retry`, `close`, `has_stage`, `run_session(..., should_stop=)`), API `POST /start_research_session`, `/research_sessions/{id}/cancel|retry`, görev `run_research_session_task`, konsolda `StartSession.tsx`, `SessionControls.tsx`, `lib/researchView.ts` (`startPayload`, `sessionActions`, `phaseMessage`). Model listesi `RESEARCH_MODELS` ile `ESTIMATORS` eşitliği `tests/test_frontend_research_models.py` ile kilitli. Komut satırı oturumu da nabız yazar. Windows'ta `--pool=threads` işçi ölürse iletiyi yeniden teslim etmez; görev `acks_late` değildir, oturum bayat görünür ve 'Yeniden başlat' kullanılır. Ders: durdurulan aşamanın yarım sonucunu diske yazmayın (yeniden başlatma onu tam sayar). Veri seti ilerlemesi: `session.py` `_stage_keywords` (`on_update` ile `state['progress']`, kilit altında kayıt), `_progress_of`; runner sahtelerinin `should_stop=None, on_update=None` kabul etmesi gerekir; konsolda `progressPercent`, `showProgress`.
 - **Ölçüm araçları:** `tools/planted_effects.py` (simülasyon; protokol kodunu gerçekten çağırır), `tools/llm_baseline.py`.
-- **Dersler.** (1) `run_dataset` her istisnayı başarısız deneme sayar; yeni bir hata türüne özel `except` yazmayın. (2) Bash heredoc'ta tırnak karmaşası betikleri bozar; çok satırlı Python düzenlemelerini `Write` ile dosya yazıp çalıştırın. (3) `LanguageProvider` testler için `initialGlossary`, `initialNames`, `serverLanguage` alır. (4) Gerçek oturum ~45 dakika sürer; stage dosyaları sayesinde yeniden koşmadan üretici denenebilir.
+- **Dersler.** (1) `run_dataset` her istisnayı başarısız deneme sayar; yeni bir hata türüne özel `except` yazmayın. (2) `LanguageProvider` testler için `initialGlossary`, `initialNames`, `serverLanguage` alır. (3) Gerçek oturum ~45 dakika sürer; stage dosyaları sayesinde yeniden koşmadan üretici denenebilir.
 
 ### 3.12 Faz 12: replikasyon kampanyası (`app/campaign/`)
 
@@ -419,68 +418,19 @@ Test sağlamlığı: her modül mutasyonla sınandı (hayatta kalanlara test ekl
 15. **`POST /approve_plan` geçersiz karar için `503` döner** (`decide_plan` doğrulama hatasını `RuntimeError` ile verir, `422` olmalı). `decision` yalnız `Y` veya `N` kabul eder.
 16. **Hakem gürültüsü sürüyor.** Koşu 3'te danışman hakem kazanan RandomForest'ı "daha kararlı" yazdığı için eleştirdi (karar `winner` iken). Zararsız ama yanıltıcı, istem sadeleştirilmeli (madde 12).
 
-## 5. Kullanıcının 13 maddelik TODO listesinin durumu
-
-Liste oturumun başında ("Önerilen TODO") verildi. Hepsi yapıldı, kalan parçalar sağdadır.
-
-| # | Madde | Durum | Kalan parça |
-| --- | --- | --- | --- |
-| 1 | Hata durumu | Tamam | Yok |
-| 2 | Erken doğrulama | Tamam (eşik iki model) | Formda ipucu yok |
-| 3 | Zorunlu cümleyi çevir, `needs_review` | Tamam | Yok |
-| 4 | Gerçek istatistik, ≥10 tekrar, stratify, p ve etki büyüklüğü | Büyük ölçüde | Wilcoxon, `RepeatedStratifiedKFold`, güç yeniden ölçümü (4.2 madde 6) |
-| 5 | Kritik döngüsü | Tamam | Yok |
-| 6 | Hipotez → deney bağı | Tamam, genişletildi (claim, verdict, seçim, kontrol grubu) | Claim kararı yapılandırma çifti için (4.2 madde 2) |
-| 7 | Hafıza | Tamam | Yok |
-| 8 | Literatür | Tamam | Eşik kalibrasyonu, atıf (madde 7) |
-| 9 | Celery | Tamam (taşındı) | İşçi ölümü kurtarma (madde 5) |
-| 10 | MLflow | Tamam | Artifact (madde 10) |
-| 11 | Parse | Tamam | `nan` basan model satırı hâlâ sessizce düşer |
-| 12 | Test ve Docker | pytest, Dockerfile, compose, requirements Tamam | Frontend imajı, CI, imaj güncelliği (madde 14) |
-| 13 | UI | Tamam (+ onay seçimi, hakem notları) | Otomatik arayüz testi (madde 11) |
-
-## 6. Yarın için önerilen sıra
-
-0. Faz 13 sonrası: gerçek gpt-4o ve E2B ile uçtan uca bir kampanya koşusu (`mode: campaign`, Grinsztajn sorgusu) yap ve meta kapının yanlış alarm oranını ölç; sonra kampanyayı canlı MLflow sunucusuyla doğrula, konsola başlatma düğmesi ekle, ikinci bir hazır replikasyon (başka bir makale) yaz, hiperparametre araması ekleyip makaleye daha yakın bir koşu yap. Önce kullanıcının önceliğini sor.
-
-1. Bu dosyayı ve `CONTINUATION.md` içindeki kuralları oku, `git status -sb` ve `git fetch` ile durumu doğrula, `pytest -q` çalıştır (2628 geçmeli, 3 atlanır: xgboost, lightgbm, catboost yerelde yok) ve `cd frontend && npm test`.
-2. ~~Anlamsız fark iddiası kontrolü~~ yapıldı (04b4448). ~~Konfigürasyon karışıklığı~~ Seçenek B ile yapıldı. ~~Üçüncü gerçek koşu~~ yapıldı (sızıntı yolu). İstenirse anlamlı satırın yönünün denetimi, tek model adlı cümleler ve claim kararının "yapılandırma çifti" olarak yazıldığının denetimi eklenebilir.
-3. Hazır cümle yaklaşımıyla (genel en iyi model dahil, `f5966e5`) farklı veri setlerinde ve model sayılarında tekrar canlı koşular (Koşu 13 ve 14 aynı sorgu, ikisi de ilk turda geçti; planlayıcı koşudan koşuya hafifçe değişiyor) ve kalan yollar: `Failed` doğrulama makalesi, sandbox çökmesi, diğer veri setlerinde (`breast_cancer`, `credit_default`, `adult_income`, `credit_fraud`) tam koşu. Maliyet onayı iste.
-4. `POST /approve_plan` doğrulama hatasını `422` yap (4.2 madde 15).
-5. İşçi ölümü kurtarması (bayat `running` tespiti).
-6. Ölü kod temizliği (4.2 madde 9).
-7. Frontend: Docker imajı, form ipucu, otomatik arayüz testi.
-8. Hakem isteminin sadeleştirilmesi, MLflow artifact.
-
-27 Ekim notu: yukarıdaki sıranın önüne `ROADMAP.md` D bölümündeki kalanlar geçer (kullanıcı gözlemi, ekran okuyucuyla dinleme, 17 regex kapısının tek tek ölçümü, iki hattın birleştirilmesi).
-
-Kullanıcı farklı bir öncelik verebilir. Mesajı gelmeden iş başlatma.
-
-## 7. Süreç dersleri ve tuzaklar
+## 5. Süreç dersleri ve tuzaklar
 
 - **Mutasyon taraması gerçek servise gitmesin:** CLI mutasyonlarından biri sahte yürütücüyü atlatıp varsayılan `run_classification` ile gerçek E2B'ye gitti ve 10 dakikadan fazla sürdü. Servis çağıran her yeni kodda testlerin dış servis anahtarını boşaltması gerekir (`tests/conftest.py`). Mutasyon betiğinde zaman aşımı (`timeout`) kullan ve takılan sürecin `python.exe` çocuklarını PowerShell ile öldür.
 - **Holm ve en az veri seti:** çok ölçütlü bir iddiada Holm düzeltmesi yüzünden 6 veri seti kesin Wilcoxon için yetmez; test verisi üretirken 9 set kullan.
 
-- **Heredoc ve ters eğik çizgi:** Bash heredoc içindeki Python kaynağında (tırnaklı `'EOF'` ile bile) `\\` bir kat azalıyor (`\b` geri-silme karakteri, `\n` gerçek satır sonu oldu). Regex veya kaçış içeren her değişiklik `Write` aracıyla bir betik dosyası yazılarak yapılır. Bozuk karakter taraması: tracked dosyalarda 0x00-0x1f (sekme ve CR hariç) ara.
-- **CRLF:** Çalışma kopyası CRLF, çok satırlı eski-desen eşleşmeleri sessizce uygulanmaz (mutasyon betikleri bir kez uygulanmadan "geçti" gösterdi). Tek satırlık desen kullan ya da `\r\n` normalleştir.
-- **`git checkout -- dosya` ile geri alma tehlikelidir:** commit'lenmemiş gerçek değişiklikleri siler (bir kez sildim, betikten geri uyguladım). Mutasyon denemelerinde dosyayı yedeğe kopyalayıp oradan geri koy.
-- **Commit kapısı:** `pytest && commit` kullan. Bir kez testin sonucuna bakmadan commit attım, test dosyası bozuktu, düzelttim.
-- **Yayınlanmamış commit'i değiştirme riski:** `git fetch` ile `origin/main` kontrolü yetmiyor, kullanıcı veya bir araç arka planda push edebiliyor. Bir kez commit'i düzeltip birleştirdikten sonra hatalı sürümün uzakta yayınlandığını gördüm ve düzeltmeyi uzak commit'in üstüne ayrı commit olarak taşıdım. Yayınlanma ihtimali olan commit'i değiştirmek yerine yeni commit at.
-- **`grep -v warning` filtresi** commit mesajındaki "warning" kelimesini gizledi, bir commit'in atılmadığını sandım. Filtreyi mesajlarda geçmeyen bir kalıpla yap.
 - **Testleri gerçek çıktıyla sına:** Tablo kontrolünün ve olumsuzlama korumasının hataları uydurma girdilerle görünmedi, gerçek makale cümleleriyle göründü. Kalıp tabanlı her kontrol için gerçek bir örneği test verisi yap.
 - **Test geçince şüphelen:** İlk seferde geçen testler mutasyonla iki kez yanlış nedenle geçtiğini gösterdi.
 - **LLM kuralları ve hakem:** Yazıcıya kural eklemek yerine mümkünse Python'ın hazırladığı cümleyi kopyalatmak güvenilir. LLM hakemi kapı yapma.
-- **Windows süreçleri:** MLflow sunucusunun yetim `multiprocessing` çocukları portu (5000) tutabiliyor, ana süreç ölse bile. Süreç öldürürken komut satırı deseni kendi kabuğunu eşleştirebilir (bir kez kendi kabuğumu öldürdüm), `Name` ve `AxiomForge` ile daralt.
-- **Testler arası içe aktarma çalışmaz:** `tests/` paket değil (`__init__.py` yok), bir test dosyasından `from tests.test_nodes import ...` ModuleNotFoundError verir. Ortak yardımcıyı her dosyada yeniden tanımla.
 - **Kontrol grubu eklerken:** ana aileyi (kararlılık, performans, hipotez, kararsızlık) `without_baselines` ile süz, yoksa kontrol serileri çiftlere girer. `default` geçen cümleleri model karşılaştırması kontrollerinden hariç tut, yoksa etki cümlesi bir karşılaştırmayı sağlamış gibi sayılır.
-- **Arka plan servisleri:** `Monitor` ile `until` döngüsü kullanıldı, `sleep` zincirleri engelleniyor. `POST /approve_plan` için `decision` değeri `Y`.
-- **Python dizgisinde `\n`:** heredoc ile yazılan bir betikte dizgi içindeki `\n` gerçek satır sonuna dönüşüp betiği bozdu (ikinci kez). Escape içeren her şey `Write` ile dosya olarak yazılır.
 - **Veri bloğu yaklaşımı:** LLM'e veri yükleme kodu yazdırmak yerine Python'ın ürettiği bloğu aynen yapıştırtmak ve AST ile ifade ifade doğrulamak güvenilir çıktı (iki canlı denemede ilk denemede geçti). `sample(random_state=0)` kullan, `train_test_split` değil: doğrulayıcı `train_test_split` çağrılarının tohumunu yeniden yazar, bir örnekleme çağrısı da yazılırsa veri her tohumda değişir.
 - **Etki sözcüğü kalıpları model adlarına takılır:** `boost*` kalıbı "Hist Gradient Boosting" adına eşleşti ve temiz bir cümleyi işaretledi. Model adı içeren her kalıbı model adlarıyla da sına.
 - **Kapılar birbiriyle çelişebilir:** özet eksiksizliği (iki bölümde de yaz) ve tekrar yasağı (aynı cümle olmasın) birlikte yazıcıyı imkansız bir yere sıkıştırdı. Yeni bir kapı eklerken mevcut kapılarla aynı cümleyi aynı anda isteyip yasaklamadığını gerçek bir koşuyla sına; çözüm yazıcıya her kapıyı karşılayan hazır cümleler vermek.
 - **Canlı koşu en iyi test:** sekiz yeni kontrol gerçek koşularda yakalandığı hatalardan doğdu (Koşu 3, 5, 6, 7, 8, 10, 12) ve her biri gerçek makaleye uygulanıp diğer makalelerde yanlış alarm vermediği ölçüldü; 14 eski makale yeni kuralları karşılamıyordu (kurallar sonradan eklendi), bu beklenen.
-- **Windows Python ve Git Bash `/tmp`:** Bash'te `cp x /tmp/x.bak` ile aldığım yedek Windows Python'dan görünmez (`/tmp` farklı bir yere işaret eder); mutasyon betiğinde `shutil.copy('/tmp/...')` çalışmadı ve mutasyon dosyada kaldı. Yedeği geri yüklemeyi her zaman bash'ten yap ve ardından `diff` ile doğrula.
 - **Model adı muafiyeti:** "Hist Gradient Boosting" adındaki `Boosting`, `boost*` etki sözcüğünü tetikledi ve `(?<!Gradient )` lookbehind'iyle muaf tutuldu; model adı içeren her kalıbı gerçek model adlarıyla sına.
 - **Literatür kırılganlığı:** arXiv'e giden `AND` sorgusundaki her ek ifade sonucu daraltır. Sorgudaki talimat ve ayar sözcükleri aramaya sızmamalı.
-- **`scratchpad` geçicidir:** Canlı doğrulama betikleri (`live_loop*.py`, `live_final.py`, `live_planner.py`, mock API, tarayıcı sürücüleri) depoda değil, kaybolabilir. Kalıcı araç istenirse bir `tools/` klasörüne taşınmalı.
 - **Arayüz doğrulaması:** Başsız Edge ile DevTools protokolü kullanıldı, `localhost:3000` adresi gerekli.
