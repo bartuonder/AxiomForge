@@ -105,7 +105,7 @@ What the numbers say, and what they do not:
 
 ## 7. Engineering
 
-- 3600+ backend tests, 150+ frontend unit tests and 38 browser tests (Playwright, with axe accessibility scans in both themes and keyboard tests); most behaviour changes were checked with mutation tests that change the code and require a test to fail.
+- 3700+ backend tests, 190 frontend unit tests and 46 browser tests (Playwright, with axe accessibility scans in both themes and keyboard tests); most behaviour changes were checked with mutation tests that change the code and require a test to fail.
 - CI (GitHub Actions): backend, frontend and browser jobs; Docker images for the API, worker, MLflow and console; `docker compose up` runs the whole system.
 - Operations: API key and daily start limit, campaign cancel and retry, stale-run detection, task redelivery after a worker dies (verified by killing a worker in Docker), a heartbeat that stops duplicate runs.
 - Provenance: dataset revision pinning, library versions and the scripts that produced every number are stored with each campaign.
