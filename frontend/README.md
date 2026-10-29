@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AxiomForge console
 
-## Getting Started
+Next.js 16 / React 19 / Tailwind console for AxiomForge. It talks to the FastAPI backend (`NEXT_PUBLIC_API_URL`, default `http://127.0.0.1:8000`) and has Turkish and English interfaces, light and dark themes, and keyboard and screen reader support.
 
-First, run the development server:
+| Page | Purpose |
+| --- | --- |
+| `/` | Ask a question or paste an arXiv link, approve a plan, follow the run |
+| `/campaigns`, `/campaign/[id]` | Multi-dataset replication campaigns: summary, charts, evidence ledger, cancel and retry |
+| `/result/[threadId]` | Result of a single experiment run |
+| `/research`, `/research/[id]` | Research agent sessions: start, follow, cancel, retry, read the hypotheses and their confirmation |
+
+## Run
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000 (use localhost, not 127.0.0.1)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The backend must be running; see the root `README.md` for the API, the worker and Docker.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+If the API is protected with `API_KEY`, build the console with the same value in `NEXT_PUBLIC_API_KEY`. Variables are listed in the root `.env.example`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Test
 
-## Learn More
+```bash
+npm test           # unit and component tests (Node test runner)
+npx tsc --noEmit   # types
+npm run lint
+npm run build
+npm run e2e        # Playwright; needs a build first. Set PW_CHANNEL=msedge to use a local Edge
+```
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The browser tests mock the API, so they need no backend. They include an axe accessibility scan in both themes.
