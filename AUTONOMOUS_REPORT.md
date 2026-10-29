@@ -310,3 +310,14 @@ Kullanıcı "devam edelim" dedi ve `ROADMAP.md` E5'ten konsoldan oturum başlatm
 - **Canlı deneme** (yerel Celery işçisi + API, gerçek E2B): oturum sıraya alındı, çalıştı, iptal edildi (yaklaşık 80 saniyede durdu), yeniden başlatıldı, 3 dakikada 16 veri setiyle tamamlandı; önceki oturumlarda doğrulanmış tek iddia atlandı. **Bulunan hata:** iptal, yarım aşama sonuçlarını `stages/` altına yazıyordu; yeniden başlatma onu tam sonuç sayacaktı. Düzeltildi (`715e2ce`), canlı denemede doğrulandı.
 - **Doğrulama:** 3710 pytest (3 atlandı), 182 Node, tsc ve eslint temiz, 45 Playwright. Mutasyon taramaları: servis 22/22, API ve görev 15/15, arayüz 21 mutantın 20'si öldürüldü (etkileşimli 5 tanesi tarayıcı testleriyle, 2'si için yeni test eklenerek); kalan biri (iptal başarılı olunca onay kutusunu kapatmak) durum değişince görünmediğinden eşdeğer.
 - **Sınırlar:** işçi ölürse (Windows `--pool=threads`) oturum otomatik devam etmez, bayat görünür ve kullanıcı 'Yeniden başlat'a basar; havuz ve bölme konsoldan seçilemez; veri seti bazında ilerleme çubuğu yok.
+
+## Takip 12: veri seti bazında ilerleme (29 Ekim 2026)
+
+Kullanıcı "devam edelim" deyince sunulan dört seçenekten 'veri seti bazında canlı ilerleme'yi seçti.
+
+- **Arka uç:** çalışan aşamada her veri setinin durumu (`queued`, `running`, `finished`, `failed`, `cancelled`) `state['progress']` altında, kampanya motorunun `on_update` geri çağrısıyla ve kilit altında diske yazılır; özet `{stage, total, finished, failed, running}` verir; oturum bitince boşaltılır. Mevcut koşucu sahteleri `on_update` kabul edecek şekilde güncellendi.
+- **Konsol:** çalışan oturum sayfasında erişilebilir ilerleme çubuğu (`role=progressbar`), '9 / 16 veri seti bitti (1 tanesi başarısız oldu)' ve 'şu an çalışan' satırı; 5 saniyelik yenilemeyle ilerler. TR/EN. Sıradaki ve biten oturumda gösterilmez.
+- **Canlı deneme** (yerel işçi, gerçek E2B, 2 model): çubuk 0, 3, 4, 6, 9 / 16 olarak ilerledi, oturum iptal edildi. Denemede açılan iki oturum (`r-*`, gitignore'lu) silindi.
+- **Doğrulama:** 3720 pytest (3 atlandı), 190 Node, tsc ve eslint temiz, 46 Playwright. Mutasyon: arka uçta 13/14 (kalan biri eşdeğer: `should_stop=None` geçirmek), arayüzde 12/12 (biri için test eklendi).
+- **Sınırlar:** ilerleme yalnız çalışan aşamayı gösterir (ayarlı aşamada sayaç sıfırdan başlar); veri seti başına süre ya da tahmini bitiş yok.
+
