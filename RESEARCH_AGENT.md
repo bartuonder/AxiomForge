@@ -1,6 +1,6 @@
 # Araştırma ajanı: kapalı döngü, keşif / doğrulama ayrımı ve ajanın kendini ölçmesi (tasarım)
 
-Bu belge `ROADMAP.md` E4'ün tasarımıdır. Amaç: sistemi "iddia doğrulayan" bir araçtan, **sonuçlara bakıp kendi takip hipotezlerini üreten ve bunu istatistiksel güvenceyle yapan** bir ajana taşımak.
+Bu belge araştırma ajanı katmanının tasarımıdır. Amaç: sistemi "iddia doğrulayan" bir araçtan, **sonuçlara bakıp kendi takip hipotezlerini üreten ve bunu istatistiksel güvenceyle yapan** bir ajana taşımak.
 
 ## 1. Sorun: uyarlamalı analiz sahte pozitifi şişirir
 
