@@ -211,6 +211,35 @@ describe("SessionDetails of a session that is not finished", () => {
     assert.match(html, /Başarısız/);
   });
 
+  it("shows the dataset progress of a running session with plain names", () => {
+    const progress = { stage: "default", total: 16, finished: 5, failed: 1, running: ["tb_credit", "tb_unknown"] };
+    const html = render(<SessionDetails detail={detail({ summary: { ...SUMMARY, status: "running", phase: "default", progress } })} />);
+    assert.match(html, /role="progressbar"/);
+    assert.match(html, /aria-valuenow="38"/);
+    assert.match(html, /width:38%/);
+    assert.match(html, /6 \/ 16 veri seti bitti\./);
+    assert.match(html, /1 tanesi başarısız oldu/);
+    assert.match(html, /Şu an çalışan: Kredi riski, tb_unknown/);
+    const english = render(<SessionDetails detail={detail({ summary: { ...SUMMARY, status: "running", phase: "default", progress: { ...progress, failed: 0 } } })} />, "en");
+    assert.match(english, /5 of 16 datasets finished\./);
+    assert.ok(!/failed\.\)/.test(english));
+  });
+
+  it("does not name running datasets when none runs", () => {
+    const progress = { stage: "default", total: 16, finished: 5, failed: 0, running: [] };
+    const html = render(<SessionDetails detail={detail({ summary: { ...SUMMARY, status: "running", progress } })} />);
+    assert.match(html, /5 \/ 16 veri seti bitti/);
+    assert.ok(!/Şu an çalışan/.test(html));
+  });
+
+  it("shows no progress bar before the run, after it, or without datasets", () => {
+    const progress = { stage: "default", total: 16, finished: 5, failed: 0, running: [] };
+    for (const status of ["queued", "completed", "failed"] as const) {
+      assert.ok(!/progressbar/.test(render(<SessionDetails detail={detail({ summary: { ...SUMMARY, status, progress } })} />)), status);
+    }
+    assert.ok(!/progressbar/.test(render(<SessionDetails detail={detail({ summary: { ...SUMMARY, status: "running" } })} />)));
+  });
+
   it("shows no phase once the session is finished", () => {
     assert.ok(!/deneyler çalışıyor/.test(render(<SessionDetails detail={detail()} />)));
   });

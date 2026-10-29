@@ -11,7 +11,7 @@ import { fetchResearchSession, fetchResearchSessionReport } from "@/lib/api";
 import { friendlyApiError } from "@/lib/apiErrors";
 import { downloadText, slug } from "@/lib/download";
 import type { MessageKey } from "@/lib/i18n";
-import { isActiveSession, mergeRows, phaseMessage, sessionTone } from "@/lib/researchView";
+import { isActiveSession, mergeRows, phaseMessage, progressPercent, sessionTone, showProgress } from "@/lib/researchView";
 import type { SessionDetail } from "@/lib/types";
 
 const POLL_MS = 5000;
@@ -31,6 +31,27 @@ export function SessionDetails({ detail }: { detail: SessionDetail }) {
         {summary.reason ? <p className="text-sm text-danger">{summary.reason}</p> : null}
         {session.stale ? <p className="text-sm text-danger">{t("research.session.stale")}</p> : null}
         {phase ? <p className="text-sm text-muted">{t(phase as MessageKey)}</p> : null}
+        {showProgress(summary.status, summary.progress) && summary.progress ? (
+          <div className="space-y-2">
+            <div
+              className="h-3 overflow-hidden rounded-full bg-track"
+              role="progressbar"
+              aria-label={t("research.progress.label")}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progressPercent(summary.progress)}
+            >
+              <div className="h-3 rounded-full bg-accent transition-all" style={{ width: `${progressPercent(summary.progress)}%` }} />
+            </div>
+            <p className="text-sm text-muted">
+              {t("research.progress.count", { finished: summary.progress.finished + summary.progress.failed, total: summary.progress.total })}
+              {summary.progress.failed > 0 ? ` ${t("research.progress.failed", { failed: summary.progress.failed })}` : ""}
+            </p>
+            {summary.progress.running.length > 0 ? (
+              <p className="text-sm text-muted">{t("research.progress.running", { names: summary.progress.running.map((key) => names.datasets[key] ?? key).join(", ") })}</p>
+            ) : null}
+          </div>
+        ) : null}
       </header>
 
       <section className="mt-8 space-y-3">
